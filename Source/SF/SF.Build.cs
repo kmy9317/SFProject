@@ -16,7 +16,16 @@ public class SF : ModuleRules
 			"InputCore",
 			"EnhancedInput",
 			"GameplayTags",
-			"GameplayTasks"
+			"GameplayTasks",
+			"NetCore",
+			"OnlineSubsystem",
+			"OnlineSubsystemUtils",
+			"SlateCore",
+			"Slate",
+			"UMG",
+			"MediaAssets",
+			"AIModule"
+			
 		});
 
 		PrivateDependencyModuleNames.AddRange(new string[] {  });
