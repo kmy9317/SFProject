@@ -25,7 +25,8 @@ public class SF : ModuleRules
 			"Slate",
 			"UMG",
 			"MediaAssets",
-			"AIModule"
+			"AIModule",
+			"ModularGameplay"
 			
 		});
 
