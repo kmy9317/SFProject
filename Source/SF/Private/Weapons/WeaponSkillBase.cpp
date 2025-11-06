@@ -67,7 +67,7 @@ void UWeaponSkillBase::ActivateAbility(const FGameplayAbilitySpecHandle Handle, 
 
 // [핵심 기능 2] 스킬 종료 (뒷정리)
 void UWeaponSkillBase::EndAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, bool bReplicateEndAbility, bool bWasCancelled)
-{
+{ 
 	// 몽타주 태스크('일꾼')가 여전히 유효하다면(실행 중이라면) 정리합니다.
 	if (MontageTask)
 	{
