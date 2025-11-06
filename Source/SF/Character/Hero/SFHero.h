@@ -13,5 +13,7 @@ UCLASS()
 class SF_API ASFHero : public ASFCharacterBase
 {
 	GENERATED_BODY()
+
+public:
 	
 };
