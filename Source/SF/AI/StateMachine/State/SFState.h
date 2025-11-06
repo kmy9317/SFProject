@@ -4,7 +4,6 @@
 
 #include "CoreMinimal.h"
 #include "GameplayTagContainer.h"
-#include "AI/StateMachine/SFStateMachine.h"
 #include "UObject/Object.h"
 #include "SFState.generated.h"
 
@@ -25,7 +24,7 @@ enum class EStateStatus : uint8
 };
 
 // 인스턴스를 다룰수 있는 Handler 
-USTRUCT()
+USTRUCT(BlueprintType)
 struct FSFStateHandle
 {
 	GENERATED_BODY()

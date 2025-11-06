@@ -3,6 +3,8 @@
 
 #include "SFState.h"
 
+#include "AI/StateMachine/SFStateMachine.h"
+
 void FSFStateHandle::GenerateNewHandle()
 {
 	static int32 GHandle = 1;
