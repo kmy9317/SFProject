@@ -24,14 +24,16 @@ public:
 	virtual UAbilitySystemComponent* GetAbilitySystemComponent() const override;
 
 	USFAbilitySystemComponent* GetSFAbilitySystemComponent() const {return AbilitySystemComponent;};
+	
+	// ASC 초기화
+	void InitializeAbilitySystem();
 
 
 protected:
 	
 	virtual void PostInitializeComponents() override;
 
-	// ASC 초기화
-	void InitializeAbilitySystem();
+	
 
 	//PawnData에 있는 AbilitySet GIVE
 	void GrantAbilitiesFromPawnData();

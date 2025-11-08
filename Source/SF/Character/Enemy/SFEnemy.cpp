@@ -49,25 +49,21 @@ void ASFEnemy::PossessedBy(AController* NewController)
 
 	if (!NewController)
 	{
-		UE_LOG(LogTemp, Error, TEXT("ASFEnemy::PossessedBy - NewController is null for %s"), *GetName());
 		return;
 	}
 
 	if (!EnemyPawnData)
 	{
-		UE_LOG(LogTemp, Error, TEXT("ASFEnemy::PossessedBy - EnemyPawnData is null for %s"), *GetName());
 		return;
 	}
 
 	USFPawnExtensionComponent* PawnExtComp = USFPawnExtensionComponent::FindPawnExtensionComponent(this);
 	if (!PawnExtComp)
 	{
-		UE_LOG(LogTemp, Error, TEXT("ASFEnemy::PossessedBy - PawnExtensionComponent not found for %s"), *GetName());
 		return;
 	}
 
 	PawnExtComp->SetPawnData(EnemyPawnData);
-	UE_LOG(LogTemp, Log, TEXT("ASFEnemy::PossessedBy - Successfully set PawnData for %s"), *GetName());
 }
 
 
@@ -87,48 +83,41 @@ void ASFEnemy::InitializeAbilitySystem()
 {
 	if (!AbilitySystemComponent)
 	{
-		UE_LOG(LogTemp, Error, TEXT("ASFEnemy::InitializeAbilitySystem - AbilitySystemComponent is null for %s"), *GetName());
 		return;
 	}
 
 	USFPawnExtensionComponent* PawnExtComp = FindComponentByClass<USFPawnExtensionComponent>();
 	if (!PawnExtComp)
 	{
-		UE_LOG(LogTemp, Error, TEXT("ASFEnemy::InitializeAbilitySystem - PawnExtensionComponent not found for %s"), *GetName());
 		return;
 	}
 
 	PawnExtComp->InitializeAbilitySystem(AbilitySystemComponent, this);
 	GrantAbilitiesFromPawnData();
-
-	UE_LOG(LogTemp, Log, TEXT("ASFEnemy::InitializeAbilitySystem - Successfully initialized for %s"), *GetName());
+	
 }
 
 void ASFEnemy::GrantAbilitiesFromPawnData()
 {
 	if (!AbilitySystemComponent)
 	{
-		UE_LOG(LogTemp, Error, TEXT("ASFEnemy::GrantAbilitiesFromPawnData - AbilitySystemComponent is null for %s"), *GetName());
 		return;
 	}
 
 	if (!AbilitySystemComponent->IsOwnerActorAuthoritative())
 	{
-		UE_LOG(LogTemp, Verbose, TEXT("ASFEnemy::GrantAbilitiesFromPawnData - Not authoritative for %s"), *GetName());
 		return;
 	}
 
 	USFPawnExtensionComponent* PawnExtComp = FindComponentByClass<USFPawnExtensionComponent>();
 	if (!PawnExtComp)
 	{
-		UE_LOG(LogTemp, Error, TEXT("ASFEnemy::GrantAbilitiesFromPawnData - PawnExtensionComponent not found for %s"), *GetName());
 		return;
 	}
 
 	const USFPawnData* PawnData = PawnExtComp->GetPawnData<USFPawnData>();
 	if (!PawnData)
 	{
-		UE_LOG(LogTemp, Error, TEXT("ASFEnemy::GrantAbilitiesFromPawnData - PawnData is null for %s"), *GetName());
 		return;
 	}
 
@@ -141,11 +130,7 @@ void ASFEnemy::GrantAbilitiesFromPawnData()
 			AbilitySet->GiveToAbilitySystem(AbilitySystemComponent, nullptr, this);
 			GrantedCount++;
 		}
-		else
-		{
-			UE_LOG(LogTemp, Warning, TEXT("ASFEnemy::GrantAbilitiesFromPawnData - Null AbilitySet in PawnData for %s"), *GetName());
-		}
+		
 	}
 
-	UE_LOG(LogTemp, Log, TEXT("ASFEnemy::GrantAbilitiesFromPawnData - Granted %d ability sets for %s"), GrantedCount, *GetName());
 }
