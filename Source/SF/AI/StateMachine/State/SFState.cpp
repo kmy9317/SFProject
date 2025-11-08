@@ -2,8 +2,9 @@
 
 
 #include "SFState.h"
-
 #include "AI/StateMachine/SFStateMachine.h"
+
+#include UE_INLINE_GENERATED_CPP_BY_NAME(SFState)
 
 void FSFStateHandle::GenerateNewHandle()
 {
@@ -23,27 +24,68 @@ bool FSFStateSpec::IsValid() const
 
 void FSFStateSpec::EnsureInstance(UObject* Owner, AActor* OwnerActor)
 {
-	if (!StateInstance && StateClass)
+	if (StateInstance)
 	{
-		StateInstance = NewObject<USFState>(Owner, StateClass);
-		
-		if (StateInstance)
-		{
-			if (USFStateMachine* SM = Cast<USFStateMachine>(Owner))
-			{
-				StateInstance->Initialize(SM, OwnerActor);
-			}
-		}
+		return; // 이미 인스턴스가 있음
 	}
 
+	if (!StateClass)
+	{
+		UE_LOG(LogTemp, Error, TEXT("FSFStateSpec::EnsureInstance - StateClass is null"));
+		return;
+	}
+
+	if (!Owner)
+	{
+		UE_LOG(LogTemp, Error, TEXT("FSFStateSpec::EnsureInstance - Owner is null"));
+		return;
+	}
+
+	// 재귀 생성 방지를 위한 정적 집합
+	static TSet<TSubclassOf<USFState>> CreatingStates;
+
+	if (CreatingStates.Contains(StateClass))
+	{
+		UE_LOG(LogTemp, Error, TEXT("FSFStateSpec::EnsureInstance - Recursive state creation detected for class: %s"),
+			*StateClass->GetName());
+		return;
+	}
+
+	// 생성 중 표시
+	CreatingStates.Add(StateClass);
+
+	// State 인스턴스 생성
+	StateInstance = NewObject<USFState>(Owner, StateClass);
+
+	// 생성 완료 표시
+	CreatingStates.Remove(StateClass);
+
+	if (StateInstance)
+	{
+		if (USFStateMachine* SM = Cast<USFStateMachine>(Owner))
+		{
+			StateInstance->Initialize(SM, OwnerActor);
+		}
+		else
+		{
+			UE_LOG(LogTemp, Warning, TEXT("FSFStateSpec::EnsureInstance - Owner is not a StateMachine"));
+		}
+	}
+	else
+	{
+		UE_LOG(LogTemp, Error, TEXT("FSFStateSpec::EnsureInstance - Failed to create state instance for class: %s"),
+			*StateClass->GetName());
+	}
 }
 
 void FSFStateSpec::Enter()
 {
 	if (!StateInstance)
 	{
+		UE_LOG(LogTemp, Error, TEXT("FSFStateSpec::Enter - StateInstance is null"));
 		return;
 	}
+
 	// Status 업데이트
 	Status = EStateStatus::Begin;
 	StateInstance->OnEnter();
@@ -51,7 +93,13 @@ void FSFStateSpec::Enter()
 
 void FSFStateSpec::Exit()
 {
-	if (StateInstance && (Status == EStateStatus::Running || Status == EStateStatus::Begin))
+	if (!StateInstance)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("FSFStateSpec::Exit - StateInstance is null"));
+		return;
+	}
+
+	if (Status == EStateStatus::Running || Status == EStateStatus::Begin)
 	{
 		StateInstance->OnExit();
 		Status = EStateStatus::End;
