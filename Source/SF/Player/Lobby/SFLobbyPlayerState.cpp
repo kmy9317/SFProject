@@ -52,6 +52,7 @@ void ASFLobbyPlayerState::Server_SetSelectedHeroDefinition_Implementation(USFHer
 		return;
 	}
 
+	// 현재 같은 Hero를 선택한 경우 처리x
 	if (PlayerSelection.GetHeroDefinition() == NewDefinition)
 	{
 		return;

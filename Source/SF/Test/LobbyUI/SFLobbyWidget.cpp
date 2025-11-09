@@ -88,10 +88,10 @@ void USFLobbyWidget::UpdatePlayerSelectionDisplay(const TArray<FSFPlayerSelectio
 
 void USFLobbyWidget::HeroDefinitionLoaded()
 {
-	TArray<USFHeroDefinition*> LoadedCharacterDefinitions;
-	if (USFAssetManager::Get().GetLoadedHeroDefinitions(LoadedCharacterDefinitions))
+	TArray<USFHeroDefinition*> LoadedHeroDefinitions;
+	if (USFAssetManager::Get().GetLoadedHeroDefinitions(LoadedHeroDefinitions))
 	{
-		HeroSelectionTileView->SetListItems(LoadedCharacterDefinitions);
+		HeroSelectionTileView->SetListItems(LoadedHeroDefinitions);
 	}
 }
 
@@ -107,9 +107,9 @@ void USFLobbyWidget::HeroSelected(UObject* SelectedUObject)
 		return;
 	}
 
-	if (USFHeroDefinition* CharacterDefinition = Cast<USFHeroDefinition>(SelectedUObject))
+	if (USFHeroDefinition* HeroDefinition = Cast<USFHeroDefinition>(SelectedUObject))
 	{
-		SFLobbyPlayerState->Server_SetSelectedHeroDefinition(CharacterDefinition);
+		SFLobbyPlayerState->Server_SetSelectedHeroDefinition(HeroDefinition);
 	}
 }
 

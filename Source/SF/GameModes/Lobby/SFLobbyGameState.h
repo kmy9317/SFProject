@@ -25,9 +25,9 @@ public:
 	void UpdatePlayerSelection(const APlayerState* RequestingPlayer, uint8 InSlot);
 	void RemovePlayerSelection(const APlayerState* LeavingPlayer);
 	void SetHeroSelected(const APlayerState* SelectingPlayer, USFHeroDefinition* SelectedDefinition);
+	void SetHeroDeselected(const USFHeroDefinition* DefinitionToDeselect);
 	bool IsSlotOccupied(uint8 SlotId) const;
 	bool IsDefinitionSelected(const USFHeroDefinition* Definition) const;
-	void SetHeroDeselected(const USFHeroDefinition* DefinitionToDeselect);
 
 	const TArray<FSFPlayerSelectionInfo>& GetPlayerSelections() const;
 
