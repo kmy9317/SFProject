@@ -29,7 +29,7 @@ public:
 	bool IsDefinitionSelected(const USFHeroDefinition* Definition) const;
 	void SetHeroDeselected(const USFHeroDefinition* DefinitionToDeselect);
 
-	const TArray<FSFPlayerSelectionInfo>& GetPlayerSelection() const;
+	const TArray<FSFPlayerSelectionInfo>& GetPlayerSelections() const;
 
 	bool CanStartMatch() const;
 

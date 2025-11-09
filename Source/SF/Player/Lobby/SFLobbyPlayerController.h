@@ -5,8 +5,6 @@
 #include "Player/SFPlayerInfoTypes.h"
 #include "SFLobbyPlayerController.generated.h"
 
-DECLARE_DELEGATE(FOnSwitchToHeroSelection);
-
 /**
  * 
  */
@@ -40,8 +38,6 @@ protected:
 
 
 public:
-	FOnSwitchToHeroSelection OnSwitchToHeroSelection;
-
 	FSFPlayerInfo PlayerInfo;
 	
 private:

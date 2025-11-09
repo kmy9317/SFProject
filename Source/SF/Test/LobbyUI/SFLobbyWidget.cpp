@@ -1,13 +1,10 @@
 #include "SFLobbyWidget.h"
 
 #include "SFHeroEntryWidget.h"
-#include "Actors/SFHeroDisplay.h"
 #include "Character/Hero/SFHeroDefinition.h"
 #include "Components/Button.h"
 #include "Components/TileView.h"
-#include "Components/WidgetSwitcher.h"
 #include "Engine/StreamableManager.h"
-#include "GameFramework/PlayerStart.h"
 #include "GameModes/Lobby/SFLobbyGameState.h"
 #include "Kismet/GameplayStatics.h"
 #include "Player/Lobby/SFLobbyPlayerController.h"
@@ -19,12 +16,10 @@ void USFLobbyWidget::NativeConstruct()
 	Super::NativeConstruct();
 	ConfigureGameState();
 	SFLobbyPlayerController = GetOwningPlayer<ASFLobbyPlayerController>();
-	if (SFLobbyPlayerController)
-	{
-		SFLobbyPlayerController->OnSwitchToHeroSelection.BindUObject(this, &USFLobbyWidget::SwitchToHeroSelection);
-	}
-	StartMatchButton->SetIsEnabled(false);
-	StartMatchButton->OnClicked.AddDynamic(this, &ThisClass::StartMatchButtonClicked);
+	Button_Start->OnClicked.AddDynamic(this, &ThisClass::StartMatchButtonClicked);
+	Button_Ready->OnClicked.AddDynamic(this, &ThisClass::ReadyButtonClicked);
+
+	Button_Ready->SetIsEnabled(false);
 	
 	USFAssetManager::Get().LoadHeroDefinitions(FStreamableDelegate::CreateUObject(this, &ThisClass::HeroDefinitionLoaded));
 
@@ -33,6 +28,10 @@ void USFLobbyWidget::NativeConstruct()
 		HeroSelectionTileView->OnItemSelectionChanged().AddUObject(this, &USFLobbyWidget::HeroSelected);
 	}
 
+	if (UKismetSystemLibrary::IsServer(GetWorld()))
+	{
+		Button_Start->SetVisibility(ESlateVisibility::Visible);
+	}
 }
 
 void USFLobbyWidget::ConfigureGameState()
@@ -51,7 +50,7 @@ void USFLobbyWidget::ConfigureGameState()
 	else
 	{
 		SFGameState->OnPlayerSelectionUpdated.AddUObject(this, &ThisClass::UpdatePlayerSelectionDisplay);
-		UpdatePlayerSelectionDisplay(SFGameState->GetPlayerSelection());
+		UpdatePlayerSelectionDisplay(SFGameState->GetPlayerSelections());
 	}
 }
 
@@ -81,24 +80,10 @@ void USFLobbyWidget::UpdatePlayerSelectionDisplay(const TArray<FSFPlayerSelectio
 		{
 			SelectedEntry->SetSelected(true);
 		}
-
-		// TODO : 핵심으로써 다른 플레이어의 캐릭터도 보여주도록 수정 해야함
-		// if (PlayerSelection.IsForPlayer(GetOwningPlayerState()))
-		// {
-		// 	UpdateHeroDisplay(PlayerSelection);
-		// }
 	}
 
-	if (SFGameState)
-	{
-		// 게임 시작 버튼
-		StartMatchButton->SetIsEnabled(SFGameState->CanStartMatch());
-	}
-}
-
-void USFLobbyWidget::SwitchToHeroSelection()
-{
-	MainSwitcher->SetActiveWidget(HeroSelectionRoot);
+	//  PlayerSelection 업데이트 시 Ready 버튼 상태도 업데이트
+	UpdateReadyButtonEnabled();
 }
 
 void USFLobbyWidget::HeroDefinitionLoaded()
@@ -128,43 +113,35 @@ void USFLobbyWidget::HeroSelected(UObject* SelectedUObject)
 	}
 }
 
-void USFLobbyWidget::SpawnCharacterDisplay()
+void USFLobbyWidget::UpdateReadyButtonEnabled() const
 {
-	if (HeroDisplay)
+	if (!Button_Ready)
 	{
 		return;
 	}
-	if (!HeroDisplayClass)
-	{
-		return;
-	}
-	
-	FTransform CharacterDisplayTransform = FTransform::Identity;
-
-	// TODO : 접속한 플레이어별 PlayerStart 위치 지정 필요
-	AActor* PlayerStart = UGameplayStatics::GetActorOfClass(GetWorld(), APlayerStart::StaticClass());
-	if (PlayerStart)
-	{
-		CharacterDisplayTransform = PlayerStart->GetActorTransform();
-	}
-
-	FActorSpawnParameters SpawnParams;
-	SpawnParams.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
-	HeroDisplay = GetWorld()->SpawnActor<ASFHeroDisplay>(HeroDisplayClass, CharacterDisplayTransform, SpawnParams);
-	//GetOwningPlayer()->SetViewTarget(HeroDisplay);
+    
+	// Hero 선택 여부에 따라 버튼 활성화/비활성화
+	bool bHasHero = HasSelectedHero();
+	Button_Ready->SetIsEnabled(bHasHero);
 }
 
-void USFLobbyWidget::UpdateHeroDisplay(const FSFPlayerSelectionInfo& PlayerSelectionInfo)
+bool USFLobbyWidget::HasSelectedHero() const
 {
-	if (!PlayerSelectionInfo.GetHeroDefinition())
+	if (!SFLobbyPlayerState)
 	{
-		return;
+		return false;
 	}
+    
+	const FSFPlayerSelectionInfo& Selection = SFLobbyPlayerState->GetPlayerSelection();
+	return Selection.GetHeroDefinition() != nullptr;
+}
 
-	//HeroDisplay->ConfigureWithHeroDefination(PlayerSelectionInfo.GetHeroDefinition());
-
-	// TODO : CharacterInfo or PawnData 에서 캐릭터에 부여되는 Ability를 가져와서 AbilityListView에 적용되도록 구조 생각
-	//AbilityListView->ConfigureAbilities();
+void USFLobbyWidget::ReadyButtonClicked()
+{
+	if (SFLobbyPlayerController)
+	{
+		SFLobbyPlayerController->Server_ToggleReadyStatus();
+	}
 }
 
 void USFLobbyWidget::StartMatchButtonClicked()
@@ -174,3 +151,4 @@ void USFLobbyWidget::StartMatchButtonClicked()
 		SFLobbyPlayerController->Server_RequestStartMatch();
 	}
 }
+

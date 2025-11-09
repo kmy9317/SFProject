@@ -121,7 +121,7 @@ void ASFLobbyGameState::SetHeroDeselected(const USFHeroDefinition* DefinitionToD
 	}
 }
 
-const TArray<FSFPlayerSelectionInfo>& ASFLobbyGameState::GetPlayerSelection() const
+const TArray<FSFPlayerSelectionInfo>& ASFLobbyGameState::GetPlayerSelections() const
 {
 	return PlayerSelectionArray;
 }

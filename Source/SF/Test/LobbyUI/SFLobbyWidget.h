@@ -32,15 +32,17 @@ private:
 	void ConfigureGameState();
 
 	void UpdatePlayerSelectionDisplay(const TArray<FSFPlayerSelectionInfo>& PlayerSelections);
-
-	void SwitchToHeroSelection();
+	
 	void HeroDefinitionLoaded();
-
 	void HeroSelected(UObject* SelectedUObject);
 
-	void SpawnCharacterDisplay();
-	void UpdateHeroDisplay(const FSFPlayerSelectionInfo& PlayerSelectionInfo);
+	void UpdateReadyButtonEnabled() const;
 
+	bool HasSelectedHero() const;
+
+	UFUNCTION()
+	void ReadyButtonClicked();
+	
 	UFUNCTION()
 	void StartMatchButtonClicked();
 
@@ -61,10 +63,13 @@ private:
 	// TODO : 현재 캐릭터의 Ability 관련 정보 UI
 	// UPROPERTY(meta = (BindWidget))
 	// TObjectPtr<ULCAbilityListView> AbilityListView;
-	
+
 	UPROPERTY(meta=(BindWidget))
-	TObjectPtr<UButton> StartMatchButton;
-	
+	TObjectPtr<UButton> Button_Start;
+
+	UPROPERTY(meta=(BindWidget))
+	TObjectPtr<UButton> Button_Ready;
+
 	UPROPERTY()
 	TObjectPtr<ASFLobbyPlayerController> SFLobbyPlayerController;
 
@@ -76,9 +81,6 @@ private:
 
 	UPROPERTY(EditDefaultsOnly, Category = "SF|Display")
 	TSubclassOf<ASFHeroDisplay> HeroDisplayClass;
-
-	UPROPERTY()
-	TObjectPtr<ASFHeroDisplay> HeroDisplay;
 
 	FTimerHandle ConfigureGameStateTimerHandle;
 };

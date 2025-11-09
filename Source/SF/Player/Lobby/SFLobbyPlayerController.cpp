@@ -1,6 +1,7 @@
 #include "SFLobbyPlayerController.h"
 
 #include "SFLobbyPlayerState.h"
+#include "SFLogChannels.h"
 #include "GameModes/Lobby/SFLobbyGameMode.h"
 #include "System/SFGameInstance.h"
 
@@ -63,6 +64,22 @@ void ASFLobbyPlayerController::Server_UpdatePlayerInfo_Implementation()
 
 void ASFLobbyPlayerController::Server_ToggleReadyStatus_Implementation()
 {
+	ASFLobbyPlayerState* LobbyPS = GetPlayerState<ASFLobbyPlayerState>();
+	if (!LobbyPS)
+	{
+		return;
+	}
+    
+	const FSFPlayerSelectionInfo& Selection = LobbyPS->GetPlayerSelection();
+	if (!Selection.GetHeroDefinition())
+	{
+		UE_LOG(LogSF, Warning, 
+			TEXT("[Server] Player %s tried to ready without hero (possible exploit attempt)"), 
+			*LobbyPS->GetPlayerName()
+		);
+		return;
+	}
+	
 	PlayerInfo.bReady = !PlayerInfo.bReady;
 
 	if (ASFLobbyGameMode* LobbyGM = GetWorld()->GetAuthGameMode<ASFLobbyGameMode>())

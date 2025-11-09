@@ -219,7 +219,7 @@ void ASFLobbyGameMode::RemoveDisconnectedPlayers()
 				if (APlayerState* PS = ValidPC->GetPlayerState<APlayerState>())
 				{
 					// PlayerSelectionArray에서 제거
-					const TArray<FSFPlayerSelectionInfo>& Selections = LobbyGS->GetPlayerSelection();
+					const TArray<FSFPlayerSelectionInfo>& Selections = LobbyGS->GetPlayerSelections();
 					for (const FSFPlayerSelectionInfo& Selection : Selections)
 					{
 						if (Selection.IsForPlayer(PS))
