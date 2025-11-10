@@ -26,11 +26,8 @@ public:
 	/** PlayerSlots 배열 가져오기 */
 	const TArray<ASFPlayerSlot*>& GetPlayerSlots() const { return PlayerSlots; }
 
-	UFUNCTION(BlueprintCallable, Category = "PlayerInfo")
-	void UpdatePlayerInfo(APlayerController* RequestingPC);
-
-	UFUNCTION(BlueprintCallable, Category = "PlayerInfo")
-	void CheckAllPlayersReady();
+	void OnPlayerReadyChanged(APlayerController* PC);
+	void UpdateHeroDisplayForPlayer(APlayerController* PC);
 
 private:
 	/** 레벨에 배치된 PlayerSlot들을 찾아서 SlotID 순으로 정렬 */
@@ -50,6 +47,9 @@ private:
 
 	/** 로그아웃한 플레이어 제거 */
 	void RemoveDisconnectedPlayers();
+
+	/** Slot 할당 로직 내부에서 PlayerInfo 초기화 */
+	void InitializePlayerInfoForSlot(APlayerController* PC, const ASFPlayerSlot* Slot) const;
 
 private:
 	UPROPERTY()

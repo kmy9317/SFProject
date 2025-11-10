@@ -25,13 +25,14 @@ public:
 	void UpdatePlayerSelection(const APlayerState* RequestingPlayer, uint8 InSlot);
 	void RemovePlayerSelection(const APlayerState* LeavingPlayer);
 	void SetHeroSelected(const APlayerState* SelectingPlayer, USFHeroDefinition* SelectedDefinition);
-	void SetHeroDeselected(const USFHeroDefinition* DefinitionToDeselect);
+	void SetHeroDeselected(const APlayerState* Player);
 	bool IsSlotOccupied(uint8 SlotId) const;
 	bool IsDefinitionSelected(const USFHeroDefinition* Definition) const;
 
 	const TArray<FSFPlayerSelectionInfo>& GetPlayerSelections() const;
 
-	bool CanStartMatch() const;
+	void SetPlayerReady(const APlayerState* Player, bool bReady);
+	bool AreAllPlayersReady() const;
 
 private:
 	UFUNCTION()

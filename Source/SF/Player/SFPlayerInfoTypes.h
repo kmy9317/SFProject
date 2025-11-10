@@ -26,7 +26,7 @@ public:
 		, bReady(bInReady)
 	{}
 
-	UPROPERTY(BlueprintReadOnly)
+	UPROPERTY(BlueprintReadOnly, NotReplicated)
 	TObjectPtr<APlayerController> PC;
 
 	UPROPERTY(BlueprintReadOnly)
@@ -73,6 +73,8 @@ public:
 	FORCEINLINE FString GetPlayerNickname() const { return PlayerNickname; }
 	FORCEINLINE const USFHeroDefinition* GetHeroDefinition() const { return HeroDefinition; }
 	FORCEINLINE void SetHeroDefinition(USFHeroDefinition* NewDefinition) { HeroDefinition = NewDefinition; }
+	FORCEINLINE bool IsReady() const { return bReady; }
+	FORCEINLINE void SetReady(bool bInReady) { bReady = bInReady; }
 
 	bool IsForPlayer(const APlayerState* PlayerState) const;
 	bool IsValid() const;
@@ -90,4 +92,7 @@ private:
 
 	UPROPERTY()
 	TObjectPtr<USFHeroDefinition> HeroDefinition;
+
+	UPROPERTY()
+	bool bReady;
 };

@@ -41,13 +41,32 @@ void ASFLobbyPlayerState::CopyProperties(APlayerState* PlayerState)
 	}
 }
 
-void ASFLobbyPlayerState::Server_SetSelectedHeroDefinition_Implementation(USFHeroDefinition* NewDefinition)
+void ASFLobbyPlayerState::Server_SetReady_Implementation(bool bInReady)
 {
-	if (!LobbyGameState)
+	if (!PlayerSelection.GetHeroDefinition())
 	{
 		return;
 	}
-	if (!NewDefinition)
+
+	// Ready 상태 변경
+	PlayerSelection.SetReady(bInReady);
+
+	// GameState에 알림 
+	if (ASFLobbyGameState* LobbyGS = GetWorld()->GetGameState<ASFLobbyGameState>())
+	{
+		LobbyGS->SetPlayerReady(this, bInReady);
+	}
+
+	// GameMode에 알림 (HeroDisplay 업데이트용) TODO ; GameState에서 일괄 처리?
+	if (ASFLobbyGameMode* LobbyGM = GetWorld()->GetAuthGameMode<ASFLobbyGameMode>())
+	{
+		LobbyGM->OnPlayerReadyChanged(GetPlayerController());
+	}
+}
+
+void ASFLobbyPlayerState::Server_SetSelectedHeroDefinition_Implementation(USFHeroDefinition* NewDefinition)
+{
+	if (!LobbyGameState || !NewDefinition)
 	{
 		return;
 	}
@@ -64,13 +83,14 @@ void ASFLobbyPlayerState::Server_SetSelectedHeroDefinition_Implementation(USFHer
 	// 	return;
 	// }
 	
-	LobbyGameState->SetHeroDeselected(PlayerSelection.GetHeroDefinition());
+	LobbyGameState->SetHeroDeselected(this);
 	PlayerSelection.SetHeroDefinition(NewDefinition);
 	LobbyGameState->SetHeroSelected(this, NewDefinition);
 
-	if (ASFLobbyGameMode* LobbyGM = Cast<ASFLobbyGameMode>(UGameplayStatics::GetGameMode(this)))
+	// UpdateHeroDisplayForPlayer 호출 TODO : GameState에서 일괄 처리?
+	if (ASFLobbyGameMode* LobbyGM = GetWorld()->GetAuthGameMode<ASFLobbyGameMode>())
 	{
-		LobbyGM->UpdatePlayerInfo(GetPlayerController());
+		LobbyGM->UpdateHeroDisplayForPlayer(GetPlayerController());
 	}
 }
 

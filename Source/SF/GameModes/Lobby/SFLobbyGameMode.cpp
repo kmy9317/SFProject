@@ -176,6 +176,7 @@ void ASFLobbyGameMode::AddPCToEmptySlot(APlayerController* PC)
 			continue;
 		}
 
+		// 빈 슬롯 찾기(낮은 SlotID가 높은 SlotID보다 먼저 채워짐)
 		if (!Slot->GetCurrentPC())
 		{
 			// Slot Display 업데이트
@@ -190,6 +191,9 @@ void ASFLobbyGameMode::AddPCToEmptySlot(APlayerController* PC)
 					LobbyGS->UpdatePlayerSelection(PS, SlotID);
 				}
 			}
+
+			// PlayerInfo 초기화
+			InitializePlayerInfoForSlot(PC, Slot);
 			break;
 		}
 	}
@@ -215,10 +219,8 @@ void ASFLobbyGameMode::RemoveDisconnectedPlayers()
 			APlayerController* ValidPC = Slot->GetCurrentPC();
 			if (!PCs.Contains(ValidPC))
 			{
-				// GameState의 PlayerSelectionArray에서 제거
 				if (APlayerState* PS = ValidPC->GetPlayerState<APlayerState>())
 				{
-					// PlayerSelectionArray에서 제거
 					const TArray<FSFPlayerSelectionInfo>& Selections = LobbyGS->GetPlayerSelections();
 					for (const FSFPlayerSelectionInfo& Selection : Selections)
 					{
@@ -237,103 +239,93 @@ void ASFLobbyGameMode::RemoveDisconnectedPlayers()
 	}
 }
 
-void ASFLobbyGameMode::UpdatePlayerInfo(APlayerController* RequestingPC)
+void ASFLobbyGameMode::InitializePlayerInfoForSlot(APlayerController* PC, const ASFPlayerSlot* Slot) const
 {
-	if (!RequestingPC)
+	ASFLobbyPlayerState* LobbyPS = PC->GetPlayerState<ASFLobbyPlayerState>();
+	if (!LobbyPS)
 	{
+		UE_LOG(LogSF, Warning, TEXT("[InitializePlayerInfoForSlot] No LobbyPlayerState"));
 		return;
 	}
-	for (ASFPlayerSlot* Slot : PlayerSlots)
-	{
-		if (!Slot)
-		{
-			continue;
-		}
 
-		// Selected Character = HeroDisplay의 CachedPC
-		ASFHeroDisplay* HeroDisplay = Slot->GetHeroDisplay();
-		if (!HeroDisplay)
-		{
-			continue;
-		}
-
-		// HeroDisplay가 표시 중인 PC와 요청한 PC가 같은지 확인
-		if (Slot->GetCurrentPC() == RequestingPC)
-		{
-			// 플레이어가 선택한 Hero 가져오기
-			USFHeroDefinition* SelectedHero = nullptr;
-			if (ASFLobbyPlayerState* SFPS = RequestingPC->GetPlayerState<ASFLobbyPlayerState>())
-			{
-				SelectedHero = const_cast<USFHeroDefinition*>(SFPS->GetPlayerSelection().GetHeroDefinition());
-			}
-            
-			// 현재 표시 중인 Hero와 다르면 업데이트
-			if (SelectedHero && SelectedHero != Slot->GetCurrentHeroDefinition())
-			{
-				Slot->SwitchHeroDefinition(SelectedHero);
-			}
-			
-			// Get Player Name
-			FString PlayerName = TEXT("");
-			if (APlayerState* PS = RequestingPC->GetPlayerState<APlayerState>())
-			{
-				PlayerName = PS->GetPlayerName();
-			}
-
-			ASFLobbyPlayerController* LobbyPC = Cast<ASFLobbyPlayerController>(RequestingPC);
-			if (!LobbyPC)
-			{
-				continue;
-			}
-
-			FSFPlayerInfo NewPlayerInfo;
-			NewPlayerInfo.PC = RequestingPC;
-			NewPlayerInfo.PlayerName = PlayerName;
-			NewPlayerInfo.bReady = LobbyPC->PlayerInfo.bReady;
-			NewPlayerInfo.PS = RequestingPC->PlayerState;
-
-			HeroDisplay->UpdatePlayerInfo(NewPlayerInfo);
-			CheckAllPlayersReady();
-			return;
-		}
-	}
-
-	ASFLobbyPlayerController* LobbyPC = Cast<ASFLobbyPlayerController>(RequestingPC);
-	if (!LobbyPC)
+	ASFHeroDisplay* HeroDisplay = Slot->GetHeroDisplay();
+	if (!HeroDisplay)
 	{
 		return;
 	}
 
-	LobbyPC->UpdatePlayerInfo();
+	// PlayerState에서 데이터 가져오기
+	const FSFPlayerSelectionInfo& Selection = LobbyPS->GetPlayerSelection();
+
+	FSFPlayerInfo InitialPlayerInfo;
+	InitialPlayerInfo.PC = PC;
+	InitialPlayerInfo.PS = PC->PlayerState;
+	InitialPlayerInfo.PlayerName = Selection.GetPlayerNickname();
+	InitialPlayerInfo.bReady = Selection.IsReady();  // 초기에는 false
+
+	// 현재 클라이언트의 PlayerInfo 기반 HeroDisplay의 Widget 업데이트
+	HeroDisplay->UpdatePlayerInfo(InitialPlayerInfo);
 }
 
-void ASFLobbyGameMode::CheckAllPlayersReady()
+void ASFLobbyGameMode::OnPlayerReadyChanged(APlayerController* PC)
 {
-	bool bAllPlayersReady = true;
-
-	for (APlayerController* PC : PCs)
+	if (!PC)
 	{
-		ASFLobbyPlayerController* LobbyPC = Cast<ASFLobbyPlayerController>(PC);
-		if (!LobbyPC)
+		return;
+	}
+	UpdateHeroDisplayForPlayer(PC);
+    
+	// Start 버튼 활성화 체크
+	if (ASFLobbyGameState* LobbyGS = GetGameState<ASFLobbyGameState>())
+	{
+		bool bAllReady = LobbyGS->AreAllPlayersReady();
+        
+		// Listen Server의 Host UI 업데이트
+		if (APlayerController* HostPC = GetWorld()->GetFirstPlayerController())
 		{
-			continue;
-		}
-
-		if (!LobbyPC->PlayerInfo.bReady)
-		{
-			bAllPlayersReady = false;
-			break;
+			if (ASFLobbyPlayerController* LobbyPC = Cast<ASFLobbyPlayerController>(HostPC))
+			{
+				if (USFLobbyWidget* LobbyWidget = Cast<USFLobbyWidget>(LobbyPC->GetMenuWidget()))
+				{
+					LobbyWidget->bAllPlayersReady = bAllReady;
+				}
+			}
 		}
 	}
+}
 
-	// 호스트 PC 찾기(Listen Server에서만 가능)
-	APlayerController* PC = UGameplayStatics::GetPlayerController(this, 0);
-	ASFLobbyPlayerController* LobbyPC = Cast<ASFLobbyPlayerController>(PC);
-	if (LobbyPC)
+void ASFLobbyGameMode::UpdateHeroDisplayForPlayer(APlayerController* PC)
+{
+	ASFLobbyPlayerState* LobbyPS = PC->GetPlayerState<ASFLobbyPlayerState>();
+	if (!LobbyPS)
 	{
-		if (USFLobbyWidget* LobbyWidget = Cast<USFLobbyWidget>(LobbyPC->GetMenuWidget()))
+		return;
+	}
+	// Slot 찾기
+	for (ASFPlayerSlot* Slot : PlayerSlots)
+	{
+		if (!Slot || Slot->GetCurrentPC() != PC)
+			continue;
+
+		ASFHeroDisplay* HeroDisplay = Slot->GetHeroDisplay();
+		if (!HeroDisplay)
+			continue;
+
+		const FSFPlayerSelectionInfo& Selection = LobbyPS->GetPlayerSelection();
+
+		// Hero 변경 확인
+		if (Selection.GetHeroDefinition() != Slot->GetCurrentHeroDefinition())
 		{
-			LobbyWidget->bAllPlayersReady = bAllPlayersReady;
+			Slot->SwitchHeroDefinition(const_cast<USFHeroDefinition*>(Selection.GetHeroDefinition()));
 		}
+		
+		FSFPlayerInfo DisplayInfo;
+		DisplayInfo.PC = PC;
+		DisplayInfo.PS = PC->PlayerState;
+		DisplayInfo.PlayerName = Selection.GetPlayerNickname();
+		DisplayInfo.bReady = Selection.IsReady();
+
+		HeroDisplay->UpdatePlayerInfo(DisplayInfo);
+		break;
 	}
 }

@@ -119,8 +119,6 @@ void ASFPlayerSlot::UpdateHeroDisplay(USFHeroDefinition* HeroDefinition)
 	}
 
 	HeroDisplay->ConfigureWithHeroDefination(HeroDefinition);
-
-	// TODO: 아래 로직들을 Client side에서도 처리되도록 해야되는지 확인
 	HeroDisplay->SetActorTransform(Arrow->GetComponentTransform());
 	HeroDisplay->SetActorHiddenInGame(false);
 

@@ -76,17 +76,11 @@ void ASFLobbyGameState::SetHeroSelected(const APlayerState* SelectingPlayer, USF
 	}
 }
 
-void ASFLobbyGameState::SetHeroDeselected(const USFHeroDefinition* DefinitionToDeselect)
+void ASFLobbyGameState::SetHeroDeselected(const APlayerState* Player)
 {
-	if (!DefinitionToDeselect)
-	{
-		return;
-	}
-
-	// TODO : Hero 중복 선택 가능시 해당 로직 문제 있음
-	FSFPlayerSelectionInfo* FoundPlayerSelection = PlayerSelectionArray.FindByPredicate([&](const FSFPlayerSelectionInfo& PlayerSelection)
+	FSFPlayerSelectionInfo* FoundPlayerSelection = PlayerSelectionArray.FindByPredicate([&](const FSFPlayerSelectionInfo& Selection)
 		{
-			return PlayerSelection.GetHeroDefinition() == DefinitionToDeselect;
+			return Selection.IsForPlayer(Player);
 		}
 	);
 
@@ -127,15 +121,33 @@ const TArray<FSFPlayerSelectionInfo>& ASFLobbyGameState::GetPlayerSelections() c
 	return PlayerSelectionArray;
 }
 
-bool ASFLobbyGameState::CanStartMatch() const
+void ASFLobbyGameState::SetPlayerReady(const APlayerState* Player, bool bReady)
 {
-	for (const FSFPlayerSelectionInfo& PlayerSelection : PlayerSelectionArray)
-	{
-		if (!PlayerSelection.GetHeroDefinition())
-		{
-			return false;
+	FSFPlayerSelectionInfo* Selection = PlayerSelectionArray.FindByPredicate(
+		[&](const FSFPlayerSelectionInfo& Info) {
+			return Info.IsForPlayer(Player);
 		}
+	);
+
+	if (Selection)
+	{
+		Selection->SetReady(bReady);
+		OnPlayerSelectionUpdated.Broadcast(PlayerSelectionArray);
 	}
+}
+
+bool ASFLobbyGameState::AreAllPlayersReady() const
+{
+	if (PlayerSelectionArray.Num() == 0)
+	{
+		return false;
+	}
+	for (const FSFPlayerSelectionInfo& Selection : PlayerSelectionArray)
+	{
+		if (!Selection.IsReady())
+			return false;
+	}
+
 	return true;
 }
 

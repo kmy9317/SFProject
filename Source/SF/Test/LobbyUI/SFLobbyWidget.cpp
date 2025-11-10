@@ -140,7 +140,7 @@ void USFLobbyWidget::ReadyButtonClicked()
 {
 	if (SFLobbyPlayerController)
 	{
-		SFLobbyPlayerController->Server_ToggleReadyStatus();
+		SFLobbyPlayerController->ToggleReady();
 	}
 }
 
