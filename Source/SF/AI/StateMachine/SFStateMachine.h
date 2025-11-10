@@ -5,17 +5,33 @@
 #include "State/SFState.h"  
 #include "SFStateMachine.generated.h"
 
+// PlayerController에게 Tree교체 Order
+DECLARE_MULTICAST_DELEGATE_OneParam(FChangeTreeDelegate, FGameplayTag);
+
+//현재 Behaviour를 멈추라는 Tree
+DECLARE_MULTICAST_DELEGATE(FStopTreeDelegate);
+
+struct FSTStateWrapperContainer;
+
+
 UCLASS(ClassGroup=(Custom), meta=(BlueprintSpawnableComponent))
 class SF_API USFStateMachine : public UActorComponent
 {
     GENERATED_BODY()
     
 public:
+
+    UFUNCTION(BlueprintPure, Category = "State Machine")
+    static USFStateMachine* FindStateMachineComponent(const AActor* Actor) { return (Actor ? Actor->FindComponentByClass<USFStateMachine>() : nullptr); }
+    
     USFStateMachine(const FObjectInitializer& ObjectInitializer = FObjectInitializer::Get());
     
     virtual void TickComponent(float DeltaTime, ELevelTick TickType,
         FActorComponentTickFunction* ThisTickFunction) override;
-    
+
+
+    UFUNCTION(BlueprintCallable, Category = "State Machine")
+    void RegisterStates(FSTStateWrapperContainer StateContainer);
     
     //State를 등록하고 Handle 반환 
     UFUNCTION(BlueprintCallable, Category = "State Machine")
@@ -56,6 +72,11 @@ public:
     //State 제거  
     UFUNCTION(BlueprintCallable, Category = "State Machine")
     bool PopState();
+
+public:
+    FChangeTreeDelegate OnChangeTreeDelegate;
+    FStopTreeDelegate OnStopTreeDelegate;
+    
 protected:
     virtual void BeginPlay() override;
     
@@ -83,19 +104,17 @@ private:
 
 
 private:
-    
+
     UPROPERTY()
     TArray<FSFStateSpec> RegisterStateSpecs;
-    
-    // 현재 활성화된 State 
+
+    // 현재 활성화된 State
     UPROPERTY()
     FSFStateHandle CurrentStateHandle;
 
-    // 현재 활성화 중인 State 그러나 Array의 가장 마지막에 있는 State만 Running하고 나머지는 잠시 대기 ? 
+    // 현재 활성화 중인 State의 Handle들 (Stack 구조)
+    // Array의 가장 마지막에 있는 State만 Running하고 나머지는 잠시 대기
     UPROPERTY()
-    TArray<FSFStateSpec> ActiveStateSpecs;
-    
-    // 초기 StateClass -> 이건 아마 PawnData나 이런걸로 하지 않을까 ? 생각중 
-    UPROPERTY(EditAnywhere, Category = "State Machine")
-    TArray<TSubclassOf<USFState>> InitialStateClasses;
+    TArray<FSFStateHandle> ActiveStateHandles;
+
 };

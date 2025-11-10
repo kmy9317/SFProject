@@ -3,6 +3,8 @@
 
 #include "AI/StateMachine/SFStateMachine.h"
 
+#include "Character/Enemy/SFEnemyData.h"
+
 #include  UE_INLINE_GENERATED_CPP_BY_NAME(SFStateMachine)
 
 USFStateMachine::USFStateMachine(const FObjectInitializer& ObjectInitializer)
@@ -19,6 +21,17 @@ void USFStateMachine::TickComponent(float DeltaTime, ELevelTick TickType, FActor
 	if (FSFStateSpec* CurrentSpec = FindStateSpec(CurrentStateHandle))
 	{
 		CurrentSpec->Update(DeltaTime);
+	}
+}
+
+void USFStateMachine::RegisterStates(FSTStateWrapperContainer StateContainer)
+{
+	if (StateContainer.States.Num() >0)
+	{
+		for (auto& State : StateContainer.States)
+		{
+			RegisterState(State.StateClass, State.StateTag);
+		}
 	}
 }
 
@@ -88,48 +101,68 @@ float USFStateMachine::GetTimeInCurrentState() const
 
 bool USFStateMachine::PushState(FSFStateHandle Handle)
 {
+	if (!Handle.IsValid())
+	{
+		UE_LOG(LogTemp, Warning, TEXT("USFStateMachine::PushState - Invalid handle"));
+		return false;
+	}
+
 	FSFStateSpec* NewSpec = FindStateSpec(Handle);
 	if (!NewSpec)
 	{
+		UE_LOG(LogTemp, Warning, TEXT("USFStateMachine::PushState - State spec not found for handle"));
 		return false;
 	}
-	
-	if (FSFStateSpec* CurrentSpec = FindStateSpec(CurrentStateHandle))
+
+	// 1. 현재 State를 Pause하고 Handle만 저장
+	if (CurrentStateHandle.IsValid())
 	{
-		CurrentSpec->Pause();
-		ActiveStateSpecs.Add(*CurrentSpec);  
+		if (FSFStateSpec* CurrentSpec = FindStateSpec(CurrentStateHandle))
+		{
+			CurrentSpec->Pause();
+			ActiveStateHandles.Add(CurrentStateHandle);
+		}
 	}
-    
+
 	// 2. 새 State를 Running으로 설정
 	CurrentStateHandle = Handle;
-	EnterState(NewSpec);  
-    
+	EnterState(NewSpec);
+
 	return true;
 }
 
 bool USFStateMachine::PopState()
 {
-	if (ActiveStateSpecs.Num() == 0)
+	if (ActiveStateHandles.Num() == 0)
 	{
+		UE_LOG(LogTemp, Warning, TEXT("USFStateMachine::PopState - No states to pop"));
 		return false;
 	}
-    
+
 	// 1. 현재 Running State 종료
-	if (FSFStateSpec* CurrentSpec = FindStateSpec(CurrentStateHandle))
+	if (CurrentStateHandle.IsValid())
 	{
-		ExitState(CurrentSpec);  
+		if (FSFStateSpec* CurrentSpec = FindStateSpec(CurrentStateHandle))
+		{
+			ExitState(CurrentSpec);
+		}
 	}
-    
-	// 2. Stack에서 꺼내기
-	FSFStateSpec PreviousSpec = ActiveStateSpecs.Pop();
-	CurrentStateHandle = PreviousSpec.GetHandle();
-    
+
+	// 2. Stack에서 이전 State Handle 꺼내기
+	FSFStateHandle PreviousHandle = ActiveStateHandles.Pop();
+	CurrentStateHandle = PreviousHandle;
+
 	// 3. Paused → Running으로 Resume
 	if (FSFStateSpec* ResumedSpec = FindStateSpec(CurrentStateHandle))
 	{
 		ResumedSpec->Resume();
 	}
-    
+	else
+	{
+		UE_LOG(LogTemp, Error, TEXT("USFStateMachine::PopState - Failed to find resumed state spec"));
+		return false;
+	}
+
 	return true;
 }
 
@@ -224,39 +257,45 @@ FSFStateSpec* USFStateMachine::FindStateSpecByTag(FGameplayTag StateTag)
 
 bool USFStateMachine::TransitionToState(FSFStateHandle NewStateHandle)
 {
+    // 같은 State로 전환 시도 방지
     if (CurrentStateHandle.IsValid() && CurrentStateHandle == NewStateHandle)
     {
         return false;
     }
-	
+
+    if (!NewStateHandle.IsValid())
+    {
+        return false;
+    }
+
 	FSFStateSpec* NewSpec = FindStateSpec(NewStateHandle);
 	if (!NewSpec)
 	{
 		return false;
 	}
-	
+
     FSFStateSpec* CurSpec = FindStateSpec(CurrentStateHandle);
-    
+
     // 전환 조건 체크
     if (CurSpec)
     {
         if (!CurSpec->CanTransitionTo(NewSpec->GetStateClass()))
         {
-	        return false; 
+	        return false;
         }
     }
-    
+
     // 현재 State 종료
     if (CurSpec)
     {
         ExitState(CurSpec);
     }
- 
+
     CurrentStateHandle = NewStateHandle;
-    
+
     // 새 State 진입
     EnterState(NewSpec);
-    
+
     return true;
 }
 void USFStateMachine::EnterState(FSFStateSpec* Spec)
@@ -265,21 +304,32 @@ void USFStateMachine::EnterState(FSFStateSpec* Spec)
 	{
 		return;
 	}
-	
+
 	Spec->EnsureInstance(this, GetOwner());
-	
+
 	if (UWorld* World = GetWorld())
 	{
 		Spec->SetActivationTime(World->GetTimeSeconds());
 	}
-    
+
 	Spec->Enter();
+
+	// Tick 활성화 (State가 Update를 필요로 할 수 있음)
+	SetComponentTickEnabled(true);
 }
 
 void USFStateMachine::ExitState(FSFStateSpec* Spec)
 {
-	if (Spec)  
+	if (!Spec)
 	{
-		Spec->Exit();
+		return;
+	}
+
+	Spec->Exit();
+
+	// 모든 State가 종료되면 Tick 비활성화
+	if (!CurrentStateHandle.IsValid() && ActiveStateHandles.Num() == 0)
+	{
+		SetComponentTickEnabled(false);
 	}
 }
