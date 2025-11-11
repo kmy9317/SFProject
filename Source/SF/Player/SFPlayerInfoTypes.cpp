@@ -3,12 +3,18 @@
 #include "GameFramework/PlayerState.h"
 
 FSFPlayerSelectionInfo::FSFPlayerSelectionInfo()
-	: Slot(GetInvalidSlot()), PlayerUniqueId(FUniqueNetIdRepl::Invalid()), PlayerNickname{}, HeroDefinition(nullptr)
+	: Slot(GetInvalidSlot())
+	, PlayerUniqueId(FUniqueNetIdRepl::Invalid())
+	, PlayerNickname{}
+	, HeroDefinition(nullptr)
+	, bReady(false)  
 {
 }
 
 FSFPlayerSelectionInfo::FSFPlayerSelectionInfo(uint8 InSlot, const APlayerState* InPlayerState)
-	: Slot(InSlot), HeroDefinition(nullptr)
+	: Slot(InSlot)
+	, HeroDefinition(nullptr)
+	, bReady(false)
 {
 	if (InPlayerState)
 	{

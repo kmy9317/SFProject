@@ -14,12 +14,12 @@ USFAssetManager& USFAssetManager::Get()
 	return (*NewObject<USFAssetManager>());
 }
 
-void USFAssetManager::LoadCharacterDefinitions(const FStreamableDelegate& LoadFinishedCallback)
+void USFAssetManager::LoadHeroDefinitions(const FStreamableDelegate& LoadFinishedCallback)
 {
 	LoadPrimaryAssetsWithType(USFHeroDefinition::GetHeroDefinitionAssetType(), TArray<FName>(), LoadFinishedCallback);
 }
 
-bool USFAssetManager::GetLoadedCharacterDefinitions(TArray<USFHeroDefinition*>& LoadedHeroDefinations) const
+bool USFAssetManager::GetLoadedHeroDefinitions(TArray<USFHeroDefinition*>& LoadedHeroDefinations) const
 {
 	TArray<UObject*> LoadedObjects;
 	bool bLoaded = GetPrimaryAssetObjectList(USFHeroDefinition::GetHeroDefinitionAssetType(), LoadedObjects);

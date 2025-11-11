@@ -4,8 +4,6 @@
 #include "SFMenuPlayerController.h"
 #include "SFLobbyPlayerController.generated.h"
 
-DECLARE_DELEGATE(FOnSwitchToHeroSelection);
-
 /**
  * 
  */
@@ -16,19 +14,14 @@ class SF_API ASFLobbyPlayerController : public ASFMenuPlayerController
 
 public:
 	ASFLobbyPlayerController();
-	
-	UFUNCTION(Server, Reliable, WithValidation)
-	void Server_RequestPlayerSelectionChange(uint8 NewSlotID);
-
-	UFUNCTION(Server, Reliable, WithValidation)
-	void Server_StartHeroSelection();
 
 	UFUNCTION(Server, Reliable, WithValidation)
 	void Server_RequestStartMatch();
-	
-	UFUNCTION(Client, Reliable)
-	void Client_StartHeroSelection();
 
-public:
-	FOnSwitchToHeroSelection OnSwitchToHeroSelection;
+	UFUNCTION(BlueprintCallable)
+	void ToggleReady();
+
+protected:
+	virtual void BeginPlay() override;
+
 };
