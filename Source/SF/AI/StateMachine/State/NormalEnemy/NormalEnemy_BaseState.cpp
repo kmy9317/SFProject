@@ -2,8 +2,9 @@
 
 
 #include "NormalEnemy_BaseState.h"
-
 #include "AI/StateMachine/SFStateMachine.h"
+
+#include UE_INLINE_GENERATED_CPP_BY_NAME(NormalEnemy_BaseState)
 
 void UNormalEnemy_BaseState::OnEnter_Implementation()
 {

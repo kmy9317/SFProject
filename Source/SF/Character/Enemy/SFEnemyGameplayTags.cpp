@@ -3,6 +3,7 @@
 
 #include "SFEnemyGameplayTags.h"
 
+
 namespace SFGameplayTags
 {
 	// Enemy Type Tags

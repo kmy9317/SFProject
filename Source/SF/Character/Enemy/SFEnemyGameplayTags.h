@@ -4,10 +4,15 @@
 
 #include "NativeGameplayTags.h"
 
+
 namespace SFGameplayTags
 {
 	// Enemy Type Tags
 	SF_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(Enemy_Type_Normal);
 	SF_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(Enemy_Type_Elite);
 	SF_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(Enemy_Type_Boss);
+
+
+	//Enemy State
+	
 }
