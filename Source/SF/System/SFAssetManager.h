@@ -19,8 +19,8 @@ class SF_API USFAssetManager : public UAssetManager
 
 public:
 	static USFAssetManager& Get();
-	void LoadCharacterDefinitions(const FStreamableDelegate& LoadFinishedCallback);
-	bool GetLoadedCharacterDefinitions(TArray<USFHeroDefinition*>& LoadedHeroDefinations) const;
+	void LoadHeroDefinitions(const FStreamableDelegate& LoadFinishedCallback);
+	bool GetLoadedHeroDefinitions(TArray<USFHeroDefinition*>& LoadedHeroDefinations) const;
 
 	TSharedPtr<FStreamableHandle> LoadPawnDataAsync(const TSoftObjectPtr<USFPawnData>& PawnDataPath, FStreamableDelegate& LoadCompleteDelegate);
 	

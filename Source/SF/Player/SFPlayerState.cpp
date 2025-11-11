@@ -5,6 +5,8 @@
 #include "SFPlayerInfoTypes.h"
 #include "AbilitySystem/SFAbilitySet.h"
 #include "AbilitySystem/SFAbilitySystemComponent.h"
+#include "AbilitySystem/Attributes/Hero/SFCombatSet_Hero.h"
+#include "AbilitySystem/Attributes/Hero/SFPrimarySet_Hero.h"
 #include "Character/SFPawnData.h"
 #include "Character/SFPawnExtensionComponent.h"
 #include "Character/Hero/SFHeroDefinition.h"
@@ -17,6 +19,9 @@ ASFPlayerState::ASFPlayerState(const FObjectInitializer& ObjectInitializer)
 	AbilitySystemComponent = ObjectInitializer.CreateDefaultSubobject<USFAbilitySystemComponent>(this, TEXT("AbilitySystemComponent"));
 	AbilitySystemComponent->SetIsReplicated(true);
 	AbilitySystemComponent->SetReplicationMode(EGameplayEffectReplicationMode::Mixed);
+
+	PrimarySet = CreateDefaultSubobject<USFPrimarySet_Hero>(TEXT("PrimarySet"));
+	CombatSet = CreateDefaultSubobject<USFCombatSet_Hero>(TEXT("CombatSet"));
 	
 	SetNetUpdateFrequency(100.f);
 }

@@ -16,6 +16,8 @@ public:
 	virtual void BeginPlay() override;
 	virtual void OnRep_PlayerState() override;
 
+	UUserWidget* GetMenuWidget() const { return MenuWidget; }
+
 private:
 	void SpawnWidget();
 	

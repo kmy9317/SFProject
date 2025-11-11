@@ -6,6 +6,8 @@
 #include "GameFramework/PlayerState.h"
 #include "SFPlayerState.generated.h"
 
+class USFCombatSet_Hero;
+class USFPrimarySet_Hero;
 struct FStreamableHandle;
 class ASFPlayerController;
 class USFPawnData;
@@ -88,6 +90,12 @@ private:
 
 	UPROPERTY(VisibleAnywhere, Category = "SF|PlayerState")
 	TObjectPtr<USFAbilitySystemComponent> AbilitySystemComponent;
+
+	UPROPERTY()
+	TObjectPtr<const USFPrimarySet_Hero> PrimarySet;
+
+	UPROPERTY()
+	TObjectPtr<const USFCombatSet_Hero> CombatSet;
 
 	UPROPERTY(Replicated)
 	ESFPlayerConnectionType MyPlayerConnectionType;

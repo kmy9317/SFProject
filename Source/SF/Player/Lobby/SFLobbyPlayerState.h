@@ -24,12 +24,21 @@ public:
 
 	UFUNCTION(Server, Reliable, WithValidation)
 	void Server_SetSelectedHeroDefinition(USFHeroDefinition* NewDefinition);
+	
+	UFUNCTION(Server, Reliable, BlueprintCallable)
+	void Server_SetReady(bool bInReady);
+
+	bool IsReady() const { return PlayerSelection.IsReady(); }
+	const FSFPlayerSelectionInfo& GetPlayerSelection() const { return PlayerSelection; }
+
+	FSFPlayerInfo CreateDisplayInfo() const;
 
 private:
 	void PlayerSelectionUpdated(const TArray<FSFPlayerSelectionInfo>& NewPlayerSelections);
-	
+
+
 private:
-	UPROPERTY(Replicated)
+	UPROPERTY()
 	FSFPlayerSelectionInfo PlayerSelection;
 
 	UPROPERTY()
