@@ -26,11 +26,12 @@ public class SF : ModuleRules
 			"UMG",
 			"MediaAssets",
 			"AIModule",
-			"ModularGameplay"
-			
+			"ModularGameplay",
+			"AnimGraphRuntime",
+			"AnimationLocomotionLibraryRuntime"
 		});
 
-		PrivateDependencyModuleNames.AddRange(new string[] {  });
+		PrivateDependencyModuleNames.AddRange(new string[] { });
 
 		PublicIncludePaths.AddRange(new string[] { "SF" });		
 

@@ -1,32 +1,38 @@
 // Fill out your copyright notice in the Description page of Project Settings.
 
-
 #include "Animation/Enemy/SFEnemyAnimInstance.h"
 
 #include "AbilitySystemComponent.h"
 #include "AbilitySystemGlobals.h"
 #include "Character/SFCharacterBase.h"
 #include "GameFramework/CharacterMovementComponent.h"
+#include "AnimCharacterMovementLibrary.h"
 
 #include UE_INLINE_GENERATED_CPP_BY_NAME(SFEnemyAnimInstance)
 
 USFEnemyAnimInstance::USFEnemyAnimInstance(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
+	, Character(nullptr)
+	, CachedMovementComponent(nullptr)
+	, CachedLocation(FVector::ZeroVector)
+	, PreviousWorldLocation(FVector::ZeroVector)
+	, bIsFirstUpdate(true)
+	, CachedRotation(FRotator::ZeroRotator)
+	, CachedWorldVelocity(FVector::ZeroVector)
+	, CachedWorldVelocity2D(FVector::ZeroVector)
+	, CachedWorldAcceleration2D(FVector::ZeroVector)
+	, WorldLocation(FVector::ZeroVector)
 	, DisplacementSinceLastUpdate(0.0f)
 	, DisplacementSpeed(0.0f)
-	, WorldLocation(FVector::ZeroVector)
 	, WorldRotation(FRotator::ZeroRotator)
 	, bHasVelocity(false)
-	, WorldVelocity(FVector::ZeroVector)
 	, WorldVelocity2D(FVector::ZeroVector)
 	, LocalVelocity2D(FVector::ZeroVector)
 	, bHasAcceleration(false)
 	, WorldAcceleration2D(FVector::ZeroVector)
 	, LocalAcceleration2D(FVector::ZeroVector)
-	, bIsFirstUpdate(true)
 {
 }
-
 
 #pragma region AnimationFunction
 
@@ -36,14 +42,13 @@ void USFEnemyAnimInstance::InitializeWithAbilitySystem(UAbilitySystemComponent* 
 	GameplayTagPropertyMap.Initialize(this, ASC);
 }
 
-
 void USFEnemyAnimInstance::NativeInitializeAnimation()
 {
 	Super::NativeInitializeAnimation();
 
 	if (AActor* OwningActor = GetOwningActor())
 	{
-		Character = Cast<ASFCharacterBase>(OwningActor);
+		Character = Cast<ACharacter>(OwningActor);
 		if (Character)
 		{
 			CachedMovementComponent = Character->GetCharacterMovement();
@@ -60,50 +65,50 @@ void USFEnemyAnimInstance::NativeUpdateAnimation(float DeltaSeconds)
 {
 	Super::NativeUpdateAnimation(DeltaSeconds);
 
+	 // GameThread로 값을 읽어 와야하는것을 여기서 처리함 
 	if (!Character)
 	{
-		Character = Cast<ASFCharacterBase>(GetOwningActor());
+		Character = Cast<ACharacter>(GetOwningActor());
 		if (Character && !CachedMovementComponent)
 		{
 			CachedMovementComponent = Character->GetCharacterMovement();
 		}
 	}
 
-	if (Character && CachedMovementComponent)
+	if (!Character || !CachedMovementComponent)
 	{
-		if (!bIsFirstUpdate)
-		{
-			PreviousWorldLocation = CachedLocation;
-		}
-		else
-		{
-			PreviousWorldLocation = Character->GetActorLocation();
-			bIsFirstUpdate = false;
-		}
-
-		// Location & Rotation 캐싱
-		CachedLocation = Character->GetActorLocation();
-		CachedRotation = Character->GetActorRotation();
-
-		// Velocity 캐싱
-		WorldVelocity = Character->GetVelocity();
-		WorldVelocity2D = FVector(WorldVelocity.X, WorldVelocity.Y, 0.0f);
-
-		// Acceleration 캐싱
-		FVector Acceleration = CachedMovementComponent->GetCurrentAcceleration();
-		WorldAcceleration2D = FVector(Acceleration.X, Acceleration.Y, 0.0f);
+		return;
 	}
+
+	//이전 프레임 값 저장 
+	if (!bIsFirstUpdate)
+	{
+		PreviousWorldLocation = CachedLocation;
+	}
+	else
+	{
+		PreviousWorldLocation = Character->GetActorLocation();
+		bIsFirstUpdate = false;
+	}
+
+	
+	CachedLocation = Character->GetActorLocation();
+	CachedRotation = Character->GetActorRotation();
+	
+	// Velocity 캐싱
+	CachedWorldVelocity = CachedMovementComponent->Velocity;
+	CachedWorldVelocity2D = FVector(CachedWorldVelocity.X, CachedWorldVelocity.Y, 0.0f);
+	
+	// Acceleration 캐싱
+	const FVector Acceleration = CachedMovementComponent->GetCurrentAcceleration();
+	CachedWorldAcceleration2D = FVector(Acceleration.X, Acceleration.Y, 0.0f);
 }
 
 void USFEnemyAnimInstance::NativeThreadSafeUpdateAnimation(float DeltaSeconds)
 {
 	Super::NativeThreadSafeUpdateAnimation(DeltaSeconds);
-
-	if (!Character)
-	{
-		return;
-	}
-
+	
+	
 	UpdateLocationData(DeltaSeconds);
 	UpdateRotationData();
 	UpdateVelocityData();
@@ -112,13 +117,17 @@ void USFEnemyAnimInstance::NativeThreadSafeUpdateAnimation(float DeltaSeconds)
 
 UCharacterMovementComponent* USFEnemyAnimInstance::GetMovementComponent()
 {
-	AActor* OwningActor = GetOwningActor();
-	if (OwningActor)
+	if (CachedMovementComponent)
 	{
-		Character = Cast<ACharacter>(OwningActor);
-		if (Character)
+		return CachedMovementComponent;
+	}
+
+	if (AActor* OwningActor = GetOwningActor())
+	{
+		if (ACharacter* OwningCharacter = Cast<ACharacter>(OwningActor))
 		{
-			return Character->GetCharacterMovement();
+			CachedMovementComponent = OwningCharacter->GetCharacterMovement();
+			return CachedMovementComponent;
 		}
 	}
 	return nullptr;
@@ -127,13 +136,9 @@ UCharacterMovementComponent* USFEnemyAnimInstance::GetMovementComponent()
 #pragma endregion 
 
 #pragma region ThreadSafeAnimationFunction
-//위치값 계산  -> Distance Matching을 위해서 변수 계산
+
 void USFEnemyAnimInstance::UpdateLocationData(float DeltaSeconds)
 {
-	if (!Character)
-	{
-		return;
-	}
 	WorldLocation = CachedLocation;
 
 	// Displacement 계산
@@ -148,38 +153,109 @@ void USFEnemyAnimInstance::UpdateLocationData(float DeltaSeconds)
 	{
 		DisplacementSpeed = 0.0f;
 	}
-	
+
+	// 디버그: 이동 속도 로그 (필요시 주석 해제)
+	// UE_LOG(LogTemp, Warning, TEXT("[%s] DisplacementSpeed: %.2f cm/s | Delta: %.2f cm | DeltaTime: %.4f s"),
+	// 	*GetNameSafe(GetOwningActor()), DisplacementSpeed, DisplacementSinceLastUpdate, DeltaSeconds);
 }
-//회전값 계산
+
 void USFEnemyAnimInstance::UpdateRotationData()
 {
-    if (!Character)
-    {
-        return;
-    }
-    WorldRotation = CachedRotation;
+	WorldRotation = CachedRotation;
 }
-//이동 속도 계산
+
 void USFEnemyAnimInstance::UpdateVelocityData()
 {
-	if (!Character)
-	{
-		return;
-	}
+	
+	WorldVelocity2D = CachedWorldVelocity2D;
+	
+	// Local 좌표계로 변환
 	LocalVelocity2D = CachedRotation.UnrotateVector(WorldVelocity2D);
-	const float VelocityLengthSquared = LocalVelocity2D.SizeSquared2D();
-	bHasVelocity = !FMath::IsNearlyZero(VelocityLengthSquared);
+	
+	// Velocity 체크
+	const float VelocityLength = LocalVelocity2D.Size();
+	
+	if (VelocityLength >1.0f)
+	{
+		bHasVelocity = true;
+	}
+	else
+	{
+		bHasVelocity = false;
+	}
 }
-// 가속도 계산
+
 void USFEnemyAnimInstance::UpdateAccelerationData()
 {
-	if (!Character)
-	{
-		return;
-	}
+	WorldAcceleration2D = CachedWorldAcceleration2D;
 	
+	// Local 좌표계로 변환
 	LocalAcceleration2D = CachedRotation.UnrotateVector(WorldAcceleration2D);
-	const float AccelerationLengthSquared = LocalAcceleration2D.SizeSquared2D();
-	bHasAcceleration = !FMath::IsNearlyZero(AccelerationLengthSquared);
+	
+	// Acceleration 체크
+	const float AccelerationLength = LocalAcceleration2D.Size();
+	bHasAcceleration = AccelerationLength > 1.0f; 
 }
+
+bool USFEnemyAnimInstance::ShouldDistanceMatchStop() const
+{
+	return bHasVelocity && (!bHasAcceleration);
+}
+
+float USFEnemyAnimInstance::GetPredictedStopDistance() const
+{
+
+	if (!CachedMovementComponent) return 0.f;
+
+	const FVector Velocity = CachedMovementComponent->GetLastUpdateVelocity();
+	const bool bUseSeparateBrakingFriction = CachedMovementComponent->bUseSeparateBrakingFriction;
+	const float BrakingFriction = CachedMovementComponent->BrakingFriction;
+	const float GroundFriction = CachedMovementComponent->GroundFriction;
+	const float BrakingFrictionFactor = CachedMovementComponent->BrakingFrictionFactor;
+	const float BrakingDecel = CachedMovementComponent->BrakingDecelerationWalking;
+
+	//  Locomotion Library 함수 호출
+	const FVector PredictedStopLoc = UAnimCharacterMovementLibrary::PredictGroundMovementStopLocation(
+		Velocity,
+		bUseSeparateBrakingFriction,
+		BrakingFriction,
+		GroundFriction,
+		BrakingFrictionFactor,
+		BrakingDecel
+	);
+
+	return FVector2D(PredictedStopLoc).Length();
+}
+
+void USFEnemyAnimInstance::PrintAnimationDebugInfo() const
+{
+	UE_LOG(LogTemp, Warning, TEXT("========== Animation Debug Info =========="));
+	UE_LOG(LogTemp, Warning, TEXT("Actor: %s"), *GetNameSafe(GetOwningActor()));
+	UE_LOG(LogTemp, Warning, TEXT(""));
+
+	UE_LOG(LogTemp, Warning, TEXT("--- Location Data ---"));
+	UE_LOG(LogTemp, Warning, TEXT("World Location: %s"), *WorldLocation.ToString());
+	UE_LOG(LogTemp, Warning, TEXT("Displacement Since Last Update: %.2f cm"), DisplacementSinceLastUpdate);
+	UE_LOG(LogTemp, Warning, TEXT("Displacement Speed: %.2f cm/s"), DisplacementSpeed);
+	UE_LOG(LogTemp, Warning, TEXT(""));
+
+	UE_LOG(LogTemp, Warning, TEXT("--- Velocity Data ---"));
+	UE_LOG(LogTemp, Warning, TEXT("Has Velocity: %s"), bHasVelocity ? TEXT("true") : TEXT("false"));
+	UE_LOG(LogTemp, Warning, TEXT("World Velocity 2D: %s (%.2f cm/s)"), *WorldVelocity2D.ToString(), WorldVelocity2D.Size());
+	UE_LOG(LogTemp, Warning, TEXT("Local Velocity 2D: %s (%.2f cm/s)"), *LocalVelocity2D.ToString(), LocalVelocity2D.Size());
+	UE_LOG(LogTemp, Warning, TEXT(""));
+
+	UE_LOG(LogTemp, Warning, TEXT("--- Acceleration Data ---"));
+	UE_LOG(LogTemp, Warning, TEXT("Has Acceleration: %s"), bHasAcceleration ? TEXT("true") : TEXT("false"));
+	UE_LOG(LogTemp, Warning, TEXT("World Acceleration 2D: %s"), *WorldAcceleration2D.ToString());
+	UE_LOG(LogTemp, Warning, TEXT("Local Acceleration 2D: %s"), *LocalAcceleration2D.ToString());
+	UE_LOG(LogTemp, Warning, TEXT(""));
+
+	UE_LOG(LogTemp, Warning, TEXT("--- Distance Matching ---"));
+	UE_LOG(LogTemp, Warning, TEXT("Should Distance Match Stop: %s"), ShouldDistanceMatchStop() ? TEXT("true") : TEXT("false"));
+	UE_LOG(LogTemp, Warning, TEXT("Predicted Stop Distance: %.2f cm"), GetPredictedStopDistance());
+	UE_LOG(LogTemp, Warning, TEXT("=========================================="));
+}
+
+
 #pragma endregion
