@@ -23,7 +23,7 @@ public:
 protected:
 	virtual bool PreGameplayEffectExecute(FGameplayEffectModCallbackData& Data) override;
 	virtual void PostGameplayEffectExecute(const FGameplayEffectModCallbackData& Data) override;
-
+	
 	virtual void PreAttributeBaseChange(const FGameplayAttribute& Attribute, float& NewValue) const override;
 	virtual void PreAttributeChange(const FGameplayAttribute& Attribute, float& NewValue) override;
 	virtual void PostAttributeChange(const FGameplayAttribute& Attribute, float OldValue, float NewValue) override;
@@ -34,6 +34,7 @@ public:
 	ATTRIBUTE_ACCESSORS(ThisClass, Health);
 	ATTRIBUTE_ACCESSORS(ThisClass, MaxHealth);
 	ATTRIBUTE_ACCESSORS(ThisClass, MoveSpeed);
+	ATTRIBUTE_ACCESSORS(ThisClass, Damage);
 
 protected:
 	UFUNCTION()
@@ -54,4 +55,7 @@ private:
 
 	UPROPERTY(BlueprintReadOnly, ReplicatedUsing=OnRep_MoveSpeed, meta=(AllowPrivateAccess="true"))
 	FGameplayAttributeData MoveSpeed;
+
+	UPROPERTY(BlueprintReadOnly, meta=(AllowPrivateAccess="true"))
+	FGameplayAttributeData Damage;
 };
