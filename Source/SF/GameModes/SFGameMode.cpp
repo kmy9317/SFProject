@@ -7,6 +7,16 @@
 #include "Character/SFPawnData.h"
 #include "Character/SFPawnExtensionComponent.h"
 
+ASFGameMode::ASFGameMode()
+{
+	bUseSeamlessTravel = true;
+}
+
+void ASFGameMode::InitGameState()
+{
+	Super::InitGameState();
+	// TODO : SFGameState 캐싱
+}
 
 void ASFGameMode::StartPlay()
 {

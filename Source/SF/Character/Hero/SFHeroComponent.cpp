@@ -14,7 +14,10 @@
 #include "Input/SFInputGameplayTags.h"
 #include "Player/SFPlayerController.h"
 #include "Player/SFPlayerState.h"
+#include "UI/SFHUD.h"
 #include "UserSettings/EnhancedInputUserSettings.h"
+#include "AbilitySystem/Attributes/Hero/SFCombatSet_Hero.h"
+#include "AbilitySystem/Attributes/Hero/SFPrimarySet_Hero.h"
 #include "Camera/SFCameraMode.h"
 
 const FName USFHeroComponent::NAME_ActorFeatureName("Hero");
@@ -137,8 +140,13 @@ void USFHeroComponent::HandleChangeInitState(UGameFrameworkComponentManager* Man
 			{
 				InitializePlayerInput(Pawn->InputComponent);
 			}
-		}
 
+			if (SFPC->IsLocalController())
+			{
+				InitializeHUD();
+			}
+		}
+		
 		// Hook up the delegate for all pawns, in case we spectate later
 		if (PawnData)
 		{
@@ -342,6 +350,44 @@ void USFHeroComponent::Input_Crouch(const FInputActionValue& InputActionValue)
 	if (ASFCharacterBase* Character = GetPawn<ASFCharacterBase>())
 	{
 		Character->ToggleCrouch();
+	}
+}
+
+void USFHeroComponent::InitializeHUD()
+{
+	APawn* Pawn = GetPawn<APawn>();
+	if (!Pawn || !Pawn->IsLocallyControlled())
+	{
+		return;
+	}
+
+	ASFPlayerController* PC = GetController<ASFPlayerController>();
+	if (!PC)
+	{
+		return;
+	}
+
+	ASFHUD* HUD = PC->GetHUD<ASFHUD>();
+	if (!HUD)
+	{
+		return;
+	}
+
+	ASFPlayerState* PS = PC->GetPlayerState<ASFPlayerState>();
+	if (!PS)
+	{
+		return;
+	}
+
+	USFAbilitySystemComponent* ASC = PS->GetSFAbilitySystemComponent();
+	USFPrimarySet_Hero* PrimarySet = const_cast<USFPrimarySet_Hero*>(PS->GetPrimarySet());
+	USFCombatSet_Hero* CombatSet = const_cast<USFCombatSet_Hero*>(PS->GetCombatSet());
+    
+	if (ASC && PrimarySet && CombatSet)
+	{
+		HUD->InitOverlay(PC, PS, ASC, PrimarySet, CombatSet, GetWorld()->GetGameState());
+        
+		UE_LOG(LogSF, Log, TEXT("HUD Overlay initialized for %s"), *PS->GetPlayerName());
 	}
 }
 

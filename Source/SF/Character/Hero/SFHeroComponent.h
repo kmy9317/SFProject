@@ -62,6 +62,8 @@ protected:
 	void Input_LookMouse(const FInputActionValue& InputActionValue);
 	void Input_Crouch(const FInputActionValue& InputActionValue);
 
+	void InitializeHUD();
+
 	UFUNCTION()
 	TSubclassOf<USFCameraMode> DetermineCameraMode();
 

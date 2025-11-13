@@ -16,9 +16,11 @@ class SF_API ASFGameMode : public AGameModeBase
 	GENERATED_BODY()
 
 public:
-	// PIE 테스트용 PostLogin(Lobby 없이 InGame 진입시)
-	virtual void PostLogin(APlayerController* NewPlayer) override;
+	ASFGameMode();
 	
+	// PIE 테스트용 PostLogin(Lobby 없이 InGame 진입시)
+	virtual void InitGameState() override;
+	virtual void PostLogin(APlayerController* NewPlayer) override;
 	virtual void HandleSeamlessTravelPlayer(AController*& Controller) override;
 	virtual void HandleStartingNewPlayer_Implementation(APlayerController* NewPlayer) override;
 	virtual UClass* GetDefaultPawnClassForController_Implementation(AController* Controller) override;

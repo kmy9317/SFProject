@@ -27,6 +27,7 @@ public class SF : ModuleRules
 			"MediaAssets",
 			"AIModule",
 			"ModularGameplay",
+			"GameplayMessageRuntime",
 			"AnimGraphRuntime",
 			"AnimationLocomotionLibraryRuntime",
 			"NavigationSystem"

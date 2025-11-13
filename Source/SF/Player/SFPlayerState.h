@@ -75,6 +75,8 @@ public:
 
 	void SetPlayerConnectionType(ESFPlayerConnectionType NewType);
 	ESFPlayerConnectionType GetPlayerConnectionType() const { return MyPlayerConnectionType; }
+	const USFPrimarySet_Hero* GetPrimarySet() const { return PrimarySet; }
+	const USFCombatSet_Hero* GetCombatSet() const { return CombatSet; }
 
 private:
 	void OnPawnDataLoadComplete(const USFPawnData* LoadedPawnData);
