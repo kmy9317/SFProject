@@ -20,6 +20,7 @@ public class SF : ModuleRules
 			"GameplayAbilities",
 			"NetCore",
 			"OnlineSubsystem",
+			"OnlineSubsystemSteam",
 			"OnlineSubsystemUtils",
 			"SlateCore",
 			"Slate",
