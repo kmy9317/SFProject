@@ -1,11 +1,13 @@
 #include "SFGameMode.h"
 
 #include "SFLogChannels.h"
+#include "Actors/SFPortal.h"
 #include "Player/SFPlayerInfoTypes.h"
 #include "Player/SFPlayerState.h"
 #include "Character/Hero/SFHeroDefinition.h"
 #include "Character/SFPawnData.h"
 #include "Character/SFPawnExtensionComponent.h"
+#include "Kismet/GameplayStatics.h"
 
 ASFGameMode::ASFGameMode()
 {
@@ -21,6 +23,22 @@ void ASFGameMode::InitGameState()
 void ASFGameMode::StartPlay()
 {
 	Super::StartPlay();
+
+	CachePortal();
+
+	// TODO : 테스트용 자동 포탈 활성화(삭제 예정)
+	if (bAutoActivatePortal)
+	{
+		GetWorld()->GetTimerManager().SetTimer(
+			PortalActivationTimerHandle,
+			this,
+			&ASFGameMode::AutoActivatePortalForTest,
+			PortalActivationDelay,
+			false
+		);
+
+		UE_LOG(LogSF, Warning, TEXT("[GameMode] Portal will activate in %.1f seconds"), PortalActivationDelay);
+	}
 }
 
 void ASFGameMode::PostLogin(APlayerController* NewPlayer)
@@ -168,6 +186,7 @@ const USFPawnData* ASFGameMode::GetPawnDataForController(const AController* InCo
 	return nullptr;
 }
 
+
 void ASFGameMode::SetupPlayerPawnDataLoading(APlayerController* PC)
 {
 	if (!PC)
@@ -231,4 +250,32 @@ void ASFGameMode::OnPlayerPawnDataLoaded(APlayerController* PC, const USFPawnDat
 	{
 		RestartPlayer(PC);
 	}
+}
+
+void ASFGameMode::CachePortal()
+{
+	if (IsValid(CachedPortal))
+	{
+		return;
+	}
+	
+	TArray<AActor*> FoundPortals;
+	UGameplayStatics::GetAllActorsOfClass(GetWorld(), ASFPortal::StaticClass(), FoundPortals);
+	if (FoundPortals.Num() > 0)
+	{
+		CachedPortal = Cast<ASFPortal>(FoundPortals[0]);
+	}
+}
+
+void ASFGameMode::ActivatePortal()
+{
+	if (CachedPortal)
+	{
+		CachedPortal->SetPortalEnabled(true);
+	}
+}
+
+void ASFGameMode::AutoActivatePortalForTest()
+{
+	ActivatePortal();
 }

@@ -8,8 +8,8 @@
 #include "GameFramework/GameStateBase.h"
 #include "SFLogChannels.h"
 #include "GameFramework/PlayerState.h"
+#include "Player/SFPlayerState.h"
 #include "System/SFGameInstance.h"
-
 
 ASFPortal::ASFPortal()
 {
@@ -80,6 +80,7 @@ void ASFPortal::SetPortalEnabled(bool bEnabled)
 
 	bIsEnabled = bEnabled;
 
+	// Listen 서버 로직
 	if (PortalEffect)
 	{
 		PortalEffect->SetActive(bIsEnabled);
@@ -100,10 +101,29 @@ void ASFPortal::SetPortalEnabled(bool bEnabled)
 	}
 
 	BroadcastPlayerCountChanged();
+}
 
-	UE_LOG(LogSF, Warning, TEXT("[Portal] Portal %s at %s"), 
-		bIsEnabled ? TEXT("Enabled") : TEXT("Disabled"), 
-		*GetActorLocation().ToString());
+int32 ASFPortal::GetRequiredPlayerCount() const
+{
+	if (const AGameStateBase* GameState = GetWorld()->GetGameState())
+	{
+		// 유효한 PlayerState만 카운트
+		int32 ValidPlayerCount = 0;
+		for (APlayerState* PS : GameState->PlayerArray)
+		{
+			if (PS && !PS->IsInactive())
+			{
+				ValidPlayerCount++;
+			}
+		}
+		return ValidPlayerCount;
+	}
+	return 1;
+}
+
+bool ASFPortal::IsReadyToTravel() const
+{
+	return bIsEnabled && PlayersInPortal.Num() >= GetRequiredPlayerCount() && !bIsTraveling && GetRequiredPlayerCount() > 0;
 }
 
 void ASFPortal::OnPortalBeginOverlap(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, 
@@ -115,39 +135,42 @@ void ASFPortal::OnPortalBeginOverlap(UPrimitiveComponent* OverlappedComponent, A
 	}
 
 	// Pawn이 진입했는지 확인
-	if (APawn* Pawn = Cast<APawn>(OtherActor))
+	APawn* Pawn = Cast<APawn>(OtherActor);
+	if (!Pawn)
 	{
-		if (APlayerController* PC = Cast<APlayerController>(Pawn->GetController()))
-		{
-			// 이미 목록에 있는지 확인
-			if (!PlayersInPortal.Contains(PC))
-			{
-				PlayersInPortal.AddUnique(PC);
-				
-				UE_LOG(LogSF, Log, TEXT("[Portal] Player %s entered portal (%d/%d)"), 
-					*PC->GetPlayerState<APlayerState>()->GetPlayerName(),
-					PlayersInPortal.Num(), 
-					GetRequiredPlayerCount());
+		return;
+	}
 
-				BroadcastPlayerCountChanged();
+	// PlayerState 가져오기
+	APlayerState* PS = Pawn->GetPlayerState();
+	if (!PS || PS->IsInactive())
+	{
+		return;
+	}
 
-				// 모든 플레이어가 입장했는지 확인
-				if (IsReadyToTravel())
-				{
-					UE_LOG(LogSF, Log, TEXT("[Portal] All players ready! Starting travel in %.1f seconds"), 
-						TravelDelayTime);
+	// 이미 목록에 있는지 확인
+	if (IsPlayerInPortal(PS))
+	{
+		return;
+	}
 
-					// 딜레이 후 전환
-					GetWorld()->GetTimerManager().SetTimer(
-						TravelTimerHandle,
-						this,
-						&ASFPortal::TravelToNextStage,
-						TravelDelayTime,
-						false
-					);
-				}
-			}
-		}
+	// PlayerSelectionInfo 가져오기
+	FSFPlayerSelectionInfo PlayerInfo = GetPlayerSelectionInfo(PS);
+	
+	// 플레이어 추가
+	PlayersInPortal.Add(PlayerInfo);
+
+	// 델리게이트 브로드캐스트
+	OnPlayerEntered.Broadcast(PlayerInfo);
+	BroadcastPlayerCountChanged();
+
+	// 모든 플레이어가 입장했는지 확인
+	if (IsReadyToTravel())
+	{
+		UE_LOG(LogSF, Warning, TEXT("[Portal] All players ready! Starting travel in %.1f seconds"), TravelDelayTime);
+
+		// 딜레이 후 전환
+		GetWorld()->GetTimerManager().SetTimer(TravelTimerHandle,this, &ASFPortal::TravelToNextStage,TravelDelayTime,false);
 	}
 }
 
@@ -160,38 +183,38 @@ void ASFPortal::OnPortalEndOverlap(UPrimitiveComponent* OverlappedComponent, AAc
 	}
 
 	// Pawn이 이탈했는지 확인
-	if (APawn* Pawn = Cast<APawn>(OtherActor))
+	APawn* Pawn = Cast<APawn>(OtherActor);
+	if (!Pawn)
 	{
-		if (APlayerController* PC = Cast<APlayerController>(Pawn->GetController()))
-		{
-			if (PlayersInPortal.Remove(PC) > 0)
-			{
-				UE_LOG(LogSF, Log, TEXT("[Portal] Player %s left portal (%d/%d)"), 
-					*PC->GetPlayerState<APlayerState>()->GetPlayerName(),
-					PlayersInPortal.Num(), 
-					GetRequiredPlayerCount());
-
-				// 타이머 취소
-				GetWorld()->GetTimerManager().ClearTimer(TravelTimerHandle);
-
-				BroadcastPlayerCountChanged();
-			}
-		}
+		return;
 	}
-}
 
-bool ASFPortal::IsReadyToTravel() const
-{
-	return bIsEnabled && PlayersInPortal.Num() >= GetRequiredPlayerCount() && !bIsTraveling;
-}
-
-int32 ASFPortal::GetRequiredPlayerCount() const
-{
-	if (const AGameStateBase* GameState = GetWorld()->GetGameState())
+	// PlayerState 가져오기
+	APlayerState* PS = Pawn->GetPlayerState();
+	if (!PS)
 	{
-		return GameState->PlayerArray.Num();
+		return;
 	}
-	return 1;
+
+	// 플레이어 찾기
+	int32 FoundIndex = PlayersInPortal.IndexOfByPredicate([PS](const FSFPlayerSelectionInfo& Info)
+	{
+		return Info.IsForPlayer(PS);
+	});
+
+	if (FoundIndex != INDEX_NONE)
+	{
+		FSFPlayerSelectionInfo RemovedPlayer = PlayersInPortal[FoundIndex];
+		PlayersInPortal.RemoveAt(FoundIndex);
+
+		// 델리게이트 브로드캐스트
+		OnPlayerLeft.Broadcast(RemovedPlayer);
+
+		// 타이머 취소
+		GetWorld()->GetTimerManager().ClearTimer(TravelTimerHandle);
+
+		BroadcastPlayerCountChanged();
+	}
 }
 
 void ASFPortal::TravelToNextStage()
@@ -216,14 +239,54 @@ void ASFPortal::TravelToNextStage()
 		return;
 	}
 
-	UE_LOG(LogSF, Log, TEXT("[Portal] Traveling to next stage: %s"), 
-		*NextStageLevel.ToString());
+	UE_LOG(LogSF, Log, TEXT("[Portal] Traveling to next stage: %s"), *NextStageLevel.ToString());
 
-	// GameInstance를 통해 맵 전환
-	if (USFGameInstance* GameInstance = GetWorld()->GetGameInstance<USFGameInstance>())
+	// Seamless Travel 실행
+	if (USFGameInstance* SFGameInstance = Cast<USFGameInstance>(GetWorld()->GetGameInstance()))
 	{
-		GameInstance->LoadLevelAndListen(NextStageLevel);
+		SFGameInstance->LoadLevelAndListen(NextStageLevel);
 	}
+}
+
+bool ASFPortal::IsPlayerInPortal(const APlayerState* PlayerState) const
+{
+	if (!PlayerState)
+	{
+		return false;
+	}
+
+	return PlayersInPortal.ContainsByPredicate([PlayerState](const FSFPlayerSelectionInfo& Info)
+	{
+		return Info.IsForPlayer(PlayerState);
+	});
+}
+
+FSFPlayerSelectionInfo ASFPortal::GetPlayerSelectionInfo(const APlayerState* PlayerState) const
+{
+	// ASFPlayerState에서 PlayerSelection 가져오기
+	if (const ASFPlayerState* SFPS = Cast<ASFPlayerState>(PlayerState))
+	{
+		return SFPS->GetPlayerSelection();
+	}
+
+	// ASFPlayerState가 아니면 기본 정보만 생성
+	FSFPlayerSelectionInfo DefaultInfo;
+	if (PlayerState)
+	{
+		DefaultInfo = FSFPlayerSelectionInfo(0, PlayerState);
+	}
+	return DefaultInfo;
+}
+
+void ASFPortal::BroadcastPlayerCountChanged()
+{
+	const int32 CurrentCount = PlayersInPortal.Num();
+	const int32 RequiredCount = GetRequiredPlayerCount();
+	
+	OnPlayerCountChanged.Broadcast(CurrentCount, RequiredCount);
+	
+	// 블루프린트 이벤트 호출
+	OnPortalStateChanged(bIsEnabled, CurrentCount, RequiredCount);
 }
 
 void ASFPortal::OnRep_bIsEnabled()
@@ -239,14 +302,6 @@ void ASFPortal::OnRep_bIsEnabled()
 void ASFPortal::OnRep_PlayersInPortal()
 {
 	BroadcastPlayerCountChanged();
-}
-
-void ASFPortal::BroadcastPlayerCountChanged()
-{
-	OnPlayerCountChanged.Broadcast(PlayersInPortal.Num(), GetRequiredPlayerCount());
-	
-	// 블루프린트 이벤트 호출
-	OnPortalStateChanged(bIsEnabled, PlayersInPortal.Num(), GetRequiredPlayerCount());
 }
 
 
