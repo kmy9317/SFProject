@@ -16,12 +16,10 @@ class SF_API USFGameInstance : public UGameInstance
 
 public:
 	void StartMatch();
+	void LoadLevelAndListen(TSoftObjectPtr<UWorld> Level);
 	
 protected:
 	virtual void Init() override;
-
-private:
-	void LoadLevelAndListen(TSoftObjectPtr<UWorld> Level);
 
 private:
 	
