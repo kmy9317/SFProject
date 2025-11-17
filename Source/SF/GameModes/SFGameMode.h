@@ -57,10 +57,6 @@ private:
 	UPROPERTY(EditDefaultsOnly, Category = "SF|Test", meta = (EditCondition = "bUsePIETestMode"))
 	TObjectPtr<USFHeroDefinition> PIETestHeroDefinition;
 
-	/** 다음 스테이지 레벨 */
-	UPROPERTY(EditDefaultsOnly, Category = "SF|Stages")
-	TSoftObjectPtr<UWorld> NextStageLevel;
-	
 	/** PIE 테스트 모드 활성화 여부*/
 	UPROPERTY(EditDefaultsOnly, Category = "SF|Test")
 	bool bUsePIETestMode = false;

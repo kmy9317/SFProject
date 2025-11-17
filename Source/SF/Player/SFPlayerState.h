@@ -15,6 +15,7 @@ class USFAbilitySystemComponent;
 
 // PawnData 로드 완료 델리게이트
 DECLARE_MULTICAST_DELEGATE_OneParam(FOnPawnDataLoaded, const USFPawnData*);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE(FOnPlayerInfoChangedDelegate);
 
 /** Defines the types of client connected */
 UENUM()
@@ -58,7 +59,7 @@ public:
 	const T* GetPawnData() const { return Cast<T>(PawnData); }
 	void SetPawnData(const USFPawnData* InPawnData);
 
-	void SetPlayerSelection(const FSFPlayerSelectionInfo& NewPlayerSelection) { PlayerSelection = NewPlayerSelection; }
+	void SetPlayerSelection(const FSFPlayerSelectionInfo& NewPlayerSelection);
 	const FSFPlayerSelectionInfo& GetPlayerSelection() const { return PlayerSelection; }
 
 	//~AActor interface
@@ -81,14 +82,23 @@ public:
 private:
 	void OnPawnDataLoadComplete(const USFPawnData* LoadedPawnData);
 
+	UFUNCTION()
+	virtual void OnRep_PlayerSelection();
+	
 public:
 	FOnPawnDataLoaded OnPawnDataLoaded;
-	
+
+	UPROPERTY(BlueprintAssignable, Category = "SF|Events")
+	FOnPlayerInfoChangedDelegate OnPlayerInfoChanged;
+
 private:
 	
 	// 어빌리티 시스템 컴포넌트에서 PawnData를 참조해서 능력을 부여하기 위해 캐싱을 해놓음
 	UPROPERTY(Replicated)
 	TObjectPtr<const USFPawnData> PawnData;
+
+	UPROPERTY(ReplicatedUsing = OnRep_PlayerSelection)
+	FSFPlayerSelectionInfo PlayerSelection;
 
 	UPROPERTY(VisibleAnywhere, Category = "SF|PlayerState")
 	TObjectPtr<USFAbilitySystemComponent> AbilitySystemComponent;
@@ -101,8 +111,6 @@ private:
 
 	UPROPERTY(Replicated)
 	ESFPlayerConnectionType MyPlayerConnectionType;
-	
-	FSFPlayerSelectionInfo PlayerSelection;
 
 	UPROPERTY()
 	uint8 bPawnDataLoaded : 1;

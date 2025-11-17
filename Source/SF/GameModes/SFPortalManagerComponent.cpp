@@ -8,7 +8,8 @@
 #include "GameFramework/GameStateBase.h"
 #include "Messages/SFMessageGameplayTags.h"
 
-USFPortalManagerComponent::USFPortalManagerComponent()
+USFPortalManagerComponent::USFPortalManagerComponent(const FObjectInitializer& ObjectInitializer)
+    : Super(ObjectInitializer)
 {
 	PrimaryComponentTick.bCanEverTick = false;
 	SetIsReplicatedByDefault(true);

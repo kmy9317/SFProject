@@ -77,7 +77,7 @@ class SF_API USFPortalManagerComponent : public UGameStateComponent
 	GENERATED_BODY()
 
 public:
-    USFPortalManagerComponent();
+    USFPortalManagerComponent(const FObjectInitializer& ObjectInitializer = FObjectInitializer::Get());
     
     virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
     virtual void BeginPlay() override;

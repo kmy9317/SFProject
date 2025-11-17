@@ -30,6 +30,8 @@ void ASFPlayerState::GetLifetimeReplicatedProps(TArray<class FLifetimeProperty>&
 {
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 
+	DOREPLIFETIME(ThisClass, PlayerSelection);
+	
 	FDoRepLifetimeParams SharedParams;
 	SharedParams.bIsPushBased = true;
 
@@ -205,8 +207,23 @@ void ASFPlayerState::SetPawnData(const USFPawnData* InPawnData)
 	ForceNetUpdate();
 }
 
+void ASFPlayerState::SetPlayerSelection(const FSFPlayerSelectionInfo& NewPlayerSelection)
+{
+	PlayerSelection = NewPlayerSelection;
+	
+	if (HasAuthority())
+	{
+		OnPlayerInfoChanged.Broadcast();
+	}
+}
+
 void ASFPlayerState::SetPlayerConnectionType(ESFPlayerConnectionType NewType)
 {
 	MARK_PROPERTY_DIRTY_FROM_NAME(ThisClass, MyPlayerConnectionType, this);
 	MyPlayerConnectionType = NewType;
+}
+
+void ASFPlayerState::OnRep_PlayerSelection()
+{
+	OnPlayerInfoChanged.Broadcast();
 }
