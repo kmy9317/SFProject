@@ -4,6 +4,7 @@
 #include "SFWidgetController.h"
 #include "SFOverlayWidgetController.generated.h"
 
+struct FSFPlayerSelectionInfo;
 /**
  * 
  */
@@ -17,6 +18,10 @@ public:
 
 	// 콜백 함수 바인딩
 	virtual void BindCallbacksToDependencies() override;
+
+protected:
+	UFUNCTION()
+	void HandlePlayerInfoChanged(const FSFPlayerSelectionInfo& NewPlayerSelection);
 
 private:
 	void BindPrimaryAttributeCallbacks();
@@ -41,4 +46,8 @@ public:
 
 	UPROPERTY(BlueprintAssignable, Category="SF|Attributes")
 	FOnAttributeChangedSignature OnMaxStaminaChanged;
+
+	// FSFPlayerSelectionInfo 구조체 변경을 알릴 델리게이트
+	UPROPERTY(BlueprintAssignable, Category="SF|Info")
+	FOnPlayerInfoChangedSignature OnPlayerInfoChanged;
 };

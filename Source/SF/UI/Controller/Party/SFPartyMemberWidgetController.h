@@ -7,9 +7,8 @@
 
 #include "SFPartyMemberWidgetController.generated.h"
 
+struct FSFPlayerSelectionInfo;
 class USFUserWidget;
-
-DECLARE_DYNAMIC_MULTICAST_DELEGATE(FOnPlayerInfoChangedSignature);
 
 /**
  * 
@@ -24,9 +23,6 @@ public:
     
 	// 이 컨트롤러는 다른 클라이언트들의 PlayerState의 현재 값을 브로드캐스트
 	virtual void BroadcastInitialSets() override;
-
-	void SetPartyEntryWidget(USFUserWidget* InPartyEntryWidget);
-	USFUserWidget* GetPartyEntryWidget() const { return PartyEntryWidget; }
 
 public:
 	// WBP_PartyMemberEntry 위젯이 바인딩할 델리게이트
@@ -45,9 +41,7 @@ public:
 protected:
 	// 이 파티원의 PlayerState에 있는 OnRep_PlayerSelectionInfo가 호출될 때 실행될 핸들러
 	UFUNCTION()
-	void HandlePlayerInfoChanged();
+	void HandlePlayerInfoChanged(const FSFPlayerSelectionInfo& PlayerInfo);
 
-private:
-	UPROPERTY()
-	USFUserWidget* PartyEntryWidget;
+
 };

@@ -4,6 +4,7 @@
 #include "SFOverlayWidgetController.h"
 
 #include "AbilitySystem/Attributes/Hero/SFPrimarySet_Hero.h"
+#include "Player/SFPlayerState.h"
 
 void USFOverlayWidgetController::BroadcastInitialSets()
 {
@@ -14,11 +15,23 @@ void USFOverlayWidgetController::BroadcastInitialSets()
 	OnMaxManaChanged.Broadcast(TargetPrimarySet->GetMaxMana());
 	OnStaminaChanged.Broadcast(TargetPrimarySet->GetStamina());
 	OnMaxStaminaChanged.Broadcast(TargetPrimarySet->GetMaxStamina());
+
+	ASFPlayerState* SFPS = Cast<ASFPlayerState>(TargetPlayerState);
+	if (SFPS)
+	{
+		OnPlayerInfoChanged.Broadcast(SFPS->GetPlayerSelection());
+	}
 }
 
 void USFOverlayWidgetController::BindCallbacksToDependencies()
 {
 	BindPrimaryAttributeCallbacks();
+	
+	ASFPlayerState* SFPS = Cast<ASFPlayerState>(TargetPlayerState);
+	if (SFPS)
+	{
+		SFPS->OnPlayerInfoChanged.AddDynamic(this, &ThisClass::HandlePlayerInfoChanged);
+	}
 	// TODO : 다른 Model들에 대한 Callbacks도 추가할 것
 }
 
@@ -76,6 +89,11 @@ void USFOverlayWidgetController::BindPrimaryAttributeCallbacks()
 			}
 		});
 	}
+}
+
+void USFOverlayWidgetController::HandlePlayerInfoChanged(const FSFPlayerSelectionInfo& NewPlayerSelection)
+{
+	OnPlayerInfoChanged.Broadcast(NewPlayerSelection);
 }
 
 

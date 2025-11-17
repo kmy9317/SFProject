@@ -7,7 +7,6 @@
 #include "SFPartyMemberWidgetController.h"
 #include "GameModes/SFGameState.h"
 #include "Player/SFPlayerState.h"
-#include "UI/SFUserWidget.h"
 
 void USFPartyWidgetController::BindCallbacksToDependencies()
 {
@@ -86,14 +85,11 @@ void USFPartyWidgetController::AddAndBroadcastMember(ASFPlayerState* PlayerState
 	MemberController->SetWidgetControllerParams(Params);
 	MemberController->BindCallbacksToDependencies();
 
-	// TMap에 저장
 	PartyMemberControllers.Add(PlayerState, MemberController);
-	
-	// 위젯에 위젯 컨트롤러 설정
-	
-	// 위젯 컨트롤러가 초기값을 브로드캐스트하도록 호출
-	
 	OnPartyMemberAdded.Broadcast(MemberController);
+
+	// 위젯에 위젯 컨트롤러 설정(WBP_PartyInfo에서 호출함)
+	// 생성된 파티 멤버 컨트롤러가 초기값을 브로드캐스트하도록 호출(BP에서 호출함)
 }
 
 void USFPartyWidgetController::RemoveAndBroadcastMember(ASFPlayerState* PlayerState)

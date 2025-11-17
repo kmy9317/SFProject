@@ -16,7 +16,7 @@ void USFPartyMemberWidgetController::BroadcastInitialSets()
 		// 추가적으로 필요한 Attribute 브로드 캐스트
 
 		// 2. 초기 플레이어 정보 브로드캐스트
-		OnPlayerInfoChanged.Broadcast();
+		OnPlayerInfoChanged.Broadcast(SFPS->GetPlayerSelection());
 	}
 }
 
@@ -53,16 +53,10 @@ void USFPartyMemberWidgetController::BindCallbacksToDependencies()
 	// (필요시 나머지 어트리뷰트 바인딩)
 
 	// PlayerState의 Info 델리게이트에 바인딩
-	SFPS->OnPlayerInfoChanged.AddDynamic(this, &USFPartyMemberWidgetController::HandlePlayerInfoChanged);
+	SFPS->OnPlayerInfoChanged.AddDynamic(this, &ThisClass::HandlePlayerInfoChanged);
 }
 
-void USFPartyMemberWidgetController::SetPartyEntryWidget(USFUserWidget* InPartyEntryWidget)
+void USFPartyMemberWidgetController::HandlePlayerInfoChanged(const FSFPlayerSelectionInfo& NewPlayerSelection)
 {
-	PartyEntryWidget = InPartyEntryWidget;
-}
-
-
-void USFPartyMemberWidgetController::HandlePlayerInfoChanged()
-{
-	OnPlayerInfoChanged.Broadcast();
+	OnPlayerInfoChanged.Broadcast(NewPlayerSelection);
 }

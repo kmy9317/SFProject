@@ -61,7 +61,4 @@ private:
 	// 파티 멤버 위젯 컨트롤러의 블루프린트 클래스
 	UPROPERTY(EditDefaultsOnly, Category = "SF|Controller")
 	TSubclassOf<USFPartyMemberWidgetController> PartyMemberWidgetControllerClass;
-
-	UPROPERTY(EditDefaultsOnly, Category = "SF|Widget")
-	TSubclassOf<USFUserWidget> PartyEntryWidgetClass;
 };

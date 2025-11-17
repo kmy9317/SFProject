@@ -8,12 +8,12 @@
 
 USFOverlayWidgetController* ASFHUD::GetOverlayWidgetController(const FWidgetControllerParams& WCParams)
 {
-	return GetWidgetController<USFOverlayWidgetController>(WCParams);
+	return Cast<USFOverlayWidgetController>(GetWidgetController(OverlayWidgetControllerClass, WCParams));
 }
 
 USFPartyWidgetController* ASFHUD::GetPartyWidgetController(const FWidgetControllerParams& WCParams)
 {
-	return GetWidgetController<USFPartyWidgetController>(WCParams);
+	return Cast<USFPartyWidgetController>(GetWidgetController(PartyWidgetControllerClass, WCParams));
 }
 
 USFWidgetController* ASFHUD::GetWidgetController(TSubclassOf<USFWidgetController> ControllerClass, const FWidgetControllerParams& WCParams)
@@ -49,16 +49,8 @@ void ASFHUD::InitOverlay(APlayerController* PC, APlayerState* PS, UAbilitySystem
 
 	// 위젯 컨트롤러 파라미터 구성
 	const FWidgetControllerParams WidgetControllerParams(PC, PS, ASC, PrimaryAS, CombatAS, GS);
-
-	USFPartyWidgetController* PartyWidgetController = Cast<USFPartyWidgetController>(GetWidgetController(PartyWidgetControllerClass, WidgetControllerParams));
-	if (PartyWidgetController)
-	{
-		// PartyWidgetController PartyInfoWidget에 설정
-		//PartyWidgetController->BroadcastInitialSets();
-	}
 	
-	// 위젯 컨트롤러 가져오기(또는 생성)
-	// 미리 필요한 컨트롤러들을 생성해 놓기
+	// 오버레이 위젯 컨트롤러 생성
 	USFOverlayWidgetController* OverlayWidgetController = Cast<USFOverlayWidgetController>(GetWidgetController(OverlayWidgetControllerClass, WidgetControllerParams));
 	if (OverlayWidgetController)
 	{

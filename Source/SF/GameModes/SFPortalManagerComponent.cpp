@@ -40,9 +40,12 @@ void USFPortalManagerComponent::ActivatePortal()
 
     bPortalActive = true;
 
-    // 등록된 Portal들 비주얼 업데이트
-    ManagedPortal->SetPortalEnabled(true);
-
+    if (ManagedPortal)
+    {
+        // 등록된 Portal들 비주얼 업데이트
+        ManagedPortal->SetPortalEnabled(true);
+    }
+    
     // 상태 브로드캐스트
     BroadcastPortalState();
 }

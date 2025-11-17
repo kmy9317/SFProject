@@ -4,7 +4,7 @@
 ASFGameState::ASFGameState()
 {
 	// Portal Manager 생성
-	PortalManager = CreateDefaultSubobject<USFPortalManagerComponent>(TEXT("PortalManager"));
+	//PortalManager = CreateDefaultSubobject<USFPortalManagerComponent>(TEXT("PortalManager"));
 }
 
 void ASFGameState::AddPlayerState(APlayerState* PlayerState)

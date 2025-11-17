@@ -10,6 +10,7 @@ class UAbilitySystemComponent;
 class UAttributeSet;
 
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnAttributeChangedSignature, float, NewValue);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnPlayerInfoChangedSignature, const FSFPlayerSelectionInfo&, PlayerInfo);
 
 /**
  * 위젯 컨트롤러에 필요한 정보를 담을 구조체
@@ -62,6 +63,12 @@ public:
 	// Attribute 변경에 대한 콜백 함수들을 바인딩하는 함수 (자식에서 구현)
 	UFUNCTION(BlueprintCallable, Category="SF|Widget")
 	virtual void BindCallbacksToDependencies() {}
+
+	UFUNCTION(BlueprintPure, Category="SF|Widget")
+	APlayerState* GetTargetPlayerState() const { return TargetPlayerState; }
+
+	UFUNCTION(BlueprintPure, Category="SF|WidgetParams")
+	FWidgetControllerParams GetWidgetControllerParams() const { return FWidgetControllerParams(PlayerController, TargetPlayerState, TargetAbilitySystemComponent, TargetPrimarySet, TargetCombatSet, GameState); }
 
 protected:
 	

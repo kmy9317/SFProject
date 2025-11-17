@@ -264,7 +264,7 @@ void ASFGameMode::ActivatePortal()
 
 void ASFGameMode::AutoActivatePortalForTest()
 {
-	ActivatePortal();
+	//ActivatePortal();
 }
 
 void ASFGameMode::RequestTravelToNextStage(TSoftObjectPtr<UWorld> NextStageLevel)

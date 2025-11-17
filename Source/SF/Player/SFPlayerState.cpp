@@ -213,7 +213,7 @@ void ASFPlayerState::SetPlayerSelection(const FSFPlayerSelectionInfo& NewPlayerS
 	
 	if (HasAuthority())
 	{
-		OnPlayerInfoChanged.Broadcast();
+		OnPlayerInfoChanged.Broadcast(NewPlayerSelection);
 	}
 }
 
@@ -225,5 +225,5 @@ void ASFPlayerState::SetPlayerConnectionType(ESFPlayerConnectionType NewType)
 
 void ASFPlayerState::OnRep_PlayerSelection()
 {
-	OnPlayerInfoChanged.Broadcast();
+	OnPlayerInfoChanged.Broadcast(PlayerSelection);
 }
