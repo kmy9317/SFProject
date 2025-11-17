@@ -11,7 +11,6 @@ void ASFGameState::AddPlayerState(APlayerState* PlayerState)
 {
 	Super::AddPlayerState(PlayerState);
 
-	// 유효한 PlayerState인 경우에만
 	if (PlayerState)
 	{
 		// 델리게이트를 브로드캐스트하여 UI를 포함한 모든 리스너에게 새 플레이어가 추가되었음을 알림

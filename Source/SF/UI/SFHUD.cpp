@@ -4,25 +4,16 @@
 #include "SFUserWidget.h"
 #include "Blueprint/UserWidget.h"
 #include "Controller/SFOverlayWidgetController.h"
+#include "Controller/Party/SFPartyWidgetController.h"
 
 USFOverlayWidgetController* ASFHUD::GetOverlayWidgetController(const FWidgetControllerParams& WCParams)
 {
-	if (OverlayWidgetController == nullptr)
-	{
-		if (OverlayWidgetControllerClass == nullptr)
-		{
-			UE_LOG(LogSF, Warning, TEXT("OverlayWidgetControllerClass is not set."));
-			return nullptr;
-		}
-		
-		// 위젯 컨트롤러가 없으면 지정된 클래스로 생성
-		OverlayWidgetController = NewObject<USFOverlayWidgetController>(this, OverlayWidgetControllerClass);
-		OverlayWidgetController->SetWidgetControllerParams(WCParams);
-		OverlayWidgetController->BindCallbacksToDependencies();
+	return GetWidgetController<USFOverlayWidgetController>(WCParams);
+}
 
-		WidgetControllers.Add(USFOverlayWidgetController::StaticClass(), OverlayWidgetController);
-	}
-	return OverlayWidgetController;
+USFPartyWidgetController* ASFHUD::GetPartyWidgetController(const FWidgetControllerParams& WCParams)
+{
+	return GetWidgetController<USFPartyWidgetController>(WCParams);
 }
 
 USFWidgetController* ASFHUD::GetWidgetController(TSubclassOf<USFWidgetController> ControllerClass, const FWidgetControllerParams& WCParams)
@@ -36,21 +27,20 @@ USFWidgetController* ASFHUD::GetWidgetController(TSubclassOf<USFWidgetController
 	{
 		return *CachedController;
 	}
-
-	return nullptr;
+	
+	USFWidgetController* NewController = NewObject<USFWidgetController>(this, ControllerClass);
+	NewController->SetWidgetControllerParams(WCParams);
+	NewController->BindCallbacksToDependencies();
+    
+	WidgetControllers.Add(ControllerClass, NewController);
+	return NewController;
 }
 
 void ASFHUD::InitOverlay(APlayerController* PC, APlayerState* PS, UAbilitySystemComponent* ASC, USFPrimarySet_Hero* PrimaryAS, USFCombatSet_Hero* CombatAS, AGameStateBase* GS)
 {
-	if (!OverlayWidgetClass)
+	if (!OverlayWidgetClass ||!OverlayWidgetControllerClass ||!PartyWidgetControllerClass)
 	{
-		UE_LOG(LogSF, Warning, TEXT("OverlayWidgetClass is not set in BP_HUD. Please fill it out."));
-		return;
-	}
-
-	if (!OverlayWidgetControllerClass)
-	{
-		UE_LOG(LogSF, Warning, TEXT("OverlayWidgetControllerClass is not set in BP_HUD. Please fill it out."));
+		UE_LOG(LogSF, Warning, TEXT("OverlayWidgetClass, OverlayWidgetControllerClass, or PartyWidgetControllerClass is not set in BP_HUD."));
 		return;
 	}
 
@@ -59,22 +49,31 @@ void ASFHUD::InitOverlay(APlayerController* PC, APlayerState* PS, UAbilitySystem
 
 	// 위젯 컨트롤러 파라미터 구성
 	const FWidgetControllerParams WidgetControllerParams(PC, PS, ASC, PrimaryAS, CombatAS, GS);
+
+	USFPartyWidgetController* PartyWidgetController = Cast<USFPartyWidgetController>(GetWidgetController(PartyWidgetControllerClass, WidgetControllerParams));
+	if (PartyWidgetController)
+	{
+		// PartyWidgetController PartyInfoWidget에 설정
+		//PartyWidgetController->BroadcastInitialSets();
+	}
 	
 	// 위젯 컨트롤러 가져오기(또는 생성)
 	// 미리 필요한 컨트롤러들을 생성해 놓기
-	USFOverlayWidgetController* WidgetController = GetOverlayWidgetController(WidgetControllerParams);
+	USFOverlayWidgetController* OverlayWidgetController = Cast<USFOverlayWidgetController>(GetWidgetController(OverlayWidgetControllerClass, WidgetControllerParams));
+	if (OverlayWidgetController)
+	{
+		// 위젯에 위젯 컨트롤러 설정
+		// 해당 시점에 OnWidgetControllerSet 함수가 호출됨
+		// SFUserWidget을 상속받는 Overlay 블루프린트 위젯에서 OnWidgetControllerSet 이벤트 호출 가능
+		// 자식이 없는 Overlay 위젯의 경우는 여기서 Attribute 변경에 대한 델리게이트를 바인딩하여 UI 업데이트 가능
+		// 자식이 있는 Overlay 위젯 블루프린트 내 자식으로 가지고 있는 SFUserWidget타입의 위젯에 접근하여 WidgetController를 설정하고 여기서 또 OnWidgetControllerSet 함수를 호출
+		// 해당 위젯에서 Attribute 변경에 대한 델리게이트를 바인딩하여 UI 업데이트 가능(Ex Overlay위젯의 자식으로 가지고 있는 HealthBar 위젯)
+		OverlayWidget->SetWidgetController(OverlayWidgetController);
 
-	// 위젯에 위젯 컨트롤러 설정
-	// 해당 시점에 OnWidgetControllerSet 함수가 호출됨
-	// SFUserWidget을 상속받는 Overlay 블루프린트 위젯에서 OnWidgetControllerSet 이벤트 호출 가능
-	// 자식이 없는 Overlay 위젯의 경우는 여기서 Attribute 변경에 대한 델리게이트를 바인딩하여 UI 업데이트 가능
-	// 자식이 있는 Overlay 위젯 블루프린트 내 자식으로 가지고 있는 SFUserWidget타입의 위젯에 접근하여 WidgetController를 설정하고 여기서 또 OnWidgetControllerSet 함수를 호출
-	// 해당 위젯에서 Attribute 변경에 대한 델리게이트를 바인딩하여 UI 업데이트 가능(Ex Overlay위젯의 자식으로 가지고 있는 HealthBar 위젯)
-	OverlayWidget->SetWidgetController(WidgetController);
+		// 위젯 컨트롤러가 초기값을 브로드캐스트하도록 호출
+		OverlayWidgetController->BroadcastInitialSets();
+	}
 	
-	// 위젯 컨트롤러가 초기값을 브로드캐스트하도록 호출
-	WidgetController->BroadcastInitialValues();
-
 	// 뷰포트에 위젯 추가
 	OverlayWidget->AddToViewport();
 }

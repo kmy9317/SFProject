@@ -4,8 +4,6 @@
 #include "SFWidgetController.h"
 #include "SFOverlayWidgetController.generated.h"
 
-DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnAttributeChangedSignature, float, NewValue);
-
 /**
  * 
  */
@@ -15,7 +13,7 @@ class SF_API USFOverlayWidgetController : public USFWidgetController
 	GENERATED_BODY()
 public:
 	// 초기값 브로드캐스트
-	virtual void BroadcastInitialValues() override;
+	virtual void BroadcastInitialSets() override;
 
 	// 콜백 함수 바인딩
 	virtual void BindCallbacksToDependencies() override;
