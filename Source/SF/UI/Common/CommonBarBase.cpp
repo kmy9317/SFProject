@@ -1,4 +1,6 @@
 #include "UI/Common/CommonBarBase.h"
+
+#include "ShaderPrintParameters.h"
 #include "Components/ProgressBar.h"
 #include "Kismet/KismetMathLibrary.h" // NearlyEqual 사용
 
@@ -6,7 +8,7 @@ void UCommonBarBase::NativePreConstruct()
 {
 	Super::NativePreConstruct();
 
-	if (PB_Current)
+	if (IsValid(PB_Current))
 	{
 		PB_Current->SetFillColorAndOpacity(BarFillColor);
 	}
