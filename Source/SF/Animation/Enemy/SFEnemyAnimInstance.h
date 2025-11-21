@@ -11,9 +11,14 @@ class ASFCharacterBase;
 class UCharacterMovementComponent;
 class UAbilitySystemComponent;
 
-/**
- * Thread-Safe Optimized Animation Instance for Enemy Characters
- */
+UENUM(BlueprintType)
+enum class AE_CardinalDirection : uint8 
+{
+    Forward    UMETA(DisplayName = "Forward"),   
+    Right      UMETA(DisplayName = "Right"),     
+    Backward   UMETA(DisplayName = "Backward"), 
+    Left       UMETA(DisplayName = "Left")      
+};
 UCLASS(Abstract)
 class SF_API USFEnemyAnimInstance : public UAnimInstance
 {
@@ -46,15 +51,15 @@ protected:
     UFUNCTION(BlueprintCallable, Category = "Thread Safe Function", meta = (BlueprintThreadSafe))
     void UpdateAccelerationData();
 
-    UFUNCTION(BlueprintCallable, Category = "DistanceMatch Function", meta = (BlueprintThreadSafe))
+    UFUNCTION(BlueprintCallable, Category = "Thread Safe Function", meta = (BlueprintThreadSafe))
     bool ShouldDistanceMatchStop() const;
 
-    UFUNCTION(BlueprintCallable, Category = "DistanceMatch Function", meta = (BlueprintThreadSafe))
+    UFUNCTION(BlueprintCallable, Category = "Thread Safe Function", meta = (BlueprintThreadSafe))
     float GetPredictedStopDistance() const;
 
-    // ========== Debug Functions ==========
-    UFUNCTION(BlueprintCallable, Category = "Animation Debug")
-    void PrintAnimationDebugInfo() const;
+    //각도를 4분면으로 나뉘어서 Deadzone과 이전 방향 유지를 할껀지를 확인하고 방향을 반환
+    UFUNCTION(BlueprintCallable, Category = "Thread Safe Function", meta = (BlueprintThreadSafe))
+    AE_CardinalDirection GetCardinalDirectionFromAngle(float Angle, float DeadZone, AE_CardinalDirection CurrentDirection, bool bUseCurrentDirection) const;
 
 protected:
 
@@ -110,6 +115,19 @@ protected:
 
     UPROPERTY(BlueprintReadOnly, Category = "Velocity Data")
     FVector LocalVelocity2D;
+    
+    UPROPERTY(BlueprintReadOnly, Category = "Velocity Data")
+    float LocalVelocityDirectionAngle;
+
+    UPROPERTY(BlueprintReadOnly, Category = "Velocity Data")
+    AE_CardinalDirection LocalVelocityDirection;
+
+    UPROPERTY(BlueprintReadOnly, Category = "Velocity Data")
+    bool bWasMovingLastFrame;
+
+    //방향 전환의 마지노선 일단 10으로 둔다 
+    UPROPERTY(BlueprintReadOnly, Category = "Cardinal Direction")
+    float CardinalDirectionDeadZone;
 
     //  Acceleration Data 
     UPROPERTY(BlueprintReadOnly, Category = "Acceleration Data")

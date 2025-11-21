@@ -31,6 +31,9 @@ USFEnemyAnimInstance::USFEnemyAnimInstance(const FObjectInitializer& ObjectIniti
 	, bHasAcceleration(false)
 	, WorldAcceleration2D(FVector::ZeroVector)
 	, LocalAcceleration2D(FVector::ZeroVector)
+	, LocalVelocityDirectionAngle(0.0f)
+	, CardinalDirectionDeadZone(10.f)
+	, bWasMovingLastFrame(false)
 {
 }
 
@@ -153,10 +156,7 @@ void USFEnemyAnimInstance::UpdateLocationData(float DeltaSeconds)
 	{
 		DisplacementSpeed = 0.0f;
 	}
-
-	// 디버그: 이동 속도 로그 (필요시 주석 해제)
-	// UE_LOG(LogTemp, Warning, TEXT("[%s] DisplacementSpeed: %.2f cm/s | Delta: %.2f cm | DeltaTime: %.4f s"),
-	// 	*GetNameSafe(GetOwningActor()), DisplacementSpeed, DisplacementSinceLastUpdate, DeltaSeconds);
+	
 }
 
 void USFEnemyAnimInstance::UpdateRotationData()
@@ -183,6 +183,13 @@ void USFEnemyAnimInstance::UpdateVelocityData()
 	{
 		bHasVelocity = false;
 	}
+
+	//로컬 좌표계 각도
+	LocalVelocityDirectionAngle = FMath::RadiansToDegrees(FMath::Atan2(LocalVelocity2D.Y, LocalVelocity2D.X));
+
+	LocalVelocityDirection = GetCardinalDirectionFromAngle(LocalVelocityDirectionAngle, CardinalDirectionDeadZone, LocalVelocityDirection,bWasMovingLastFrame);
+
+	bWasMovingLastFrame = bHasVelocity;
 }
 
 void USFEnemyAnimInstance::UpdateAccelerationData()
@@ -227,34 +234,45 @@ float USFEnemyAnimInstance::GetPredictedStopDistance() const
 	return FVector2D(PredictedStopLoc).Length();
 }
 
-void USFEnemyAnimInstance::PrintAnimationDebugInfo() const
+AE_CardinalDirection USFEnemyAnimInstance::GetCardinalDirectionFromAngle(float Angle, float DeadZone,
+	AE_CardinalDirection CurrentDirection, bool bUseCurrentDirection) const
 {
-	UE_LOG(LogTemp, Warning, TEXT("========== Animation Debug Info =========="));
-	UE_LOG(LogTemp, Warning, TEXT("Actor: %s"), *GetNameSafe(GetOwningActor()));
-	UE_LOG(LogTemp, Warning, TEXT(""));
+	float AbsAngle = FMath::Abs(Angle);
+	float FwdDeadZone = DeadZone;
+	float BwdDeadZone = DeadZone;
 
-	UE_LOG(LogTemp, Warning, TEXT("--- Location Data ---"));
-	UE_LOG(LogTemp, Warning, TEXT("World Location: %s"), *WorldLocation.ToString());
-	UE_LOG(LogTemp, Warning, TEXT("Displacement Since Last Update: %.2f cm"), DisplacementSinceLastUpdate);
-	UE_LOG(LogTemp, Warning, TEXT("Displacement Speed: %.2f cm/s"), DisplacementSpeed);
-	UE_LOG(LogTemp, Warning, TEXT(""));
-
-	UE_LOG(LogTemp, Warning, TEXT("--- Velocity Data ---"));
-	UE_LOG(LogTemp, Warning, TEXT("Has Velocity: %s"), bHasVelocity ? TEXT("true") : TEXT("false"));
-	UE_LOG(LogTemp, Warning, TEXT("World Velocity 2D: %s (%.2f cm/s)"), *WorldVelocity2D.ToString(), WorldVelocity2D.Size());
-	UE_LOG(LogTemp, Warning, TEXT("Local Velocity 2D: %s (%.2f cm/s)"), *LocalVelocity2D.ToString(), LocalVelocity2D.Size());
-	UE_LOG(LogTemp, Warning, TEXT(""));
-
-	UE_LOG(LogTemp, Warning, TEXT("--- Acceleration Data ---"));
-	UE_LOG(LogTemp, Warning, TEXT("Has Acceleration: %s"), bHasAcceleration ? TEXT("true") : TEXT("false"));
-	UE_LOG(LogTemp, Warning, TEXT("World Acceleration 2D: %s"), *WorldAcceleration2D.ToString());
-	UE_LOG(LogTemp, Warning, TEXT("Local Acceleration 2D: %s"), *LocalAcceleration2D.ToString());
-	UE_LOG(LogTemp, Warning, TEXT(""));
-
-	UE_LOG(LogTemp, Warning, TEXT("--- Distance Matching ---"));
-	UE_LOG(LogTemp, Warning, TEXT("Should Distance Match Stop: %s"), ShouldDistanceMatchStop() ? TEXT("true") : TEXT("false"));
-	UE_LOG(LogTemp, Warning, TEXT("Predicted Stop Distance: %.2f cm"), GetPredictedStopDistance());
-	UE_LOG(LogTemp, Warning, TEXT("=========================================="));
+	// 현재 direction에 가중치를 주기 위한 처리
+	if (bUseCurrentDirection)
+	{
+		switch (CurrentDirection)
+		{
+		case AE_CardinalDirection::Forward :
+			FwdDeadZone *= 2.0f;
+			break;
+		case AE_CardinalDirection::Backward :
+			BwdDeadZone *= 2.0f;
+			break;
+		default:
+			break;
+		}
+	}
+	if (FwdDeadZone +45 >= AbsAngle)
+	{
+		return AE_CardinalDirection::Forward;
+	}
+	else if (135.0f - BwdDeadZone <= AbsAngle)
+	{
+		return AE_CardinalDirection::Backward;
+	}
+	else if (Angle < 0.0f)
+	{
+		return AE_CardinalDirection::Left;
+	}
+	else
+	{
+		return AE_CardinalDirection::Right;
+	}
+	
 }
 
 

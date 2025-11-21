@@ -179,8 +179,13 @@ void USFEnemyComponent::InitializeAI()
 	{
 		return;
 	}
-
+	
 	EnemyController->SetBehaviourContainer(EnemyData->BehaviourContainer);
+	USFStateMachine* CachedStateMachine = USFStateMachine::FindStateMachineComponent(Pawn);
+	if (!IsValid(CachedStateMachine))
+	{
+		return;
+	}
 }
 
 void USFEnemyComponent::InitalizeStateMachineComponent()
@@ -196,6 +201,7 @@ void USFEnemyComponent::InitalizeStateMachineComponent()
 	{
 		return;
 	}
+	
 
 	USFPawnExtensionComponent* PawnExtComp = USFPawnExtensionComponent::FindPawnExtensionComponent(Pawn);
 	if (!PawnExtComp)

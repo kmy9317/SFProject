@@ -3,6 +3,7 @@
 #pragma once
 
 #include "CoreMinimal.h"
+#include "SFOSSGameInstance.h"
 #include "Engine/GameInstance.h"
 #include "SFGameInstance.generated.h"
 
@@ -10,7 +11,7 @@
  * 
  */
 UCLASS()
-class SF_API USFGameInstance : public UGameInstance
+class SF_API USFGameInstance : public USFOSSGameInstance
 {
 	GENERATED_BODY()
 

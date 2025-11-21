@@ -32,7 +32,6 @@ public:
 protected:
 	
 	virtual void PostInitializeComponents() override;
-
 	
 
 	//PawnData에 있는 AbilitySet GIVE
