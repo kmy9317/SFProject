@@ -19,6 +19,8 @@
 #include "AbilitySystem/Attributes/Hero/SFCombatSet_Hero.h"
 #include "AbilitySystem/Attributes/Hero/SFPrimarySet_Hero.h"
 #include "Camera/SFCameraMode.h"
+#include "System/SFGameInstance.h"
+#include "System/SFLoadingScreenSubsystem.h"
 
 const FName USFHeroComponent::NAME_ActorFeatureName("Hero");
 
@@ -144,6 +146,13 @@ void USFHeroComponent::HandleChangeInitState(UGameFrameworkComponentManager* Man
 			if (SFPC->IsLocalController())
 			{
 				InitializeHUD();
+				if (USFGameInstance* LocalGameInstance = GetGameInstance<USFGameInstance>())
+				{
+					if (USFLoadingScreenSubsystem* LoadingScreenSubsystem = LocalGameInstance->GetSubsystem<USFLoadingScreenSubsystem>())
+					{
+						LoadingScreenSubsystem->StopLoadingScreen();
+					}
+				}
 			}
 		}
 		
