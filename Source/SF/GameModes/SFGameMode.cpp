@@ -1,11 +1,14 @@
 #include "SFGameMode.h"
 
+#include "SFGameState.h"
 #include "SFLogChannels.h"
+#include "SFPortalManagerComponent.h"
 #include "Player/SFPlayerInfoTypes.h"
 #include "Player/SFPlayerState.h"
 #include "Character/Hero/SFHeroDefinition.h"
 #include "Character/SFPawnData.h"
 #include "Character/SFPawnExtensionComponent.h"
+#include "System/SFGameInstance.h"
 
 ASFGameMode::ASFGameMode()
 {
@@ -21,6 +24,20 @@ void ASFGameMode::InitGameState()
 void ASFGameMode::StartPlay()
 {
 	Super::StartPlay();
+
+	// TODO : 테스트용 자동 포탈 활성화(삭제 예정)
+	if (bAutoActivatePortal)
+	{
+		GetWorld()->GetTimerManager().SetTimer(
+			PortalActivationTimerHandle,
+			this,
+			&ASFGameMode::AutoActivatePortalForTest,
+			PortalActivationDelay,
+			false
+		);
+
+		UE_LOG(LogSF, Warning, TEXT("[GameMode] Portal will activate in %.1f seconds"), PortalActivationDelay);
+	}
 }
 
 void ASFGameMode::PostLogin(APlayerController* NewPlayer)
@@ -168,6 +185,7 @@ const USFPawnData* ASFGameMode::GetPawnDataForController(const AController* InCo
 	return nullptr;
 }
 
+
 void ASFGameMode::SetupPlayerPawnDataLoading(APlayerController* PC)
 {
 	if (!PC)
@@ -230,5 +248,42 @@ void ASFGameMode::OnPlayerPawnDataLoaded(APlayerController* PC, const USFPawnDat
 	if (!PC->GetPawn() && PlayerCanRestart(PC))
 	{
 		RestartPlayer(PC);
+	}
+}
+
+void ASFGameMode::ActivatePortal()
+{
+	if (ASFGameState* SFGameState = GetGameState<ASFGameState>())
+	{
+		if (USFPortalManagerComponent* PortalManager = SFGameState->GetPortalManager())
+		{
+			PortalManager->ActivatePortal();
+		}
+	}
+}
+
+void ASFGameMode::AutoActivatePortalForTest()
+{
+	ActivatePortal();
+}
+
+void ASFGameMode::RequestTravelToNextStage(TSoftObjectPtr<UWorld> NextStageLevel)
+{
+	if (!HasAuthority())
+	{
+		return;
+	}
+
+	if (NextStageLevel.IsNull())
+	{
+		UE_LOG(LogSF, Error, TEXT("[GameMode] NextStageLevel is not set!"));
+		return;
+	}
+
+	UE_LOG(LogSF, Log, TEXT("[GameMode] Traveling to next stage: %s"), *NextStageLevel.ToString());
+
+	if (USFGameInstance* SFGameInstance = Cast<USFGameInstance>(GetWorld()->GetGameInstance()))
+	{
+		SFGameInstance->LoadLevelAndListen(NextStageLevel);
 	}
 }

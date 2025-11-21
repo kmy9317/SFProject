@@ -4,8 +4,7 @@
 #include "SFWidgetController.h"
 #include "SFOverlayWidgetController.generated.h"
 
-DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnAttributeChangedSignature, float, NewValue);
-
+struct FSFPlayerSelectionInfo;
 /**
  * 
  */
@@ -15,10 +14,14 @@ class SF_API USFOverlayWidgetController : public USFWidgetController
 	GENERATED_BODY()
 public:
 	// 초기값 브로드캐스트
-	virtual void BroadcastInitialValues() override;
+	virtual void BroadcastInitialSets() override;
 
 	// 콜백 함수 바인딩
 	virtual void BindCallbacksToDependencies() override;
+
+protected:
+	UFUNCTION()
+	void HandlePlayerInfoChanged(const FSFPlayerSelectionInfo& NewPlayerSelection);
 
 private:
 	void BindPrimaryAttributeCallbacks();
@@ -43,4 +46,8 @@ public:
 
 	UPROPERTY(BlueprintAssignable, Category="SF|Attributes")
 	FOnAttributeChangedSignature OnMaxStaminaChanged;
+
+	// FSFPlayerSelectionInfo 구조체 변경을 알릴 델리게이트
+	UPROPERTY(BlueprintAssignable, Category="SF|Info")
+	FOnPlayerInfoChangedSignature OnPlayerInfoChanged;
 };

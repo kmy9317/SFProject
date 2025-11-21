@@ -8,6 +8,7 @@
 #include "Character/Enemy/SFEnemyData.h"
 #include "Perception/AIPerceptionComponent.h"
 #include "Perception/AISenseConfig_Sight.h"
+#include "Net/UnrealNetwork.h" // [추가] 네트워크 관련 헤더
 #include "SFEnemyController.generated.h"
 
 
@@ -40,7 +41,13 @@ protected:
 
 	virtual void Tick(float DeltaTime) override;
 
+    // [추가] 네트워크 복제 설정
+    virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
+
 #pragma region BehaviorTree
+public:
+	UPROPERTY(Replicated, VisibleAnywhere, BlueprintReadOnly, Category="AI|State")
+	bool bHasGuardSlot = false;
 protected:
 	void ChangeBehaviorTree(FGameplayTag GameplayTag);
 	
@@ -69,9 +76,10 @@ protected:
 	FVector SpawnLocation;
 
 	// 전투 상태 플래그 (false: Idle / true: Combat)
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="AI|State")
+    // [수정] Replicated 속성 추가
+	UPROPERTY(Replicated, VisibleAnywhere, BlueprintReadOnly, Category="AI|State")
 	bool bIsInCombat;
-
+	
 	// BehaviorTree 실행 오버라이드
 	virtual bool RunBehaviorTree(UBehaviorTree* BehaviorTree) override;
 	
@@ -103,10 +111,14 @@ protected:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="AI|Perception")
 	FName TargetTag = FName("Player");
 
-	// 시야 감지 이벤트 콜백
+	// 시야 감지 이벤트 콜백 (감지/상실)
 	UFUNCTION()
 	void OnTargetPerceptionUpdated(AActor* Actor, FAIStimulus Stimulus);
 	
+    // [추가] 시야 완전 소실 이벤트 (MaxAge 경과)
+    UFUNCTION()
+    void OnTargetPerceptionForgotten(AActor* Actor);
+
 #pragma endregion
 
 #pragma region Combat
@@ -115,7 +127,7 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="AI|Combat")
 	float MeleeRange = 300.f;
 
-	// 경계 거리
+	// 경계 거리 (전투 거리 변수명 유지)
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="AI|Combat")
 	float GuardRange = 1200.f;
 
@@ -139,9 +151,9 @@ public:
 	UFUNCTION(BlueprintCallable, Category="AI|Combat")
 	bool IsInGuardRange() const;
 
-	// 감지된 타겟 중 가장 적합한 타겟 선택
-	UFUNCTION(BlueprintCallable, Category="AI|Combat")
-	AActor* FindBestTarget();
+    // [제거됨] FindBestTarget 제거
+	// UFUNCTION(BlueprintCallable, Category="AI|Combat")
+	// AActor* FindBestTarget();
 
 	//추격 범위 안에 있는가
 	UFUNCTION(BlueprintCallable, Category = "AI|Combat")

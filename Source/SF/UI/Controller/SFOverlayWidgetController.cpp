@@ -4,30 +4,43 @@
 #include "SFOverlayWidgetController.h"
 
 #include "AbilitySystem/Attributes/Hero/SFPrimarySet_Hero.h"
+#include "Player/SFPlayerState.h"
 
-void USFOverlayWidgetController::BroadcastInitialValues()
+void USFOverlayWidgetController::BroadcastInitialSets()
 {
-	// 초기 PrimarySet 정보를 UI에 전달
-	OnHealthChanged.Broadcast(PrimarySet->GetHealth());
-	OnMaxHealthChanged.Broadcast(PrimarySet->GetMaxHealth());
-	OnManaChanged.Broadcast(PrimarySet->GetMana());
-	OnMaxManaChanged.Broadcast(PrimarySet->GetMaxMana());
-	OnStaminaChanged.Broadcast(PrimarySet->GetStamina());
-	OnMaxStaminaChanged.Broadcast(PrimarySet->GetMaxStamina());
+	// 초기 TargetPrimarySet 정보를 UI에 전달
+	OnHealthChanged.Broadcast(TargetPrimarySet->GetHealth());
+	OnMaxHealthChanged.Broadcast(TargetPrimarySet->GetMaxHealth());
+	OnManaChanged.Broadcast(TargetPrimarySet->GetMana());
+	OnMaxManaChanged.Broadcast(TargetPrimarySet->GetMaxMana());
+	OnStaminaChanged.Broadcast(TargetPrimarySet->GetStamina());
+	OnMaxStaminaChanged.Broadcast(TargetPrimarySet->GetMaxStamina());
+
+	ASFPlayerState* SFPS = Cast<ASFPlayerState>(TargetPlayerState);
+	if (SFPS)
+	{
+		OnPlayerInfoChanged.Broadcast(SFPS->GetPlayerSelection());
+	}
 }
 
 void USFOverlayWidgetController::BindCallbacksToDependencies()
 {
 	BindPrimaryAttributeCallbacks();
+	
+	ASFPlayerState* SFPS = Cast<ASFPlayerState>(TargetPlayerState);
+	if (SFPS)
+	{
+		SFPS->OnPlayerInfoChanged.AddDynamic(this, &ThisClass::HandlePlayerInfoChanged);
+	}
 	// TODO : 다른 Model들에 대한 Callbacks도 추가할 것
 }
 
 void USFOverlayWidgetController::BindPrimaryAttributeCallbacks()
 {
 	TWeakObjectPtr<USFOverlayWidgetController> WeakThis(this);
-	if (PrimarySet && AbilitySystemComponent)
+	if (TargetPrimarySet && TargetAbilitySystemComponent)
 	{
-		AbilitySystemComponent->GetGameplayAttributeValueChangeDelegate(PrimarySet->GetHealthAttribute()).AddLambda(
+		TargetAbilitySystemComponent->GetGameplayAttributeValueChangeDelegate(TargetPrimarySet->GetHealthAttribute()).AddLambda(
 			[WeakThis](const FOnAttributeChangeData& Data)
 		{
 			if (WeakThis.IsValid())
@@ -35,7 +48,7 @@ void USFOverlayWidgetController::BindPrimaryAttributeCallbacks()
 				WeakThis->OnHealthChanged.Broadcast(Data.NewValue);
 			}
 		});
-		AbilitySystemComponent->GetGameplayAttributeValueChangeDelegate(PrimarySet->GetMaxHealthAttribute()).AddLambda(
+		TargetAbilitySystemComponent->GetGameplayAttributeValueChangeDelegate(TargetPrimarySet->GetMaxHealthAttribute()).AddLambda(
 			[WeakThis](const FOnAttributeChangeData& Data)
 		{
 			if (WeakThis.IsValid())
@@ -43,7 +56,7 @@ void USFOverlayWidgetController::BindPrimaryAttributeCallbacks()
 				WeakThis->OnMaxHealthChanged.Broadcast(Data.NewValue);
 			}
 		});
-		AbilitySystemComponent->GetGameplayAttributeValueChangeDelegate(PrimarySet->GetManaAttribute()).AddLambda(
+		TargetAbilitySystemComponent->GetGameplayAttributeValueChangeDelegate(TargetPrimarySet->GetManaAttribute()).AddLambda(
 			[WeakThis](const FOnAttributeChangeData& Data)
 		{
 			if (WeakThis.IsValid())
@@ -51,7 +64,7 @@ void USFOverlayWidgetController::BindPrimaryAttributeCallbacks()
 				WeakThis->OnManaChanged.Broadcast(Data.NewValue);
 			}
 		});
-		AbilitySystemComponent->GetGameplayAttributeValueChangeDelegate(PrimarySet->GetMaxManaAttribute()).AddLambda(
+		TargetAbilitySystemComponent->GetGameplayAttributeValueChangeDelegate(TargetPrimarySet->GetMaxManaAttribute()).AddLambda(
 			[WeakThis](const FOnAttributeChangeData& Data)
 		{
 			if (WeakThis.IsValid())
@@ -59,7 +72,7 @@ void USFOverlayWidgetController::BindPrimaryAttributeCallbacks()
 				WeakThis->OnMaxManaChanged.Broadcast(Data.NewValue);
 			}
 		});
-		AbilitySystemComponent->GetGameplayAttributeValueChangeDelegate(PrimarySet->GetStaminaAttribute()).AddLambda(
+		TargetAbilitySystemComponent->GetGameplayAttributeValueChangeDelegate(TargetPrimarySet->GetStaminaAttribute()).AddLambda(
 			[WeakThis](const FOnAttributeChangeData& Data)
 		{
 			if (WeakThis.IsValid())
@@ -67,7 +80,7 @@ void USFOverlayWidgetController::BindPrimaryAttributeCallbacks()
 				WeakThis->OnStaminaChanged.Broadcast(Data.NewValue);
 			}
 		});
-		AbilitySystemComponent->GetGameplayAttributeValueChangeDelegate(PrimarySet->GetMaxStaminaAttribute()).AddLambda(
+		TargetAbilitySystemComponent->GetGameplayAttributeValueChangeDelegate(TargetPrimarySet->GetMaxStaminaAttribute()).AddLambda(
 			[WeakThis](const FOnAttributeChangeData& Data)
 		{
 			if (WeakThis.IsValid())
@@ -76,6 +89,11 @@ void USFOverlayWidgetController::BindPrimaryAttributeCallbacks()
 			}
 		});
 	}
+}
+
+void USFOverlayWidgetController::HandlePlayerInfoChanged(const FSFPlayerSelectionInfo& NewPlayerSelection)
+{
+	OnPlayerInfoChanged.Broadcast(NewPlayerSelection);
 }
 
 

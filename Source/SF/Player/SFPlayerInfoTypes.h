@@ -59,7 +59,7 @@ public:
 	}
 };
 
-USTRUCT()
+USTRUCT(BlueprintType)
 struct FSFPlayerSelectionInfo
 {
 	GENERATED_BODY()
@@ -79,20 +79,53 @@ public:
 	bool IsForPlayer(const APlayerState* PlayerState) const;
 	bool IsValid() const;
 	static uint8 GetInvalidSlot();
+
+	bool HasValidPlayerId() const
+	{
+#if WITH_EDITOR
+		return !PlayerNickname.IsEmpty();
+#else
+		return PlayerUniqueId.IsValid();
+#endif
+	}
+
+	bool operator==(const FSFPlayerSelectionInfo& Other) const
+	{
+#if WITH_EDITOR
+		// PIE 환경: PlayerNickname으로 비교
+		if (HasValidPlayerId() && Other.HasValidPlayerId())
+		{
+			return PlayerNickname == Other.PlayerNickname;
+		}
+		return false;
+#else
+		// 패키지 빌드: UniqueId로 비교
+		if (!PlayerUniqueId.IsValid() || !Other.PlayerUniqueId.IsValid())
+		{
+			return false;
+		}
+		return PlayerUniqueId == Other.PlayerUniqueId;
+#endif
+	}
+
+	bool operator!=(const FSFPlayerSelectionInfo& Other) const
+	{
+		return !(*this == Other);
+	}
 	
 private:
-	UPROPERTY()
+	UPROPERTY(BlueprintReadOnly, meta = (AllowPrivateAccess = "true"))
 	uint8 Slot;
 
-	UPROPERTY()
+	UPROPERTY(BlueprintReadOnly, meta = (AllowPrivateAccess = "true"))
 	FUniqueNetIdRepl PlayerUniqueId;
 
-	UPROPERTY()
+	UPROPERTY(BlueprintReadOnly, meta = (AllowPrivateAccess = "true"))
 	FString PlayerNickname;
 
-	UPROPERTY()
+	UPROPERTY(BlueprintReadOnly, meta = (AllowPrivateAccess = "true"))
 	TObjectPtr<USFHeroDefinition> HeroDefinition;
 
-	UPROPERTY()
+	UPROPERTY(BlueprintReadOnly, meta = (AllowPrivateAccess = "true"))
 	bool bReady;
 };

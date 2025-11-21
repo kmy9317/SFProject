@@ -11,6 +11,7 @@
 #include "DrawDebugHelpers.h"
 #include "GameFramework/Character.h"
 #include "NavigationSystem.h"
+#include "Net/UnrealNetwork.h" // [추가]
 
 #include UE_INLINE_GENERATED_CPP_BY_NAME(SFEnemyController)
 
@@ -42,7 +43,7 @@ ASFEnemyController::ASFEnemyController(const FObjectInitializer& ObjectInitializ
     SightConfig->DetectionByAffiliation.bDetectFriendlies = true;
     SightConfig->DetectionByAffiliation.bDetectNeutrals = true;
 
-    // 시야 감지 지속 시간
+    // 시야 감지 지속 시간 (중요: Forget Stale Actors 설정 필요)
     SightConfig->SetMaxAge(5.0f);
     SightConfig->AutoSuccessRangeFromLastSeenLocation = 500.f;
 
@@ -58,6 +59,16 @@ ASFEnemyController::ASFEnemyController(const FObjectInitializer& ObjectInitializ
     TargetActor = nullptr;
 }
 
+//네트워크 복제 함수
+void ASFEnemyController::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
+{
+    Super::GetLifetimeReplicatedProps(OutLifetimeProps);
+
+    // bIsInCombat 복제 (서버 → 클라이언트)
+    DOREPLIFETIME(ASFEnemyController, bIsInCombat);
+    DOREPLIFETIME(ASFEnemyController, bHasGuardSlot);
+
+}
 
 void ASFEnemyController::PreInitializeComponents()
 {
@@ -75,10 +86,17 @@ void ASFEnemyController::BeginPlay()
     // Perception 이벤트 바인딩
     if (AIPerception)
     {
+        // 감지 갱신 (Sight In/Out)
         AIPerception->OnTargetPerceptionUpdated.AddDynamic(
             this, &ASFEnemyController::OnTargetPerceptionUpdated
         );
-        UE_LOG(LogTemp, Log, TEXT("[SFEnemyAI] Perception 이벤트 바인딩 완료"));
+        
+        //완전 소실 (MaxAge 경과)
+        AIPerception->OnTargetPerceptionForgotten.AddDynamic(
+            this, &ASFEnemyController::OnTargetPerceptionForgotten
+        );
+
+        UE_LOG(LogTemp, Log, TEXT("[SFEnemyAI] Perception 이벤트 바인딩 완료 (Updated + Forgotten)"));
     }
 
     // 디버그 - 현재 범위 출력
@@ -261,10 +279,26 @@ void ASFEnemyController::OnTargetPerceptionUpdated(AActor* Actor, FAIStimulus St
             CachedBlackboardComponent->SetValueAsVector("LastKnownPosition", Stimulus.StimulusLocation);
         }
     }
-    // 감지 상실 (전투 종료)
+    // 감지 상실 (전투 종료 체크)
     else
     {
-        if (bIsInCombat)
+        // 여기서는 당장 잃었다고 전투를 끄지 않고, 모든 타겟을 놓쳤는지 확인
+        TArray<AActor*> PerceivedActors;
+        if (AIPerception)
+        {
+            AIPerception->GetCurrentlyPerceivedActors(UAISense_Sight::StaticClass(), PerceivedActors);
+        }
+
+        int32 PlayerCount = 0;
+        for (AActor* PerceivedActor : PerceivedActors)
+        {
+            if (!TargetTag.IsNone() && PerceivedActor->ActorHasTag(TargetTag))
+            {
+                PlayerCount++;
+            }
+        }
+
+        if (PlayerCount == 0 && bIsInCombat)
         {
             bIsInCombat = false;
             TargetActor = nullptr;
@@ -283,6 +317,59 @@ void ASFEnemyController::OnTargetPerceptionUpdated(AActor* Actor, FAIStimulus St
                 CachedBlackboardComponent->SetValueAsBool("bHasTarget", false);
                 CachedBlackboardComponent->SetValueAsBool("bIsInCombat", false);
             }
+        }
+    }
+}
+
+// [추가] MaxAge 경과 시 호출되는 안전장치 함수
+void ASFEnemyController::OnTargetPerceptionForgotten(AActor* Actor)
+{
+    if (!Actor)
+        return;
+
+    UE_LOG(LogTemp, Log, TEXT("[SFEnemyAI] OnTargetPerceptionForgotten: %s (MaxAge 만료)"), *Actor->GetName());
+
+    // TargetTag 필터링
+    if (!TargetTag.IsNone() && !Actor->ActorHasTag(TargetTag))
+        return;
+
+    // 감지된 플레이어가 여전히 있는지 확인 (이중 안전장치)
+    TArray<AActor*> PerceivedActors;
+    if (AIPerception)
+    {
+        AIPerception->GetCurrentlyPerceivedActors(UAISense_Sight::StaticClass(), PerceivedActors);
+    }
+
+    int32 PlayerCount = 0;
+    for (AActor* PerceivedActor : PerceivedActors)
+    {
+        if (!TargetTag.IsNone() && PerceivedActor->ActorHasTag(TargetTag))
+        {
+            PlayerCount++;
+        }
+    }
+
+    // 모든 플레이어를 잃었으면 Combat → Idle 전환
+    if (PlayerCount == 0 && bIsInCombat)
+    {
+        bIsInCombat = false;
+        TargetActor = nullptr;
+
+        // Idle 상태: 90도 전방 원뿔로 복원
+        if (SightConfig)
+        {
+            SightConfig->PeripheralVisionAngleDegrees = PeripheralVisionAngleDegrees;
+            AIPerception->ConfigureSense(*SightConfig);
+            UE_LOG(LogTemp, Warning, TEXT("[SFEnemyAI] 상태 변경 (Forgotten): Combat → Idle"));
+        }
+
+        ClearFocus(EAIFocusPriority::Gameplay);
+
+        if (CachedBlackboardComponent)
+        {
+            CachedBlackboardComponent->ClearValue("TargetActor");
+            CachedBlackboardComponent->SetValueAsBool("bHasTarget", false);
+            CachedBlackboardComponent->SetValueAsBool("bIsInCombat", false);
         }
     }
 }
@@ -314,62 +401,7 @@ bool ASFEnemyController::IsInTrackingRange() const
     return Distance > 0.f && Distance <= LoseSightRadius;
 }
 
-AActor* ASFEnemyController::FindBestTarget()
-{
-    APawn* ControlledPawn = GetPawn();
-    if (!ControlledPawn)
-        return nullptr;
-
-    TArray<AActor*> PerceivedActors;
-    if (AIPerception)
-        AIPerception->GetCurrentlyPerceivedActors(UAISense_Sight::StaticClass(), PerceivedActors);
-
-    if (PerceivedActors.Num() == 0)
-        return nullptr;
-
-    AActor* BestTarget = nullptr;
-    float BestScore = -1.f;
-
-    const FVector MyLocation = ControlledPawn->GetActorLocation();
-    const FVector MyForward = ControlledPawn->GetActorForwardVector();
-
-    for (AActor* Actor : PerceivedActors)
-    {
-        if (!TargetTag.IsNone() && !Actor->ActorHasTag(TargetTag))
-            continue;
-
-        float Score = 0.f;
-
-        const float Distance = FVector::Dist(MyLocation, Actor->GetActorLocation());
-        Score += FMath::Clamp(1000.f - (Distance / 10.f), 0.f, 1000.f);
-
-        const FVector ToTarget = (Actor->GetActorLocation() - MyLocation).GetSafeNormal();
-        const float Dot = FVector::DotProduct(MyForward, ToTarget);
-        Score += FMath::Clamp((Dot + 1.f) * 250.f, 0.f, 500.f);
-
-        UNavigationSystemV1* NavSys = UNavigationSystemV1::GetCurrent(GetWorld());
-        if (NavSys)
-        {
-            FPathFindingQuery Query(this, *NavSys->GetDefaultNavDataInstance(), MyLocation, Actor->GetActorLocation());
-            FPathFindingResult Result = NavSys->FindPathSync(Query);
-            if (!Result.IsSuccessful() || !Result.Path.IsValid())
-                Score *= 0.1f;
-        }
-
-        if (Actor == TargetActor)
-            Score += EngagementBonus;
-
-        if (Score > BestScore)
-        {
-            BestScore = Score;
-            BestTarget = Actor;
-        }
-    }
-
-    return BestTarget;
-}
-
-
+// [제거됨] FindBestTarget 구현부 삭제
 
 
 void ASFEnemyController::DrawDebugPerception()

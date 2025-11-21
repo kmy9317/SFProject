@@ -23,11 +23,25 @@ public:
 	}
 	static FPrimaryAssetType GetHeroDefinitionAssetType() { return FPrimaryAssetType(TEXT("HeroDefinition")); }
 
+	UFUNCTION(BlueprintPure, Category = "SF|Hero")
 	FString GetHeroDisplayName() const { return HeroName; }
+
+	UFUNCTION(BlueprintPure, Category = "SF|Hero")
 	UTexture2D* LoadIcon() const;
+
+	UFUNCTION(BlueprintPure, Category = "SF|Hero")
+	TSoftObjectPtr<UTexture2D> GetIconPath() const { return HeroIcon; }
+
+	UFUNCTION(BlueprintPure, Category = "SF|Hero")
 	TSubclassOf<UAnimInstance> LoadDisplayAnimationBP() const;
+
+	UFUNCTION(BlueprintPure, Category = "SF|Hero")
 	USkeletalMesh* LoadDisplayMesh() const;
+
+	UFUNCTION(BlueprintPure, Category = "SF|Hero")
 	const USFPawnData* GetPawnData() const;
+
+	UFUNCTION(BlueprintPure, Category = "SF|Hero")
 	TSoftObjectPtr<USFPawnData> GetPawnDataPath() const { return PawnData; }
 
 private:	

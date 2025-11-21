@@ -3,9 +3,9 @@
 void USFWidgetController::SetWidgetControllerParams(const FWidgetControllerParams& WCParams)
 {
 	PlayerController = WCParams.PlayerController;
-	PlayerState = WCParams.PlayerState;
-	AbilitySystemComponent = WCParams.AbilitySystemComponent;
-	PrimarySet = WCParams.PrimarySet;
-	CombatSet = WCParams.CombatSet;
+	TargetPlayerState = WCParams.PlayerState;
+	TargetAbilitySystemComponent = WCParams.AbilitySystemComponent;
+	TargetPrimarySet = WCParams.PrimarySet;
+	TargetCombatSet = WCParams.CombatSet;
 	GameState = WCParams.GameState;
 }

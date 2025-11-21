@@ -10,6 +10,9 @@
 #include "Character/SFPawnData.h"
 #include "Character/SFPawnExtensionComponent.h"
 #include "Character/Hero/SFHeroDefinition.h"
+#include "GameFramework/GameplayMessageSubsystem.h"
+#include "Messages/SFMessageGameplayTags.h"
+#include "Messages/SFPortalInfoMessages.h"
 #include "Net/UnrealNetwork.h"
 #include "System/SFAssetManager.h"
 
@@ -30,6 +33,9 @@ void ASFPlayerState::GetLifetimeReplicatedProps(TArray<class FLifetimeProperty>&
 {
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 
+	DOREPLIFETIME(ThisClass, PlayerSelection);
+	DOREPLIFETIME(ThisClass, bIsReadyForTravel);
+	
 	FDoRepLifetimeParams SharedParams;
 	SharedParams.bIsPushBased = true;
 
@@ -56,6 +62,12 @@ void ASFPlayerState::ClientInitialize(AController* C)
 void ASFPlayerState::CopyProperties(APlayerState* PlayerState)
 {
 	Super::CopyProperties(PlayerState);
+
+	ASFPlayerState* NewPlayerState = Cast<ASFPlayerState>(PlayerState);
+	if (NewPlayerState)
+	{
+		NewPlayerState->SetPlayerSelection(PlayerSelection);
+	}
 }
 
 void ASFPlayerState::OnDeactivated()
@@ -205,8 +217,43 @@ void ASFPlayerState::SetPawnData(const USFPawnData* InPawnData)
 	ForceNetUpdate();
 }
 
+void ASFPlayerState::SetPlayerSelection(const FSFPlayerSelectionInfo& NewPlayerSelection)
+{
+	PlayerSelection = NewPlayerSelection;
+	
+	if (HasAuthority())
+	{
+		OnRep_PlayerSelection();
+	}
+}
+
+void ASFPlayerState::SetIsReadyForTravel(bool bInIsReadyForTravel)
+{
+	bIsReadyForTravel = bInIsReadyForTravel;
+
+	if (HasAuthority())
+	{
+		OnRep_IsReadyForTravel();
+	}
+}
+
 void ASFPlayerState::SetPlayerConnectionType(ESFPlayerConnectionType NewType)
 {
 	MARK_PROPERTY_DIRTY_FROM_NAME(ThisClass, MyPlayerConnectionType, this);
 	MyPlayerConnectionType = NewType;
+}
+
+void ASFPlayerState::OnRep_PlayerSelection()
+{
+	OnPlayerInfoChanged.Broadcast(PlayerSelection);
+}
+
+void ASFPlayerState::OnRep_IsReadyForTravel()
+{
+	// 클라이언트의 로컬 GMS에 개별 플레이어별 준비 상태 변경 메시지를 브로드캐스트
+	UGameplayMessageSubsystem& MessageSubsystem = UGameplayMessageSubsystem::Get(this);
+	FSFPlayerTravelReadyMessage Message;
+	Message.PlayerState = this; 
+	Message.bIsReadyToTravel = bIsReadyForTravel;
+	MessageSubsystem.BroadcastMessage(SFGameplayTags::Message_Player_TravelReadyChanged, Message);
 }
