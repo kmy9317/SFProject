@@ -20,9 +20,6 @@ USFGA_Enemy_Melee::USFGA_Enemy_Melee(const FObjectInitializer& ObjectInitializer
 	: Super(ObjectInitializer),
 	Penetration(1)
 {
-	FGameplayTagContainer AssetTags;
-	AssetTags.AddTag(SFGameplayTags::Ability_BaseAttack_Melee);
-	SetAssetTags(AssetTags);
 }
 
 void USFGA_Enemy_Melee::ActivateAbility(
@@ -33,8 +30,14 @@ void USFGA_Enemy_Melee::ActivateAbility(
 {
 	Super::ActivateAbility(Handle, ActorInfo, ActivationInfo, TriggerEventData);
 
+	
+	if (!ActorInfo->IsNetAuthority())
+	{
+		return;
+	}
+	
 	CurrentPenetration = Penetration;
-	// 1. 기본 검증
+	// 기본 검증
 	if (AttackTypeMontage.AnimMontage == nullptr)
 	{
 		EndAbility(Handle, ActorInfo, ActivationInfo, true, true);
@@ -47,40 +50,39 @@ void USFGA_Enemy_Melee::ActivateAbility(
 		EndAbility(Handle, ActorInfo, ActivationInfo, true, true);
 		return;
 	}
+	
 
-	// 3. Client 예측 
-	if (HasAuthorityOrPredictionKey(ActorInfo, &ActivationInfo))
+	// 몽타주 재생
+	UAbilityTask_PlayMontageAndWait* PlayMontageTask =
+		UAbilityTask_PlayMontageAndWait::CreatePlayMontageAndWaitProxy(
+			this,
+			NAME_None,
+			AttackTypeMontage.AnimMontage,
+			1.0f,
+			NAME_None,
+			true,
+			1.0f,
+			0.0f,
+			false);
+
+	if (PlayMontageTask)
 	{
-		UAbilityTask_PlayMontageAndWait* PlayMontageTask = 
-			UAbilityTask_PlayMontageAndWait::CreatePlayMontageAndWaitProxy(
-				this,
-				NAME_None,
-				AttackTypeMontage.AnimMontage,
-				1.0f,
-				NAME_None,
-				true,
-				1.0f,
-				0.0f,
-				false);
-
-		if (PlayMontageTask)
-		{
-			PlayMontageTask->OnCompleted.AddDynamic(this, &USFGA_Enemy_Melee::OnMontageCompleted);
-			PlayMontageTask->OnInterrupted.AddDynamic(this, &USFGA_Enemy_Melee::OnMontageInterrupted);
-			PlayMontageTask->OnCancelled.AddDynamic(this, &USFGA_Enemy_Melee::OnMontageCancelled);
-			PlayMontageTask->ReadyForActivation();
-		}
-		UAbilityTask_WaitGameplayEvent* WaitGameplayEventTask = 
-			UAbilityTask_WaitGameplayEvent::WaitGameplayEvent(
-				this,
-				SFGameplayTags::GameplayEvent_TraceHit, 
-				nullptr,
-				false,
-				false);
-		WaitGameplayEventTask->EventReceived.AddDynamic(this, &USFGA_Enemy_Melee::OnTraceHit);
-		WaitGameplayEventTask->ReadyForActivation();
-
+		PlayMontageTask->OnCompleted.AddDynamic(this, &USFGA_Enemy_Melee::OnMontageCompleted);
+		PlayMontageTask->OnInterrupted.AddDynamic(this, &USFGA_Enemy_Melee::OnMontageInterrupted);
+		PlayMontageTask->OnCancelled.AddDynamic(this, &USFGA_Enemy_Melee::OnMontageCancelled);
+		PlayMontageTask->ReadyForActivation();
 	}
+
+	// 트레이스 히트 이벤트 대기
+	UAbilityTask_WaitGameplayEvent* WaitGameplayEventTask =
+		UAbilityTask_WaitGameplayEvent::WaitGameplayEvent(
+			this,
+			SFGameplayTags::GameplayEvent_TraceHit,
+			nullptr,
+			false,
+			false);
+	WaitGameplayEventTask->EventReceived.AddDynamic(this, &USFGA_Enemy_Melee::OnTraceHit);
+	WaitGameplayEventTask->ReadyForActivation();
 }
 
 

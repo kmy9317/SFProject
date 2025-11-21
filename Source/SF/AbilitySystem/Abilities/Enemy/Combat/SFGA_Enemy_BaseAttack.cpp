@@ -5,6 +5,7 @@
 
 #include "AbilitySystemBlueprintLibrary.h"
 #include "AbilitySystemComponent.h"
+#include "AbilitySystem/Abilities/SFGameplayAbilityTags.h"
 #include "AI/Controller/SFEnemyController.h"
 #include "Character/SFCharacterBase.h"
 #include "Character/SFCharacterGameplayTags.h"
@@ -14,17 +15,20 @@
 USFGA_Enemy_BaseAttack::USFGA_Enemy_BaseAttack(const FObjectInitializer& ObjectInitializer)
 	:Super(ObjectInitializer)
 {
-	//활성화 안되는 조건
-	BlockAbilitiesWithTag.AddTag(SFGameplayTags::Character_State_Attacking);
-	
-	NetExecutionPolicy = EGameplayAbilityNetExecutionPolicy::ServerInitiated;  
-	InstancingPolicy = EGameplayAbilityInstancingPolicy::InstancedPerActor;  
-    
-	ActivationOwnedTags.AddTag(SFGameplayTags::Character_State_Attacking);  
-	ActivationBlockedTags.AddTag(SFGameplayTags::Character_State_Dead);  
-	ActivationBlockedTags.AddTag(SFGameplayTags::Character_State_Stunned);  
-	ActivationBlockedTags.AddTag(SFGameplayTags::Character_State_Hit);  
-	ActivationBlockedTags.AddTag(SFGameplayTags::Character_State_Blocking);  
+	// AI 어빌리티는 서버에서만 실행
+	NetExecutionPolicy = EGameplayAbilityNetExecutionPolicy::ServerOnly;
+
+	// 복제 활성화 (다른 클라이언트가 볼 수 있도록)
+	ReplicationPolicy = EGameplayAbilityReplicationPolicy::ReplicateYes;
+
+	ActivationOwnedTags.AddTag(SFGameplayTags::Character_State_Attacking);
+
+	ActivationBlockedTags.AddTag(SFGameplayTags::Character_State_Attacking);
+	ActivationBlockedTags.AddTag(SFGameplayTags::Character_State_Dead);
+	ActivationBlockedTags.AddTag(SFGameplayTags::Character_State_Stunned);
+	ActivationBlockedTags.AddTag(SFGameplayTags::Character_State_Hit);
+	ActivationBlockedTags.AddTag(SFGameplayTags::Ability_Cooldown_BaseAttack);
+	ActivationBlockedTags.AddTag(SFGameplayTags::Character_State_Blocking);
 }
 
 bool USFGA_Enemy_BaseAttack::IsWithinAttackRange(const AActor* Target) const
@@ -65,21 +69,24 @@ bool USFGA_Enemy_BaseAttack::CanActivateAbility(
 	const FGameplayTagContainer* TargetTags, 
 	FGameplayTagContainer* OptionalRelevantTags) const
 {
-	// 부모 클래스 체크 먼저
+
 	if (!Super::CanActivateAbility(Handle, ActorInfo, SourceTags, TargetTags, OptionalRelevantTags))
 	{
 		return false;
 	}
 
-	// 타겟 체크
+	// ❷ 타겟 체크
 	ASFCharacterBase* Target = GetCurrentTarget();
 	if (!IsValid(Target))
 	{
-		return false;  
+		return false;
 	}
 
-	// 공격 가능 범위/각도 체크
-	return CanAttackTarget(Target);
+
+	bool bInRange = IsWithinAttackRange(Target);
+	bool bInAngle = IsWithinAttackAngle(Target);
+    
+	return bInRange && bInAngle;
 }
 
 void USFGA_Enemy_BaseAttack::ApplyDamageToTarget(AActor* Target, float DamageAmount)
@@ -89,17 +96,15 @@ void USFGA_Enemy_BaseAttack::ApplyDamageToTarget(AActor* Target, float DamageAmo
 		return;
 	}
 
-	// 타겟의 AbilitySystemComponent 가져오기
+	
 	UAbilitySystemComponent* TargetASC = UAbilitySystemBlueprintLibrary::GetAbilitySystemComponent(Target);
 	if (!TargetASC)
 	{
 		return;
 	}
-
-	// 데미지 GameplayEffect가 설정되어 있는지 확인
+	
 	if (!DamageGameplayEffectClass)
 	{
-		UE_LOG(LogTemp, Warning, TEXT("USFGA_Enemy_BaseAttack::ApplyDamageToTarget - DamageGameplayEffectClass is not set!"));
 		return;
 	}
 
@@ -145,7 +150,6 @@ void USFGA_Enemy_BaseAttack::ApplyCooldown(
 	UGameplayEffect* CooldownGE = GetCooldownGameplayEffect();
 	if (CooldownGE)
 	{
-	
 		FGameplayEffectSpecHandle SpecHandle = MakeOutgoingGameplayEffectSpec(
 			CooldownGameplayEffectClass, 
 			GetAbilityLevel()
@@ -153,12 +157,37 @@ void USFGA_Enemy_BaseAttack::ApplyCooldown(
         
 		if (SpecHandle.IsValid())
 		{
-			SpecHandle.Data->SetSetByCallerMagnitude(
-				FGameplayTag::RequestGameplayTag(FName("Data.Cooldown.Duration")), 
-				Cooldown  
-			);
+			SpecHandle.Data->SetDuration(Cooldown, true);
 			
+			const FGameplayTagContainer AssetTags = GetAssetTags();
+			if (!AssetTags.IsEmpty())
+			{
+				SpecHandle.Data->DynamicGrantedTags.AppendTags(AssetTags);
+			}
+            
 			ApplyGameplayEffectSpecToOwner(Handle, ActorInfo, ActivationInfo, SpecHandle);
 		}
 	}
+	
+}
+
+void USFGA_Enemy_BaseAttack::EndAbility(const FGameplayAbilitySpecHandle Handle,
+	const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo,
+	bool bReplicateEndAbility, bool bWasCancelled)
+{
+	if (IsValid(GlobalAttackCoolDownEffect))
+	{
+		FGameplayEffectContextHandle EffectContext = GetAbilitySystemComponentFromActorInfo()->MakeEffectContext();
+		EffectContext.AddSourceObject(this);
+		EffectContext.AddInstigator(GetAvatarActorFromActorInfo(), GetAvatarActorFromActorInfo());
+
+		FGameplayEffectSpecHandle SpecHandle = MakeOutgoingGameplayEffectSpec(GlobalAttackCoolDownEffect, 1);
+
+		if (SpecHandle.IsValid())
+		{
+			// asc에 적용 
+			GetAbilitySystemComponentFromActorInfo()->ApplyGameplayEffectSpecToSelf(*SpecHandle.Data.Get());
+		}
+	}
+	Super::EndAbility(Handle, ActorInfo, ActivationInfo, bReplicateEndAbility, bWasCancelled);
 }

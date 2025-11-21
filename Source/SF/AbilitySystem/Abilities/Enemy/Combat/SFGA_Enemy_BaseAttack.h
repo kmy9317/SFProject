@@ -32,7 +32,7 @@ class SF_API USFGA_Enemy_BaseAttack : public USFGameplayAbility
     GENERATED_BODY()
 
     
-// Helper 함수 
+
 public:
     USFGA_Enemy_BaseAttack(const FObjectInitializer& ObjectInitializer = FObjectInitializer::Get());
     
@@ -59,12 +59,14 @@ public:
     float GetBaseDamage() const { return BaseDamage; }
 
     virtual bool CanActivateAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayTagContainer* SourceTags = nullptr, const FGameplayTagContainer* TargetTags = nullptr, FGameplayTagContainer* OptionalRelevantTags = nullptr) const override;
+
+    
 protected:
-    // 데미지 적용 (자식 클래스에서 오버라이드)
+    // 데미지 적용 
     UFUNCTION(BlueprintCallable, Category = "Attack")
     virtual void ApplyDamageToTarget(AActor* Target, float DamageAmount = -1.0f);
 
-    // 공격 실행 로직 (자식 클래스에서 구현)
+    // 공격 실행 로직 
     UFUNCTION(BlueprintCallable, Category = "Attack")
     virtual void ExecuteAttack() {};
 
@@ -72,14 +74,11 @@ protected:
     virtual ASFCharacterBase* GetCurrentTarget() const;
 
     virtual void ApplyCooldown(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo) const override;
-    
 
+    virtual void EndAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, bool bReplicateEndAbility, bool bWasCancelled) override;
 protected:
     UPROPERTY(EditDefaultsOnly, Category = "Animation Montage")
     FTaggedMontage AttackTypeMontage;
-
-    UPROPERTY(EditDefaultsOnly, Category = "Animation Montage")
-    FTaggedMontage ParryTypeMontage;
     
     UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Attack")
     EAttackType AttackType;
@@ -88,7 +87,7 @@ protected:
     UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Attack")
     float AttackRange = 200.0f;
 
-    // 최소 공격 거리 (Range 공격시 너무 가까우면 공격 안함)
+    // 최소 공격 거리 
     UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Attack")
     float MinAttackRange = 0.0f;
 
@@ -107,4 +106,7 @@ protected:
     // 데미지 GameplayEffect 클래스
     UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Attack|Damage")
     TSubclassOf<UGameplayEffect> DamageGameplayEffectClass;
+
+    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Attack|Cooldown")
+    TSubclassOf<UGameplayEffect> GlobalAttackCoolDownEffect;
 };

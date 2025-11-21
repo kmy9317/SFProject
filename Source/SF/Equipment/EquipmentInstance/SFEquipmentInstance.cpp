@@ -43,8 +43,8 @@ void USFEquipmentInstance::Initialize(USFEquipmentDefinition* InDefinition, APaw
     {
         GrantAbilities(ASC);
     }
+    ApplyAnimationLayer();
     
-    // ApplyAnimationLayer();
 }
 
 void USFEquipmentInstance::SpawnEquipmentActors()
@@ -141,8 +141,10 @@ void USFEquipmentInstance::GrantAbilities(UAbilitySystemComponent* ASC)
         
         if (Handle.IsValid())
         {
-            GrantedAbilityHandles.Add(Handle);}
+            GrantedAbilityHandles.Add(Handle);
+        }
     }
+    
 }
 
 void USFEquipmentInstance::Deinitialize(UAbilitySystemComponent* ASC)
@@ -169,11 +171,60 @@ void USFEquipmentInstance::Deinitialize(UAbilitySystemComponent* ASC)
         GrantedEffectHandles.Empty();
     }
 
+    // 애니메이션 레이어 제거
+    RemoveAnimationLayer();
+
     // 스폰된 Actor 제거
     SpawnedActorList.DestroySpawnedActors();
 
     //참조 정리
     EquipmentDefinition = nullptr;
     Instigator = nullptr;
+    
+}
+void USFEquipmentInstance::ApplyAnimationLayer()
+{
+    if (!EquipmentDefinition || !Instigator)
+    {
+        return;
+    }
+
+    USkeletalMeshComponent* PawnMesh = Instigator->FindComponentByClass<USkeletalMeshComponent>();
+    if (!PawnMesh)
+    {
+        return;
+    }
+    TSubclassOf<UAnimInstance> AnimLayerInfo = EquipmentDefinition->AnimLayerInfo;
+    if (!IsValid(AnimLayerInfo))
+    {
+        return;
+    }
+
+    // 3. Animation Layer 적용
+    PawnMesh->LinkAnimClassLayers(AnimLayerInfo);
+    
+}
+
+void USFEquipmentInstance::RemoveAnimationLayer()
+{
+    if (!EquipmentDefinition || !Instigator)
+    {
+        return;
+    }
+
+    USkeletalMeshComponent* PawnMesh = Instigator->FindComponentByClass<USkeletalMeshComponent>();
+    if (!PawnMesh)
+    {
+        return;
+    }
+
+    TSubclassOf<UAnimInstance> AnimLayerInfo = EquipmentDefinition->AnimLayerInfo;
+    if (!IsValid(AnimLayerInfo))
+    {
+        return;
+    }
+
+    // Animation Layer 제거
+    PawnMesh->UnlinkAnimClassLayers(AnimLayerInfo);
     
 }

@@ -11,19 +11,7 @@ class UAnimLayerInterface;
 class USFGameplayAbility;
 class USFEquipmentInstance;
 
-USTRUCT(BlueprintType)
-struct FEquipmentAnimLayer
-{
-	GENERATED_BODY()
 
-	// Animation Layer 적용
-	UPROPERTY(EditDefaultsOnly)
-	TSubclassOf<UAnimLayerInterface> AnimLayer;
-
-	// 무기 장착 시 활성화할 Tag (Weapon.Rifle)
-	UPROPERTY(EditDefaultsOnly)
-	FGameplayTag GameplayTag;
-};
 
 // 1. 스폰할 Actor 정보 (메타데이터)
 USTRUCT(BlueprintType)
@@ -102,7 +90,7 @@ public:
 
 	//해당 무기 장착 시 사용할 AnimationLayer 
 	UPROPERTY(EditDefaultsOnly)
-	FEquipmentAnimLayer AnimLayerInfo;
+	TSubclassOf<UAnimInstance> AnimLayerInfo;
 	
 	
 };

@@ -47,6 +47,7 @@ class SF_API USFEquipmentInstance : public UObject
 public:
 	void Initialize(USFEquipmentDefinition* InDefinition, APawn* InPawn, UAbilitySystemComponent* ASC);
 	void Deinitialize(UAbilitySystemComponent* ASC);
+	
 
 	UFUNCTION(BlueprintPure, Category = "Equipment")
 	USFEquipmentDefinition* GetEquipmentDefinition() const { return EquipmentDefinition; }
@@ -77,4 +78,6 @@ private:
 
 	void SpawnEquipmentActors();
 	void GrantAbilities(UAbilitySystemComponent* ASC);
+	void ApplyAnimationLayer();
+	void RemoveAnimationLayer();
 };

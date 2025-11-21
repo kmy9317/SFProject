@@ -1,19 +1,22 @@
+// Fill out your copyright notice in the Description page of Project Settings.
+
 #pragma once
-
 #include "CoreMinimal.h"
-#include "AbilitySystemComponent.h"
 #include "BehaviorTree/BTTaskNode.h"
-#include "SFBTTask_BaseAttack.generated.h"
+#include "GameplayTagContainer.h"              
+#include "AbilitySystemComponent.h"          
+#include "USFBTTask_ExecuteAbilityByTag.generated.h"
 
-struct FGameplayEventData;
-
+/**
+ * 
+ */
 UCLASS()
-class SF_API USFBTTask_BaseAttack : public UBTTaskNode
+class SF_API UUSFBTTask_ExecuteAbilityByTag : public UBTTaskNode
 {
 	GENERATED_BODY()
 
 public:
-	USFBTTask_BaseAttack(const FObjectInitializer& ObjectInitializer = FObjectInitializer::Get());
+	UUSFBTTask_ExecuteAbilityByTag(const FObjectInitializer& ObjectInitializer = FObjectInitializer::Get());
     
 	virtual EBTNodeResult::Type ExecuteTask(UBehaviorTreeComponent& OwnerComp, uint8* NodeMemory) override;
 
@@ -21,11 +24,14 @@ protected:
 	virtual void OnTaskFinished(UBehaviorTreeComponent& OwnerComp, uint8* NodeMemory, EBTNodeResult::Type TaskResult) override;
     
 	UAbilitySystemComponent* GetASC(UBehaviorTreeComponent& OwnerComp) const;  
-	void OnAttackingTagChanged(FGameplayTag Tag, int32 NewCount);
+	void ReceiveTagChanged(FGameplayTag Tag, int32 NewCount);
 
 public:
 	UPROPERTY(EditAnywhere, Category = "Attack") 
-	FGameplayTag AttackTag;
+	FGameplayTag ExecuteTag;
+
+	UPROPERTY(EditAnywhere, Category = "Attack") 
+	FGameplayTag CallbackTag;
 
 protected:
 	FDelegateHandle EventHandle;
