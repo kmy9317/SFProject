@@ -146,13 +146,6 @@ void USFHeroComponent::HandleChangeInitState(UGameFrameworkComponentManager* Man
 			if (SFPC->IsLocalController())
 			{
 				InitializeHUD();
-				if (USFGameInstance* LocalGameInstance = GetGameInstance<USFGameInstance>())
-				{
-					if (USFLoadingScreenSubsystem* LoadingScreenSubsystem = LocalGameInstance->GetSubsystem<USFLoadingScreenSubsystem>())
-					{
-						LoadingScreenSubsystem->StopLoadingScreen();
-					}
-				}
 			}
 		}
 		
@@ -164,6 +157,11 @@ void USFHeroComponent::HandleChangeInitState(UGameFrameworkComponentManager* Man
 				CameraComponent->DetermineCameraModeDelegate.BindDynamic(this, &ThisClass::DetermineCameraMode);
 			}
 		}
+	}
+
+	if (CurrentState == SFGameplayTags::InitState_DataInitialized && DesiredState == SFGameplayTags::InitState_GameplayReady)
+	{
+		
 	}
 }
 

@@ -24,8 +24,11 @@
 #include "CommonLoadingScreenSettings.h"
 
 //@TODO: Used as the placeholder widget in error cases, should probably create a wrapper that at least centers it/etc...
+
 #include "Widgets/Images/SThrobber.h"
 #include "Blueprint/UserWidget.h"
+
+#include "MoviePlayer.h"
 
 #include UE_INLINE_GENERATED_CPP_BY_NAME(LoadingScreenManager)
 
@@ -52,6 +55,7 @@ bool ILoadingProcessInterface::ShouldShowLoadingScreen(UObject* TestObject, FStr
 			FString ObserverReason;
 			if (LoadObserver->ShouldShowLoadingScreen(/*out*/ ObserverReason))
 			{
+				// Reason이 비어있으면 경고(디버깅 용)
 				if (ensureMsgf(!ObserverReason.IsEmpty(), TEXT("%s failed to set a reason why it wants to show the loading screen"), *GetPathNameSafe(TestObject)))
 				{
 					OutReason = ObserverReason;
@@ -69,6 +73,7 @@ bool ILoadingProcessInterface::ShouldShowLoadingScreen(UObject* TestObject, FStr
 namespace LoadingScreenCVars
 {
 	// CVars
+	// 로딩 완료 후 추가 대기 시간 (텍스처 스트리밍용)
 	static float HoldLoadingScreenAdditionalSecs = 2.0f;
 	static FAutoConsoleVariableRef CVarHoldLoadingScreenUpAtLeastThisLongInSecs(
 		TEXT("CommonLoadingScreen.HoldLoadingScreenAdditionalSecs"),
@@ -76,6 +81,7 @@ namespace LoadingScreenCVars
 		TEXT("How long to hold the loading screen up after other loading finishes (in seconds) to try to give texture streaming a chance to avoid blurriness"),
 		ECVF_Default | ECVF_Preview);
 
+	// 매 프레임 로딩 화면 이유 출력 유무
 	static bool LogLoadingScreenReasonEveryFrame = false;
 	static FAutoConsoleVariableRef CVarLogLoadingScreenReasonEveryFrame(
 		TEXT("CommonLoadingScreen.LogLoadingScreenReasonEveryFrame"),
@@ -83,6 +89,7 @@ namespace LoadingScreenCVars
 		TEXT("When true, the reason the loading screen is shown or hidden will be printed to the log every frame."),
 		ECVF_Default);
 
+	// 로딩 화면 강제 표시
 	static bool ForceLoadingScreenVisible = false;
 	static FAutoConsoleVariableRef CVarForceLoadingScreenVisible(
 		TEXT("CommonLoadingScreen.AlwaysShow"),
@@ -96,14 +103,16 @@ namespace LoadingScreenCVars
 
 // Input processor to throw in when loading screen is shown
 // This will capture any inputs, so active menus under the loading screen will not interact
+// 로딩 화면 표시 중 모든 입력을 차단하는 Input Processor
 class FLoadingScreenInputPreProcessor : public IInputProcessor
 {
 public:
 	FLoadingScreenInputPreProcessor() { }
 	virtual ~FLoadingScreenInputPreProcessor() { }
-
+	
 	bool CanEatInput() const
 	{
+		// 에디터에서는 입력 차단 x
 		return !GIsEditor;
 	}
 
@@ -152,8 +161,7 @@ bool ULoadingScreenManager::ShouldCreateSubsystem(UObject* Outer) const
 	// Only clients have loading screens
 	const UGameInstance* GameInstance = CastChecked<UGameInstance>(Outer);
 	const bool bIsServerWorld = GameInstance->IsDedicatedServerInstance();
-	return false;
-	//return !bIsServerWorld;
+	return !bIsServerWorld;
 }
 
 void ULoadingScreenManager::Tick(float DeltaTime)
@@ -167,8 +175,10 @@ ETickableTickType ULoadingScreenManager::GetTickableTickType() const
 {
 	if (IsTemplate())
 	{
+		// CDO는 Tick 사용 x
 		return ETickableTickType::Never;
 	}
+	// 조건부 Tick
 	return ETickableTickType::Conditional;
 }
 
@@ -236,6 +246,7 @@ void ULoadingScreenManager::UpdateLoadingScreen()
 
  		if ((Settings->LogLoadingScreenHeartbeatInterval > 0.0f) && (TimeUntilNextLogHeartbeatSeconds <= 0.0))
  		{
+ 			// 로딩 스크린 표시 중에 로그를 남기기 위해 로그를 남기는 간격을 설정
 			bLogLoadingScreenStatus = true;
  			TimeUntilNextLogHeartbeatSeconds = Settings->LogLoadingScreenHeartbeatInterval;
  		}
@@ -310,6 +321,7 @@ bool ULoadingScreenManager::CheckForAnyNeedToShowLoadingScreen()
 		return true;
 	}
 
+	// 현재 월드에 기본적으로 배치된 엑터들이 BeginPlay를 실행한 이후
 	if (!World->HasBegunPlay())
 	{
 		DebugReasonForShowingOrHidingLoadingScreen = FString(TEXT("World hasn't begun play"));
@@ -323,13 +335,13 @@ bool ULoadingScreenManager::CheckForAnyNeedToShowLoadingScreen()
 		return true;
 	}
 
-	// Ask the game state if it needs a loading screen	
+	// GameState의 로딩 인터페이스에 의해 로딩 스크린을 표시할지 여부를 결정
 	if (ILoadingProcessInterface::ShouldShowLoadingScreen(GameState, /*out*/ DebugReasonForShowingOrHidingLoadingScreen))
 	{
 		return true;
 	}
 
-	// Ask any game state components if they need a loading screen
+	// GameState 컴포넌트들의 로딩 인터페이스에 의해 로딩 스크린을 표시할지 여부를 결정
 	for (UActorComponent* TestComponent : GameState->GetComponents())
 	{
 		if (ILoadingProcessInterface::ShouldShowLoadingScreen(TestComponent, /*out*/ DebugReasonForShowingOrHidingLoadingScreen))
@@ -338,9 +350,7 @@ bool ULoadingScreenManager::CheckForAnyNeedToShowLoadingScreen()
 		}
 	}
 
-	// Ask any of the external loading processors that may have been registered.  These might be actors or components
-	// that were registered by game code to tell us to keep the loading screen up while perhaps something finishes
-	// streaming in.
+	//  별도의 등록된 로딩 프로세서 task의 로딩 인터페이스에 의해 로딩 스크린을 표시할지 여부를 결정
 	for (const TWeakInterfacePtr<ILoadingProcessInterface>& Processor : ExternalLoadingProcessors)
 	{
 		if (ILoadingProcessInterface::ShouldShowLoadingScreen(Processor.GetObject(), /*out*/ DebugReasonForShowingOrHidingLoadingScreen))
@@ -349,10 +359,11 @@ bool ULoadingScreenManager::CheckForAnyNeedToShowLoadingScreen()
 		}
 	}
 
-	// Check each local player
+	// PlayerController or PlayerController 컴포넌트들의 로딩 인터페이스 체크
 	bool bFoundAnyLocalPC = false;
 	bool bMissingAnyLocalPC = false;
 
+	// 분할 화면 플레이가 아닌 경우 LocalPlayer는 하나만 존재할 것임
 	for (ULocalPlayer* LP : LocalGameInstance->GetLocalPlayers())
 	{
 		if (LP != nullptr)
@@ -407,6 +418,14 @@ bool ULoadingScreenManager::CheckForAnyNeedToShowLoadingScreen()
 
 bool ULoadingScreenManager::ShouldShowLoadingScreen()
 {
+	if (IGameMoviePlayer* MoviePlayer = GetMoviePlayer())
+	{
+		if (MoviePlayer->IsMovieCurrentlyPlaying())
+		{
+			return false; 
+		}
+	}
+	
 	const UCommonLoadingScreenSettings* Settings = GetDefault<UCommonLoadingScreenSettings>();
 
 	// Check debugging commands that force the state one way or another
@@ -429,30 +448,31 @@ bool ULoadingScreenManager::ShouldShowLoadingScreen()
 	// Check for a need to show the loading screen
 	const bool bNeedToShowLoadingScreen = CheckForAnyNeedToShowLoadingScreen();
 
-	// Keep the loading screen up a bit longer if desired
+	// 추가 대기 시간 처리 (텍스처 스트리밍 등)
 	bool bWantToForceShowLoadingScreen = false;
 	if (bNeedToShowLoadingScreen)
 	{
-		// Still need to show it
+		// 아직 로딩이 필요한 경우 타이머 리셋
 		TimeLoadingScreenLastDismissed = -1.0;
 	}
 	else
 	{
-		// Don't *need* to show the screen anymore, but might still want to for a bit
+		// 로딩 완료 후 추가 대기 사간 체크
 		const double CurrentTime = FPlatformTime::Seconds();
 		const bool bCanHoldLoadingScreen = (!GIsEditor || Settings->HoldLoadingScreenAdditionalSecsEvenInEditor);
 		const double HoldLoadingScreenAdditionalSecs = bCanHoldLoadingScreen ? LoadingScreenCVars::HoldLoadingScreenAdditionalSecs : 0.0;
 
 		if (TimeLoadingScreenLastDismissed < 0.0)
 		{
+			// 처음 필수 로딩 완료 후 현재 시스템 시간을 기록 
 			TimeLoadingScreenLastDismissed = CurrentTime;
 		}
 		const double TimeSinceScreenDismissed = CurrentTime - TimeLoadingScreenLastDismissed;
 
-		// hold for an extra X seconds, to cover up streaming
+		// 텍스처 스트리밍을 위해 설정된 추가 대기 시간이 있으면 로딩 스크린을 보여줌
 		if ((HoldLoadingScreenAdditionalSecs > 0.0) && (TimeSinceScreenDismissed < HoldLoadingScreenAdditionalSecs))
 		{
-			// Make sure we're rendering the world at this point, so that textures will actually stream in
+			// 이 시점에는 렌더링 옵션을 활성화 하여 텍스처 스트리밍을 하도록 함
 			//@TODO: If bNeedToShowLoadingScreen bounces back true during this window, we won't turn this off again...
 			UGameViewportClient* GameViewportClient = GetGameInstance()->GetGameViewportClient();
 			GameViewportClient->bDisableWorldRendering = false;
@@ -492,6 +512,7 @@ void ULoadingScreenManager::ShowLoadingScreen()
 
 	const UCommonLoadingScreenSettings* Settings = GetDefault<UCommonLoadingScreenSettings>();
 
+	// ProLoadScreen 충돌 방지 체크
 	if (IsShowingInitialLoadingScreen())
 	{
 		UE_LOG(LogLoadingScreen, Log, TEXT("Showing loading screen when 'IsShowingInitialLoadingScreen()' is true."));
@@ -507,6 +528,7 @@ void ULoadingScreenManager::ShowLoadingScreen()
 		// Eat input while the loading screen is displayed
 		StartBlockingInput();
 
+		// 로딩 스크린 활성화 시작 브로드캐스트
 		LoadingScreenVisibilityChanged.Broadcast(/*bIsVisible=*/ true);
 
 		// Create the loading screen widget
@@ -521,7 +543,7 @@ void ULoadingScreenManager::ShowLoadingScreen()
 			LoadingScreenWidget = SNew(SThrobber);
 		}
 
-		// Add to the viewport at a high ZOrder to make sure it is on top of most things
+		// 뷰포트에 최상위 레이어로 추가
 		UGameViewportClient* GameViewportClient = LocalGameInstance->GetGameViewportClient();
 		GameViewportClient->AddViewportWidgetContent(LoadingScreenWidget.ToSharedRef(), Settings->LoadingScreenZOrder);
 
@@ -529,7 +551,7 @@ void ULoadingScreenManager::ShowLoadingScreen()
 
 		if (!GIsEditor || Settings->ForceTickLoadingScreenEvenInEditor)
 		{
-			// Tick Slate to make sure the loading screen is displayed immediately
+			// Slate 강제 Tick (즉시 렌더링)
 			FSlateApplication::Get().Tick();
 		}
 	}
@@ -544,6 +566,7 @@ void ULoadingScreenManager::HideLoadingScreen()
 
 	StopBlockingInput();
 
+	// ProLoadScreen 충돌 방지 체크
 	if (IsShowingInitialLoadingScreen())
 	{
 		UE_LOG(LogLoadingScreen, Log, TEXT("Hiding loading screen when 'IsShowingInitialLoadingScreen()' is true."));
@@ -555,13 +578,14 @@ void ULoadingScreenManager::HideLoadingScreen()
 		UE_LOG(LogLoadingScreen, Log, TEXT("%s"), *DebugReasonForShowingOrHidingLoadingScreen);
 
 		UE_LOG(LogLoadingScreen, Log, TEXT("Garbage Collecting before dropping load screen"));
+		// 가비지 컬렉션 강제 실행 (메모리 정리)
 		GEngine->ForceGarbageCollection(true);
 
 		RemoveWidgetFromViewport();
 	
 		ChangePerformanceSettings(/*bEnableLoadingScreen=*/ false);
 
-		// Let observers know that the loading screen is done
+		// 로딩 스크린 종료 관련 브로드캐스트
 		LoadingScreenVisibilityChanged.Broadcast(/*bIsVisible=*/ false);
 	}
 
@@ -609,6 +633,7 @@ void ULoadingScreenManager::ChangePerformanceSettings(bool bEnabingLoadingScreen
 	UGameInstance* LocalGameInstance = GetGameInstance();
 	UGameViewportClient* GameViewportClient = LocalGameInstance->GetGameViewportClient();
 
+	// 셰이더 파이프라인 캐시 모드 변경
 	FShaderPipelineCache::SetBatchMode(bEnabingLoadingScreen ? FShaderPipelineCache::BatchMode::Fast : FShaderPipelineCache::BatchMode::Background);
 
 	// Don't bother drawing the 3D world while we're loading
