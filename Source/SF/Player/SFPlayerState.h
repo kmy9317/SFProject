@@ -77,6 +77,9 @@ public:
 	virtual void OnReactivated() override;
 	//~End of APlayerState interface
 
+	// Seamless Travel 후 데이터를 복원하는 함수 
+	void RestorePersistedData();
+
 	void SetPlayerConnectionType(ESFPlayerConnectionType NewType);
 	ESFPlayerConnectionType GetPlayerConnectionType() const { return MyPlayerConnectionType; }
 	const USFPrimarySet_Hero* GetPrimarySet() const { return PrimarySet; }
@@ -125,4 +128,8 @@ private:
 	uint8 bPawnDataLoaded : 1;
     
 	TSharedPtr<FStreamableHandle> PawnDataHandle;
+
+	// Seamless Travel 간 ASC 데이터를 전달하기 위한 임시 버퍼
+	UPROPERTY()
+	TArray<uint8> SavedASCData;
 };

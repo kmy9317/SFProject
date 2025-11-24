@@ -14,6 +14,7 @@
 #include "Messages/SFMessageGameplayTags.h"
 #include "Messages/SFPortalInfoMessages.h"
 #include "Net/UnrealNetwork.h"
+#include "Serialization/ObjectAndNameAsStringProxyArchive.h"
 #include "System/SFAssetManager.h"
 
 ASFPlayerState::ASFPlayerState(const FObjectInitializer& ObjectInitializer)
@@ -68,6 +69,42 @@ void ASFPlayerState::CopyProperties(APlayerState* PlayerState)
 	{
 		NewPlayerState->SetPlayerSelection(PlayerSelection);
 	}
+
+	if (AbilitySystemComponent)
+	{
+		// 현재 ASC의 상태를 NewPlayerState의 SavedASCData 배열에 기록
+		FMemoryWriter MemWriter(NewPlayerState->SavedASCData);
+        
+		// SaveGame 플래그가 붙은 변수들을 텍스트가 아닌 바이너리로 이름은 문자열로 매핑하여 저장
+		FObjectAndNameAsStringProxyArchive Ar(MemWriter, true);
+		Ar.ArIsSaveGame = true; // SaveGame 태그가 붙은 속성만 저장
+
+		// ASC 전체 직렬화 수행
+		AbilitySystemComponent->Serialize(Ar);
+	}
+}
+
+void ASFPlayerState::RestorePersistedData()
+{
+	// 저장된 데이터가 없거나 ASC가 없으면 중단
+	if (SavedASCData.Num() == 0 ||!AbilitySystemComponent)
+	{
+		return;
+	}
+
+	// GAS 상태 역직렬화
+	FMemoryReader MemReader(SavedASCData);
+	FObjectAndNameAsStringProxyArchive Ar(MemReader, true);
+	Ar.ArIsSaveGame = true; // 저장할 때와 동일한 설정
+
+	// 바이트 배열에서 ASC로 데이터 덮어쓰기
+	AbilitySystemComponent->Serialize(Ar);
+
+	// 복원된 데이터를 클라이언트들에게 강제 동기화 
+	AbilitySystemComponent->ForceReplication();
+    
+	// 데이터 사용 후 버퍼 비우기 
+	SavedASCData.Empty();
 }
 
 void ASFPlayerState::OnDeactivated()
