@@ -56,9 +56,12 @@ public:
     float GetAttackRange() const { return AttackRange; }
 
     UFUNCTION(BlueprintPure, Category = "Attack")
+    float GetMinAttackRange() const { return MinAttackRange; }
+
+    UFUNCTION(BlueprintPure, Category = "Attack")
     float GetBaseDamage() const { return BaseDamage; }
 
-    virtual bool CanActivateAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayTagContainer* SourceTags = nullptr, const FGameplayTagContainer* TargetTags = nullptr, FGameplayTagContainer* OptionalRelevantTags = nullptr) const override;
+    
 
     
 protected:
@@ -103,10 +106,11 @@ protected:
     UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Attack")
     float AttackAngle = 45.0f;
 
+    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Attack")
+    FGameplayTag CoolDownTag;
+
     // 데미지 GameplayEffect 클래스
     UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Attack|Damage")
     TSubclassOf<UGameplayEffect> DamageGameplayEffectClass;
-
-    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Attack|Cooldown")
-    TSubclassOf<UGameplayEffect> GlobalAttackCoolDownEffect;
+    
 };

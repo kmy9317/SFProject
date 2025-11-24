@@ -27,13 +27,12 @@ protected:
 	void ReceiveTagChanged(FGameplayTag Tag, int32 NewCount);
 
 public:
-	UPROPERTY(EditAnywhere, Category = "Attack") 
-	FGameplayTag ExecuteTag;
-
-	UPROPERTY(EditAnywhere, Category = "Attack") 
-	FGameplayTag CallbackTag;
+	UPROPERTY(EditAnywhere, Category= "Blackboard")
+	FBlackboardKeySelector AbilityTagKey;
 
 protected:
 	FDelegateHandle EventHandle;
-	TWeakObjectPtr<UBehaviorTreeComponent> CachedOwnerComp;  
+	TWeakObjectPtr<UBehaviorTreeComponent> CachedOwnerComp;
+	
+	FGameplayTag WatchedTag;
 };

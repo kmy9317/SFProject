@@ -8,12 +8,10 @@
 #include "SFEquipmentInstance.generated.h"
 
 struct FGameplayAbilitySpecHandle;
-// Forward Declarations
 struct FActiveGameplayEffectHandle;
 class UAbilitySystemComponent;
 class USFEquipmentDefinition;
 
-// SFEquipmentInstance.h
 USTRUCT(BlueprintType)
 struct FSFEquipmentList
 {
@@ -35,10 +33,8 @@ public:
 		return SpawnedActors.Num();
 	}
 };
-/**
- * 
- */
-// SFEquipmentInstance.h
+
+
 UCLASS()
 class SF_API USFEquipmentInstance : public UObject
 {

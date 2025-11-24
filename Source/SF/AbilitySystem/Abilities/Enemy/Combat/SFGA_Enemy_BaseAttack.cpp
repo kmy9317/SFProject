@@ -27,7 +27,7 @@ USFGA_Enemy_BaseAttack::USFGA_Enemy_BaseAttack(const FObjectInitializer& ObjectI
 	ActivationBlockedTags.AddTag(SFGameplayTags::Character_State_Dead);
 	ActivationBlockedTags.AddTag(SFGameplayTags::Character_State_Stunned);
 	ActivationBlockedTags.AddTag(SFGameplayTags::Character_State_Hit);
-	ActivationBlockedTags.AddTag(SFGameplayTags::Ability_Cooldown_BaseAttack);
+	ActivationBlockedTags.AddTag(SFGameplayTags::Ability_Cooldown_Enemy_Attack);  // ✅ 글로벌 쿨타임
 	ActivationBlockedTags.AddTag(SFGameplayTags::Character_State_Blocking);
 }
 
@@ -60,33 +60,6 @@ bool USFGA_Enemy_BaseAttack::IsWithinAttackAngle(const AActor* Target) const
 bool USFGA_Enemy_BaseAttack::CanAttackTarget(const AActor* Target) const
 {
 	return (IsWithinAttackRange(Target)&&IsWithinAttackAngle(Target));
-}
-
-bool USFGA_Enemy_BaseAttack::CanActivateAbility(
-	const FGameplayAbilitySpecHandle Handle,
-	const FGameplayAbilityActorInfo* ActorInfo, 
-	const FGameplayTagContainer* SourceTags,
-	const FGameplayTagContainer* TargetTags, 
-	FGameplayTagContainer* OptionalRelevantTags) const
-{
-
-	if (!Super::CanActivateAbility(Handle, ActorInfo, SourceTags, TargetTags, OptionalRelevantTags))
-	{
-		return false;
-	}
-
-	// ❷ 타겟 체크
-	ASFCharacterBase* Target = GetCurrentTarget();
-	if (!IsValid(Target))
-	{
-		return false;
-	}
-
-
-	bool bInRange = IsWithinAttackRange(Target);
-	bool bInAngle = IsWithinAttackAngle(Target);
-    
-	return bInRange && bInAngle;
 }
 
 void USFGA_Enemy_BaseAttack::ApplyDamageToTarget(AActor* Target, float DamageAmount)
@@ -158,13 +131,12 @@ void USFGA_Enemy_BaseAttack::ApplyCooldown(
 		if (SpecHandle.IsValid())
 		{
 			SpecHandle.Data->SetDuration(Cooldown, true);
-			
-			const FGameplayTagContainer AssetTags = GetAssetTags();
-			if (!AssetTags.IsEmpty())
+
+			if (CoolDownTag.IsValid())
 			{
-				SpecHandle.Data->DynamicGrantedTags.AppendTags(AssetTags);
+				SpecHandle.Data->DynamicGrantedTags.AddTag(CoolDownTag);
 			}
-            
+		
 			ApplyGameplayEffectSpecToOwner(Handle, ActorInfo, ActivationInfo, SpecHandle);
 		}
 	}
@@ -175,19 +147,5 @@ void USFGA_Enemy_BaseAttack::EndAbility(const FGameplayAbilitySpecHandle Handle,
 	const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo,
 	bool bReplicateEndAbility, bool bWasCancelled)
 {
-	if (IsValid(GlobalAttackCoolDownEffect))
-	{
-		FGameplayEffectContextHandle EffectContext = GetAbilitySystemComponentFromActorInfo()->MakeEffectContext();
-		EffectContext.AddSourceObject(this);
-		EffectContext.AddInstigator(GetAvatarActorFromActorInfo(), GetAvatarActorFromActorInfo());
-
-		FGameplayEffectSpecHandle SpecHandle = MakeOutgoingGameplayEffectSpec(GlobalAttackCoolDownEffect, 1);
-
-		if (SpecHandle.IsValid())
-		{
-			// asc에 적용 
-			GetAbilitySystemComponentFromActorInfo()->ApplyGameplayEffectSpecToSelf(*SpecHandle.Data.Get());
-		}
-	}
 	Super::EndAbility(Handle, ActorInfo, ActivationInfo, bReplicateEndAbility, bWasCancelled);
 }

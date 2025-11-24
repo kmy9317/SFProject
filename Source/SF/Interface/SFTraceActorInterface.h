@@ -25,12 +25,12 @@ public:
 	
 	virtual bool CanBeTraced() const =0;
 
-	// 한 번의 Trace에서 Hit됐을 때 호출 */
+	// 한 번의 Trace에서 Hit됐을 때 호출 
 	virtual void OnTraced(const FHitResult& HitInfo, AActor* WeaponOwner) = 0;
 
-	// Trace가 시작될 때(콤보 시작 시) 알림 
+	// Trace가 시작될 때 알림 
 	virtual void OnTraceStart(AActor* WeaponOwner) = 0;
 
-	// Trace가 끝날 때(콤보 종료 시) 알림 
+	// Trace가 끝날 때 알림 
 	virtual void OnTraceEnd(AActor* WeaponOwner)  =0;
 };

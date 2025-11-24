@@ -30,11 +30,15 @@ void UBTService_RunEQSQuery::InitializeMemory(UBehaviorTreeComponent& OwnerComp,
     MyMemory->QueryID = INDEX_NONE;
 }
 
+UBTService_RunEQSQuery::FBTRunEQSQueryMemory::FBTRunEQSQueryMemory(): LastTargetActor(nullptr), QueryID(INDEX_NONE)
+{
+}
+
 void UBTService_RunEQSQuery::TickNode(UBehaviorTreeComponent& OwnerComp, uint8* NodeMemory, float DeltaSeconds)
 {
 	Super::TickNode(OwnerComp, NodeMemory, DeltaSeconds);
 
-    // [중요] ASFEnemyController 캐스팅
+    //ASFEnemyController 캐스팅
 	ASFEnemyController* AIController = Cast<ASFEnemyController>(OwnerComp.GetAIOwner());
 	UBlackboardComponent* BlackboardComp = OwnerComp.GetBlackboardComponent();
 
@@ -74,11 +78,20 @@ void UBTService_RunEQSQuery::TickNode(UBehaviorTreeComponent& OwnerComp, uint8* 
 	UEnvQueryManager* QueryManager = UEnvQueryManager::GetCurrent(AIController->GetWorld());
 	if (!QueryManager) return;
 
-	// 이전 쿼리가 실행 중이라면 중단 (NodeMemory ID 사용)
+	// 이전 쿼리 처리 로직 
 	if (MyMemory->QueryID != INDEX_NONE)
 	{
-		QueryManager->AbortQuery(MyMemory->QueryID);
-		MyMemory->QueryID = INDEX_NONE;
+		// 타겟이 변경된 경우에만 쿼리 중단 후 재실행
+		if (bForceRunQuery)
+		{
+			QueryManager->AbortQuery(MyMemory->QueryID);
+			MyMemory->QueryID = INDEX_NONE;
+		}
+		else
+		{
+			// 이전 쿼리가 아직 실행 중이면 대기
+			return;
+		}
 	}
 
 	FEnvQueryRequest QueryRequest(QueryTemplate, AIController);
@@ -101,6 +114,11 @@ void UBTService_RunEQSQuery::OnQueryFinished(TSharedPtr<FEnvQueryResult> Result,
 
 	UBlackboardComponent* BlackboardComp = OwnerComp->GetBlackboardComponent();
 	if (!BlackboardComp) return;
+
+	// ✅ NodeMemory에서 QueryID 가져오기 (언리얼 엔진 표준 방식)
+	FBTRunEQSQueryMemory* MyMemory = CastInstanceNodeMemory<FBTRunEQSQueryMemory>(
+		OwnerComp->GetNodeMemory(this, OwnerComp->FindInstanceContainingNode(this))
+	);
 
 	if (Result->IsSuccessful())
 	{
@@ -136,4 +154,7 @@ void UBTService_RunEQSQuery::OnQueryFinished(TSharedPtr<FEnvQueryResult> Result,
 			}
 		}
 	}
+
+	// 쿼리 완료 후 ID 초기화 
+	MyMemory->QueryID = INDEX_NONE;
 }
