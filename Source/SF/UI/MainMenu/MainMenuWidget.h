@@ -35,6 +35,9 @@ protected:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Game Flow")
 	TSoftObjectPtr<UWorld> LobbyMapAsset;
 
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="UI")
+	TSubclassOf<UUserWidget> CreateGameWidgetClass;
+
 	// ------------- Function -------------
 	UFUNCTION()
 	void OnNewGameClicked();

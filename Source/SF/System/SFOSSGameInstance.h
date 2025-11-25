@@ -113,6 +113,7 @@ public:
 	//========================================================================================
 
 	//======================================기타 등등===========================================
+	
 protected:
 	IOnlineSubsystem* OnlineSubsystem = nullptr;
 	TSharedPtr<FOnlineSessionSearch> SessionSearch;

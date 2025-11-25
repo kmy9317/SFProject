@@ -35,6 +35,11 @@ public class SF : ModuleRules
 			"MoviePlayer",
 			"EngineSettings",
 			"CommonLoadingScreen",
+            "PlayFab",
+            "PlayFabCpp",
+            "PlayFabCommon",
+            "Json",
+			"JsonUtilities",
 		});
 
 		PrivateDependencyModuleNames.AddRange(new string[] { });
