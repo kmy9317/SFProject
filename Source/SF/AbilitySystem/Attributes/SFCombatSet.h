@@ -51,8 +51,7 @@ protected:
 	UFUNCTION()
 	void OnRep_CriticalChance(const FGameplayAttributeData& OldValue);
 
-private:
-	
+public:
 	UPROPERTY(BlueprintReadOnly, ReplicatedUsing=OnRep_AttackPower, meta=(AllowPrivateAccess="true"))
 	FGameplayAttributeData AttackPower;
 	

@@ -46,7 +46,7 @@ protected:
 	UFUNCTION()
 	void OnRep_MoveSpeed(const FGameplayAttributeData& OldValue);
 
-private:
+public:
 	UPROPERTY(BlueprintReadOnly, ReplicatedUsing=OnRep_Health, meta=(AllowPrivateAccess="true"))
 	FGameplayAttributeData Health;
 	
