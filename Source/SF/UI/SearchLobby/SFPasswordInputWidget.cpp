@@ -49,9 +49,9 @@ void USFPasswordInputWidget::OnConfirmButtonClicked()
         return;
     }
 
-    FString Password = PasswordInputBox->GetText().ToString();
+    FString InputPassword = PasswordInputBox->GetText().ToString();
 
-    if (Password.IsEmpty())
+    if (InputPassword.IsEmpty())
     {
         if (ErrorMessageText)
         {
@@ -59,9 +59,36 @@ void USFPasswordInputWidget::OnConfirmButtonClicked()
         }
         return;
     }
+    
+    //실제 세션 비밀번호 읽기
+    const TArray<FSessionInfo>& Sessions = GameInstance->GetAvailableSessions();
+    if (!Sessions.IsValidIndex(SessionIndex))
+    {
+        if (ErrorMessageText)
+        {
+            ErrorMessageText->SetText(FText::FromString(TEXT("세션 정보 오류")));
+        }
+        return;
+    }
 
-    //비밀번호와 함께 세션 입장 시도
-    GameInstance->JoinGameSession(SessionIndex, Password);
+    FString RealPassword;
+    Sessions[SessionIndex].SearchResult.Session.SessionSettings.Get(
+        TEXT("PASSWORD"),
+        RealPassword
+    );
+    
+    //비밀번호 검증
+    if (!RealPassword.Equals(InputPassword))
+    {
+        if (ErrorMessageText)
+        {
+            ErrorMessageText->SetText(FText::FromString(TEXT("비밀번호가 일치하지 않습니다")));
+        }
+        return;
+    }
+    
+    //성공할 경우 JoinSession
+    GameInstance->JoinGameSession(SessionIndex, InputPassword);
 }
 
 void USFPasswordInputWidget::OnCancelButtonClicked()

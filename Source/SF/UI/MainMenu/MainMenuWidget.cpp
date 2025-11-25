@@ -35,6 +35,32 @@ void UMainMenuWidget::NativeConstruct()
 
 void UMainMenuWidget::OnNewGameClicked()
 {
+	if (!CreateGameWidgetClass)
+	{
+		UE_LOG(LogTemp, Error, TEXT("CreateGameWidgetClass 가 UMainMenuWidget BP에서 설정되지 않았습니다."));
+		return;
+	}
+
+	if (UWorld* World = GetWorld())
+	{
+		UUserWidget* CreateGameWidget = CreateWidget<UUserWidget>(World, CreateGameWidgetClass);
+
+		if (CreateGameWidget)
+		{
+			CreateGameWidget->AddToViewport(100);   // 맨 위에서 생성되도록
+			UE_LOG(LogTemp, Warning, TEXT("CreateGame 위젯 생성 및 출력 완료"));
+		}
+		else
+		{
+			UE_LOG(LogTemp, Error, TEXT("CreateGameWidget 생성 실패"));
+		}
+	}
+
+	UE_LOG(LogTemp, Warning, TEXT("세션 생성 창 출력 요청"));
+}
+
+void UMainMenuWidget::OnSearchMatchClicked()
+{
 	/*if (!LobbyMapAsset.IsValid())
 	{
 		UE_LOG(LogTemp, Error, TEXT("LobbyMapAsset 이 UMainMenuWidget BP에서 설정되지 않았습니다."));
@@ -43,30 +69,19 @@ void UMainMenuWidget::OnNewGameClicked()
 
 	// 1. 맵 이름 가져오기
 	FString MapName = LobbyMapAsset.GetLongPackageName();
-
-	// 2. 멀티플레이 세션 생성을 위한 옵션 정의
-	// -> 해당 맵을 listen 서버로 열기 위하여 ?listen 옵션 추가 -> 다른 클라이언트 접속을 위한 호스트 지정
-	FString TravelURL = FString::Printf(TEXT("%s?listen"), *MapName);
-
-	// 3. 서버 맵 이동 (월드 트레블)
+	
+	// 2. 맵 이동 (openlevel)
 	if (UWorld* World = GetWorld())
 	{
-		APlayerController* PC = UGameplayStatics::GetPlayerController(World, 0 );
-
-		if (PC && TravelURL != "")
+		if (!MapName.IsEmpty())
 		{
-			// PC 서버(월드) 이동 요청 
-			PC->ClientTravel(TravelURL, TRAVEL_Absolute);
+			// 절대 경로로 맵 이동
+			UGameplayStatics::OpenLevel(World, FName(*MapName));
 
-			UE_LOG(LogTemp , Warning, TEXT("서버 열기 요청 : %s"), *TravelURL);
+			UE_LOG(LogTemp, Warning, TEXT("맵 이동 요청 : %s"), *MapName);
 		}
 	}
-
-	UE_LOG(LogTemp, Warning, TEXT("New Game 버튼 클릭: 로비 맵으로 이동 시도"));
-}
-
-void UMainMenuWidget::OnSearchMatchClicked()
-{
+	
 	UE_LOG(LogTemp, Warning, TEXT("SearchMatch 버튼 클릭: 세션 찾기 맵으로 이동 시도"));
 }
 

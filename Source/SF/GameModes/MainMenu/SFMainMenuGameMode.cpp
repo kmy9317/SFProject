@@ -21,11 +21,22 @@ void ASFMainMenuGameMode::BeginPlay()
 		FTimerDelegate::CreateUObject(this, &ASFMainMenuGameMode::CreateWidgetWithDelay)
 	);
 
-	USFOSSGameInstance* GI = Cast<USFOSSGameInstance>(UGameplayStatics::GetGameInstance(GetWorld()));
-	if (GI)
+	if (USFOSSGameInstance* GI = Cast<USFOSSGameInstance>(UGameplayStatics::GetGameInstance(GetWorld())))
 	{
-		SessionPassword = GI->GetSessionPassword();
-		bIsSessionPasswordProtected = GI->IsSessionPasswordProtected();
+		IOnlineSubsystem* OSS = IOnlineSubsystem::Get();
+		if (OSS)
+		{
+			IOnlineSessionPtr Session = OSS->GetSessionInterface();
+			if (Session.IsValid())
+			{
+				FOnlineSessionSettings* Settings = Session->GetSessionSettings(FName("Game Session"));
+				if (Settings)
+				{
+					Settings->Get(TEXT("PASSWORD"), SessionPassword);
+					Settings->Get(TEXT("PROTECTED"), bIsSessionPasswordProtected);
+				}
+			}
+		}
 	}
 }
 
@@ -103,7 +114,7 @@ void ASFMainMenuGameMode::PreLogin(const FString& Options, const FString& Addres
 			if (!InputPassword.Equals(SessionPassword))
 			{
 				//비밀번호 불일치 -> 접속 거부
-				ErrorMessage = TEXT("InvalidPassword");  // 또는 커스텀 메시지
+				ErrorMessage = TEXT("InvalidPassword");
 				return;
 			}
 		}
