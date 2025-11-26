@@ -34,6 +34,7 @@ void ASFPlayerState::GetLifetimeReplicatedProps(TArray<class FLifetimeProperty>&
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 
 	DOREPLIFETIME(ThisClass, PlayerSelection);
+	DOREPLIFETIME(ThisClass, Credits);
 	DOREPLIFETIME(ThisClass, bIsReadyForTravel);
 	
 	FDoRepLifetimeParams SharedParams;
@@ -64,9 +65,19 @@ void ASFPlayerState::CopyProperties(APlayerState* PlayerState)
 	Super::CopyProperties(PlayerState);
 
 	ASFPlayerState* NewPlayerState = Cast<ASFPlayerState>(PlayerState);
-	if (NewPlayerState)
+	if (!NewPlayerState)
 	{
-		NewPlayerState->SetPlayerSelection(PlayerSelection);
+		return;
+	}
+
+	NewPlayerState->SetPlayerSelection(PlayerSelection);
+
+	// ASC 데이터 저장
+	if (AbilitySystemComponent)
+	{
+		AbilitySystemComponent->SaveAttributesToData(NewPlayerState->SavedASCData);
+		AbilitySystemComponent->SaveAbilitiesToData(NewPlayerState->SavedASCData);
+		AbilitySystemComponent->SaveGameplayEffectsToData(NewPlayerState->SavedASCData);
 	}
 }
 
@@ -204,16 +215,25 @@ void ASFPlayerState::SetPawnData(const USFPawnData* InPawnData)
 	MARK_PROPERTY_DIRTY_FROM_NAME(ThisClass, PawnData, this);
 	PawnData = InPawnData;
 
-	// PawnData의 AbilitySet을 순회하며, ASC에 Ability를 할당
-	// - 이 과정에서 ASC의 ActivatableAbilities에 추가됨
-	for (const USFAbilitySet* AbilitySet : PawnData->AbilitySets)
+	const bool bHasSavedAbilities = HasSavedAbilitySystemData();
+	
+	if (bHasSavedAbilities)
 	{
-		if (AbilitySet)
+		RestorePersistedAbilityData();
+	}
+	else
+	{
+		// PawnData의 AbilitySet을 순회하며, ASC에 Ability를 할당
+		// - 이 과정에서 ASC의 ActivatableAbilities에 추가됨
+		for (const USFAbilitySet* AbilitySet : PawnData->AbilitySets)
 		{
-			AbilitySet->GiveToAbilitySystem(AbilitySystemComponent, nullptr);
+			if (AbilitySet)
+			{
+				AbilitySet->GiveToAbilitySystem(AbilitySystemComponent, nullptr);
+			}
 		}
 	}
-
+	
 	ForceNetUpdate();
 }
 
@@ -243,6 +263,31 @@ void ASFPlayerState::SetPlayerConnectionType(ESFPlayerConnectionType NewType)
 	MyPlayerConnectionType = NewType;
 }
 
+void ASFPlayerState::RestorePersistedAbilityData()
+{
+	if (!SavedASCData.IsValid())
+	{
+		UE_LOG(LogSF, Log, TEXT("RestorePersistedAbilityData: No saved data for %s"), *GetPlayerName());
+		return;
+	}
+
+	if (!AbilitySystemComponent)
+	{
+		return;
+	}
+
+	// ASC 데이터 복원
+	AbilitySystemComponent->RestoreAttributesFromData(SavedASCData);
+	AbilitySystemComponent->RestoreAbilitiesFromData(SavedASCData);
+	AbilitySystemComponent->RestoreGameplayEffectsFromData(SavedASCData);
+
+	// 클라이언트에 강제 동기화
+	AbilitySystemComponent->ForceReplication();
+
+	// 버퍼 비우기
+	SavedASCData.Reset();
+}
+
 void ASFPlayerState::OnRep_PlayerSelection()
 {
 	OnPlayerInfoChanged.Broadcast(PlayerSelection);
@@ -257,3 +302,4 @@ void ASFPlayerState::OnRep_IsReadyForTravel()
 	Message.bIsReadyToTravel = bIsReadyForTravel;
 	MessageSubsystem.BroadcastMessage(SFGameplayTags::Message_Player_TravelReadyChanged, Message);
 }
+

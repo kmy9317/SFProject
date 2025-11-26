@@ -4,6 +4,7 @@
 #include "AbilitySystemComponent.h"
 #include "SFAbilitySystemComponent.generated.h"
 
+struct FSFSavedAbilitySystemData;
 DECLARE_MULTICAST_DELEGATE_TwoParams(FAbilityChangedDelegate, FGameplayAbilitySpecHandle, bool/*bGiven*/);
 
 UCLASS(ClassGroup=(Custom), meta=(BlueprintSpawnableComponent))
@@ -47,6 +48,28 @@ public:
 	void ProcessAbilityInput(float DeltaTime, bool bGamePaused);
 	
 	void ClearAbilityInput();
+
+	/**
+	 * 데이터 복원 시스템 관련 함수들
+	 */
+
+	// 모든 Attribute의 Base Value 저장
+	void SaveAttributesToData(FSFSavedAbilitySystemData& OutData) const;
+
+	// 저장된 Base Value로 Attribute 복원 
+	void RestoreAttributesFromData(const FSFSavedAbilitySystemData& InData);
+
+	// 현재 모든 어빌리티 저장 
+	void SaveAbilitiesToData(FSFSavedAbilitySystemData& OutData) const;
+
+	// 저장된 어빌리티 전체 복원
+	void RestoreAbilitiesFromData(const FSFSavedAbilitySystemData& InData);
+
+	// Duration GE 저장
+	void SaveGameplayEffectsToData(FSFSavedAbilitySystemData& OutData) const;
+
+	// Duration GE 복원
+	void RestoreGameplayEffectsFromData(const FSFSavedAbilitySystemData& InData);
 
 protected:
 

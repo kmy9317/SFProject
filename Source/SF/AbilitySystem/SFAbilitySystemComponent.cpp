@@ -3,7 +3,9 @@
 
 #include "SFAbilitySystemComponent.h"
 
+#include "SFLogChannels.h"
 #include "Abilities/SFGameplayAbility.h"
+#include "Player/Save/SFPersistentDataType.h"
 
 
 USFAbilitySystemComponent::USFAbilitySystemComponent(const FObjectInitializer& ObjectInitializer)
@@ -280,6 +282,243 @@ void USFAbilitySystemComponent::ClearAbilityInput()
 	InputPressedSpecHandles.Reset();
 	InputReleasedSpecHandles.Reset();
 	InputHeldSpecHandles.Reset();
+}
+
+void USFAbilitySystemComponent::SaveAttributesToData(FSFSavedAbilitySystemData& OutData) const
+{
+	OutData.SavedAttributes.Reset();
+
+	// 모든 Spawned AttributeSet 순회
+	for (const UAttributeSet* Set : GetSpawnedAttributes())
+	{
+		if (!Set)
+		{
+			continue;
+		}
+
+		// AttributeSet의 모든 FGameplayAttributeData 프로퍼티 순회
+		for (TFieldIterator<FProperty> It(Set->GetClass()); It; ++It)
+		{
+			FProperty* Property = *It;
+			FStructProperty* StructProp = CastField<FStructProperty>(Property);
+            
+			if (!StructProp || StructProp->Struct != FGameplayAttributeData::StaticStruct())
+			{
+				continue;
+			}
+
+			FGameplayAttribute Attribute(Property);
+			if (!Attribute.IsValid())
+			{
+				continue;
+			}
+
+			FSFSavedAttribute SavedAttr;
+			SavedAttr.Attribute = Attribute;
+			SavedAttr.BaseValue = GetNumericAttributeBase(Attribute);
+			OutData.SavedAttributes.Add(SavedAttr);
+		}
+	}
+}
+
+void USFAbilitySystemComponent::RestoreAttributesFromData(const FSFSavedAbilitySystemData& InData)
+{
+	if (!InData.HasSavedAttributes())
+	{
+		return;
+	}
+
+	// Max 계열 Attribute를 먼저 복원하기 위해 분류
+	TArray<const FSFSavedAttribute*> MaxAttributes;
+	TArray<const FSFSavedAttribute*> OtherAttributes;
+
+	for (const FSFSavedAttribute& SavedAttr : InData.SavedAttributes)
+	{
+		if (!SavedAttr.Attribute.IsValid())
+		{
+			continue;
+		}
+
+		// Attribute 이름에 Max가 포함되어 있으면 Max 계열로 분류
+		const FString AttrName = SavedAttr.Attribute.GetName();
+		if (AttrName.Contains(TEXT("Max")))
+		{
+			MaxAttributes.Add(&SavedAttr);
+		}
+		else
+		{
+			OtherAttributes.Add(&SavedAttr);
+		}
+	}
+
+	int32 RestoredCount = 0;
+	
+	// Max 계열 먼저 복원 (MaxHealth, MaxMana, MaxStamina 등)
+	for (const FSFSavedAttribute* SavedAttr : MaxAttributes)
+	{
+		SetNumericAttributeBase(SavedAttr->Attribute, SavedAttr->BaseValue);
+		RestoredCount++;
+	}
+
+	// 나머지 Attribute 복원 (Health, Mana, Stamina 등)
+	for (const FSFSavedAttribute* SavedAttr : OtherAttributes)
+	{
+		SetNumericAttributeBase(SavedAttr->Attribute, SavedAttr->BaseValue);
+		RestoredCount++;
+	}
+
+	UE_LOG(LogSF, Log, TEXT("RestoreAttributesFromData: Restored %d/%d attributes"), RestoredCount, InData.SavedAttributes.Num());
+}
+
+void USFAbilitySystemComponent::SaveAbilitiesToData(FSFSavedAbilitySystemData& OutData) const
+{
+	OutData.SavedAbilities.Reset();
+
+	FScopedAbilityListLock ActiveScopeLock(*const_cast<USFAbilitySystemComponent*>(this));
+	for (const FGameplayAbilitySpec& Spec : ActivatableAbilities.Items)
+	{
+		if (!Spec.Ability)
+		{
+			continue;
+		}
+
+		FSFSavedAbility SavedAbility;
+		SavedAbility.AbilityClass = Spec.Ability->GetClass();
+		SavedAbility.AbilityLevel = Spec.Level;
+		SavedAbility.DynamicTags = Spec.GetDynamicSpecSourceTags();
+
+		OutData.SavedAbilities.Add(SavedAbility);
+	}
+
+	UE_LOG(LogSF, Log, TEXT("SaveAbilitiesToData: Saved %d abilities"), OutData.SavedAbilities.Num());
+}
+
+void USFAbilitySystemComponent::RestoreAbilitiesFromData(const FSFSavedAbilitySystemData& InData)
+{
+	if (!InData.HasSavedAbilities())
+	{
+		return;
+	}
+
+	ClearAllAbilities();
+
+	for (const FSFSavedAbility& SavedAbility : InData.SavedAbilities)
+	{
+		if (!SavedAbility.AbilityClass)
+		{
+			continue;
+		}
+
+		UGameplayAbility* AbilityCDO = SavedAbility.AbilityClass->GetDefaultObject<UGameplayAbility>();
+		FGameplayAbilitySpec NewSpec(AbilityCDO, SavedAbility.AbilityLevel);
+		NewSpec.GetDynamicSpecSourceTags().AppendTags(SavedAbility.DynamicTags);
+		GiveAbility(NewSpec);
+	}
+}
+
+void USFAbilitySystemComponent::SaveGameplayEffectsToData(FSFSavedAbilitySystemData& OutData) const
+{
+	OutData.SavedGameplayEffects.Reset();
+	
+	UWorld* World = GetWorld();
+	if (!World)
+	{
+		return;
+	}
+
+	// Seamless Travel시 World의 InitializeActorsForPlay에서 World의 TimeSeconds를 기존 월드에 맞춤
+	const float CurrentWorldTime = World->GetTimeSeconds();
+	
+	// 활성화된 모든 GE 순회
+	FScopedActiveGameplayEffectLock ScopeLockActiveGameplayEffects(const_cast<FActiveGameplayEffectsContainer&>(ActiveGameplayEffects));
+	for (const FActiveGameplayEffect& ActiveEffect : &ActiveGameplayEffects)
+	{
+		const UGameplayEffect* EffectDef = ActiveEffect.Spec.Def;
+		if (!EffectDef)
+		{
+			continue;
+		}
+
+		// Infinite  어빌리티 재부여 시 자동 적용되므로 저장 x
+		// TODO : Ability를 통해 부여된 Effect가 아닌 Passive GE인 경우 필터링 구현하여 저장하도록 함 
+		if (EffectDef->DurationPolicy == EGameplayEffectDurationType::Infinite || EffectDef->DurationPolicy == EGameplayEffectDurationType::Instant)
+		{
+			continue;
+		}
+
+		// Duration 타입만 저장
+		// 남은 시간 계산 EndTime - CurrentWorldTime
+		const float RemainingTime = ActiveEffect.GetTimeRemaining(CurrentWorldTime);
+
+		if (RemainingTime <= 0.f)
+		{
+			continue;
+		}
+
+		FSFSavedGameplayEffect SavedEffect;
+		SavedEffect.EffectClass = EffectDef->GetClass();
+		SavedEffect.EffectLevel = ActiveEffect.Spec.GetLevel();
+		SavedEffect.RemainingDuration = RemainingTime;
+		SavedEffect.StackCount = ActiveEffect.Spec.GetStackCount();
+
+		OutData.SavedGameplayEffects.Add(SavedEffect);
+	}
+
+	UE_LOG(LogSF, Log, TEXT("SaveGameplayEffectsToData: Saved %d duration effects"), 
+		OutData.SavedGameplayEffects.Num());
+}
+
+void USFAbilitySystemComponent::RestoreGameplayEffectsFromData(const FSFSavedAbilitySystemData& InData)
+{
+	if (!InData.HasSavedEffects())
+	{
+		return;
+	}
+
+	int32 RestoredCount = 0;
+
+	for (const FSFSavedGameplayEffect& SavedEffect : InData.SavedGameplayEffects)
+	{
+		if (!SavedEffect.EffectClass || SavedEffect.RemainingDuration <= 0.f)
+		{
+			continue;
+		}
+
+		FGameplayEffectContextHandle EffectContext = MakeEffectContext();
+		EffectContext.AddSourceObject(GetOwner());
+
+		FGameplayEffectSpecHandle SpecHandle = MakeOutgoingSpec(
+			SavedEffect.EffectClass, 
+			SavedEffect.EffectLevel, 
+			EffectContext
+		);
+
+		if (!SpecHandle.IsValid())
+		{
+			continue;
+		}
+
+		FGameplayEffectSpec* Spec = SpecHandle.Data.Get();
+
+		// SetDuration으로 남은 시간만큼만 지속되도록 설정
+		// LockDuration을 true로 하여 다른 곳에서 변경하지 못하게 함
+		Spec->SetDuration(SavedEffect.RemainingDuration, true);
+
+		// 스택 설정 (스택 가능한 GE인 경우)
+		if (SavedEffect.StackCount > 1)
+		{
+			Spec->SetStackCount(SavedEffect.StackCount);
+		}
+
+		FActiveGameplayEffectHandle AppliedHandle = ApplyGameplayEffectSpecToSelf(*Spec);
+		if (AppliedHandle.IsValid())
+		{
+			RestoredCount++;
+		}
+	}
+
+	UE_LOG(LogSF, Log, TEXT("RestoreGameplayEffectsFromData: Restored %d/%d effects"),
+		RestoredCount, InData.SavedGameplayEffects.Num());
 }
 
 
