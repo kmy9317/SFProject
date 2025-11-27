@@ -12,9 +12,11 @@
 #include "SFEnemyController.generated.h"
 
 
+class USFEnemyCombatComponent;
 class UBehaviorTreeComponent;
 class UBlackboardComponent;
 class UBehaviorTree;
+
 
 UCLASS()
 class SF_API ASFEnemyController : public AAIController
@@ -158,7 +160,9 @@ public:
 	//추격 범위 안에 있는가
 	UFUNCTION(BlueprintCallable, Category = "AI|Combat")
 	bool IsInTrackingRange() const;
-	
+
+protected:
+	TObjectPtr<USFEnemyCombatComponent> CombatComponent;
 #pragma endregion
 
 #pragma region Debug

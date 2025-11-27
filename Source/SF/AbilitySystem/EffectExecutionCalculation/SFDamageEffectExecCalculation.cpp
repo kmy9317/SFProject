@@ -6,6 +6,8 @@
 #include "AbilitySystem/SFAbilitySystemComponent.h"
 #include "AbilitySystem/Attributes/SFCombatSet.h"
 #include "AbilitySystem/Attributes/SFPrimarySet.h"
+#include "AbilitySystem/GameplayEvent/SFGameplayEventTags.h"
+#include "AI/SFAIGameplayTags.h"
 
 
 struct SFDamageStatics
@@ -18,7 +20,6 @@ struct SFDamageStatics
 
 	SFDamageStatics()
 	{
-		// 세미콜론 없이 사용 (매크로 자체에 중괄호가 포함됨)
 		DEFINE_ATTRIBUTE_CAPTUREDEF(USFPrimarySet, Damage, Source, true)
 		DEFINE_ATTRIBUTE_CAPTUREDEF(USFCombatSet, AttackPower, Source, true)
 		DEFINE_ATTRIBUTE_CAPTUREDEF(USFCombatSet, Defense, Target, false)
@@ -57,8 +58,11 @@ void USFDamageEffectExecCalculation::Execute_Implementation(
     AActor* SourceAvatarActor = SourceASC->GetAvatarActor();
     AActor* TargetAvatarActor = TargetASC->GetAvatarActor();
     if (!SourceAvatarActor || !TargetAvatarActor) return;
-
+	
     const FGameplayEffectSpec& Spec = ExecutionParams.GetOwningSpec();
+
+	float BaseDamage = Spec.GetSetByCallerMagnitude(SFGameplayTags::Data_Damage_BaseDamage,false,  0.f );
+  
     
     FAggregatorEvaluateParameters EvalParams;
     EvalParams.SourceTags = Spec.CapturedSourceTags.GetAggregatedTags();
@@ -71,7 +75,7 @@ void USFDamageEffectExecCalculation::Execute_Implementation(
     ExecutionParams.AttemptCalculateCapturedAttributeMagnitude(
         DamageStatics.AttackPowerDef, EvalParams, AttackPower);
     
-    float FinalDamage = AttackPower;
+    float FinalDamage = AttackPower + BaseDamage;
     
     // 크리티컬 판정
     float CriticalChance = 0.f;
@@ -93,7 +97,7 @@ void USFDamageEffectExecCalculation::Execute_Implementation(
         if (MutableSpec)
         {
             MutableSpec->AddDynamicAssetTag(
-                FGameplayTag::RequestGameplayTag(FName("Event.Damage.Critical"))
+                SFGameplayTags::GameplayEvent_Damage_Critical
             );
         }
     }

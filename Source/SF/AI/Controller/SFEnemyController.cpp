@@ -11,7 +11,8 @@
 #include "DrawDebugHelpers.h"
 #include "GameFramework/Character.h"
 #include "NavigationSystem.h"
-#include "Net/UnrealNetwork.h" // [추가]
+#include "Net/UnrealNetwork.h"
+#include "AI/Controller//SFEnemyCombatComponent.h"
 
 #include UE_INLINE_GENERATED_CPP_BY_NAME(SFEnemyController)
 
@@ -57,6 +58,9 @@ ASFEnemyController::ASFEnemyController(const FObjectInitializer& ObjectInitializ
 
     bIsInCombat = false;
     TargetActor = nullptr;
+
+    //CombatComponent 앞으로 여기서 전투 관련 로직 개발 하도록 리팩토링 예정   ->  Controller에 만들어둔 것들 싹다 
+    CombatComponent = ObjectInitializer.CreateDefaultSubobject<USFEnemyCombatComponent>(this, TEXT("CombatComponent")); 
 }
 
 //네트워크 복제 함수
