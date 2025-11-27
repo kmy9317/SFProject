@@ -1,38 +1,41 @@
-// Fill out your copyright notice in the Description page of Project Settings.
 
 #pragma once
+
 #include "CoreMinimal.h"
-#include "BehaviorTree/BTTaskNode.h"
-#include "GameplayTagContainer.h"              
-#include "AbilitySystemComponent.h"          
+#include "BehaviorTree/Tasks/BTTask_BlackboardBase.h"
+#include "GameplayTagContainer.h"
 #include "USFBTTask_ExecuteAbilityByTag.generated.h"
 
-/**
- * 
- */
+class UAbilitySystemComponent;
+
 UCLASS()
-class SF_API UUSFBTTask_ExecuteAbilityByTag : public UBTTaskNode
+class SF_API UUSFBTTask_ExecuteAbilityByTag : public UBTTask_BlackboardBase
 {
 	GENERATED_BODY()
 
+
 public:
-	UUSFBTTask_ExecuteAbilityByTag(const FObjectInitializer& ObjectInitializer = FObjectInitializer::Get());
-    
+	UUSFBTTask_ExecuteAbilityByTag(const FObjectInitializer& ObjectInitializer);
+
+protected:
 	virtual EBTNodeResult::Type ExecuteTask(UBehaviorTreeComponent& OwnerComp, uint8* NodeMemory) override;
-
-protected:
 	virtual void OnTaskFinished(UBehaviorTreeComponent& OwnerComp, uint8* NodeMemory, EBTNodeResult::Type TaskResult) override;
-    
-	UAbilitySystemComponent* GetASC(UBehaviorTreeComponent& OwnerComp) const;  
-	void ReceiveTagChanged(FGameplayTag Tag, int32 NewCount);
+	void CleanupDelegate(UBehaviorTreeComponent& OwnerComp);
 
-public:
-	UPROPERTY(EditAnywhere, Category= "Blackboard")
-	FBlackboardKeySelector AbilityTagKey;
+private:
+	UAbilitySystemComponent* GetASC(UBehaviorTreeComponent& OwnerComp) const;
 
-protected:
-	FDelegateHandle EventHandle;
-	TWeakObjectPtr<UBehaviorTreeComponent> CachedOwnerComp;
 	
+	void OnTagChanged(FGameplayTag Tag, int32 NewCount);
+
+
+	FDelegateHandle EventHandle;
+
+	TWeakObjectPtr<UBehaviorTreeComponent> CachedOwnerComp;
+
 	FGameplayTag WatchedTag;
+	bool bFinished = false;
+
+	UPROPERTY(EditAnywhere)
+	FBlackboardKeySelector AbilityTagKey;
 };

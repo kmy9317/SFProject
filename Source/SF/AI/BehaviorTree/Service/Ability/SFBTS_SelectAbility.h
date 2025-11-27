@@ -10,7 +10,6 @@
 /**
  * 
  */
-// SFBTS_SelectAbility.h
 UCLASS()
 class SF_API USFBTS_SelectAbility : public UBTService_BlackboardBase
 {
@@ -26,9 +25,14 @@ protected:
 	virtual uint16 GetInstanceMemorySize() const override;
 	virtual void InitializeMemory(UBehaviorTreeComponent& OwnerComp, uint8* NodeMemory, EBTMemoryInit::Type InitType) const override;
 
+
+protected:
 	UPROPERTY(EditAnywhere, Category = "Ability")
 	FGameplayTagContainer AbilitySearchTags;
 
+	UPROPERTY(EditAnywhere, Category= "Target")
+	FBlackboardKeySelector TargetKey;
+	
 
 private:
 	

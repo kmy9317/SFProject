@@ -1,67 +1,51 @@
-// Fill out your copyright notice in the Description page of Project Settings.
-
-
 #include "USFBTTask_ExecuteAbilityByTag.h"
 #include "AIController.h"
 #include "AbilitySystemBlueprintLibrary.h"
 #include "AbilitySystemComponent.h"
 #include "BehaviorTree/BlackboardComponent.h"
 
-
 UUSFBTTask_ExecuteAbilityByTag::UUSFBTTask_ExecuteAbilityByTag(const FObjectInitializer& ObjectInitializer)
     : Super(ObjectInitializer)
 {
-    NodeName = "Ability by Tag";
+    NodeName = "Execute Ability By Tag";
     bNotifyTick = false;
-    bNotifyTaskFinished = true;  
+    bNotifyTaskFinished = true;
 }
 
-UAbilitySystemComponent* UUSFBTTask_ExecuteAbilityByTag::GetASC(UBehaviorTreeComponent& OwnerComp) const  
+UAbilitySystemComponent* UUSFBTTask_ExecuteAbilityByTag::GetASC(UBehaviorTreeComponent& OwnerComp) const
 {
-    
-    AAIController* AIController = OwnerComp.GetAIOwner(); 
-    if (!AIController)
-        return nullptr;
-    
-    APawn* ControlledPawn = AIController->GetPawn();
-    if (!ControlledPawn)
-        return nullptr;
-    
-    return UAbilitySystemBlueprintLibrary::GetAbilitySystemComponent(ControlledPawn);
+    if (AAIController* AIController = OwnerComp.GetAIOwner())
+    {
+        if (APawn* Pawn = AIController->GetPawn())
+        {
+            return UAbilitySystemBlueprintLibrary::GetAbilitySystemComponent(Pawn);
+        }
+    }
+    return nullptr;
 }
 
 EBTNodeResult::Type UUSFBTTask_ExecuteAbilityByTag::ExecuteTask(UBehaviorTreeComponent& OwnerComp, uint8* NodeMemory)
 {
     CachedOwnerComp = &OwnerComp;
+    bFinished = false;
+
     UAbilitySystemComponent* ASC = GetASC(OwnerComp);
     if (!ASC)
-    {
         return EBTNodeResult::Failed;
-    }
 
-
-    UBlackboardComponent* BlackboardComp = OwnerComp.GetBlackboardComponent();
-    if (!BlackboardComp || AbilityTagKey.SelectedKeyName == NAME_None)
-    {
+    UBlackboardComponent* BB = OwnerComp.GetBlackboardComponent();
+    if (!BB)
         return EBTNodeResult::Failed;
-    }
 
-    FName TagName = BlackboardComp->GetValueAsName(AbilityTagKey.SelectedKeyName);
+    FName TagName = BB->GetValueAsName(AbilityTagKey.SelectedKeyName);
     if (TagName == NAME_None)
-    {
         return EBTNodeResult::Failed;
-    }
 
-    //  FName → FGameplayTag 변환
     WatchedTag = FGameplayTag::RequestGameplayTag(TagName);
     if (!WatchedTag.IsValid())
-    {
-       
         return EBTNodeResult::Failed;
-    }
-    
 
-    //  Ability 찾기
+    // 능력 찾기
     TArray<FGameplayAbilitySpec*> MatchingAbilities;
     FGameplayTagContainer SearchTags;
     SearchTags.AddTag(WatchedTag);
@@ -69,102 +53,81 @@ EBTNodeResult::Type UUSFBTTask_ExecuteAbilityByTag::ExecuteTask(UBehaviorTreeCom
     ASC->GetActivatableGameplayAbilitySpecsByAllMatchingTags(SearchTags, MatchingAbilities, true);
 
     if (MatchingAbilities.Num() == 0)
-    {
         return EBTNodeResult::Failed;
-    }
 
-    //  Ability 활성화 시도
+    // Ability 실행 시도
     bool bActivated = false;
     for (FGameplayAbilitySpec* Spec : MatchingAbilities)
     {
-        if (!Spec || !Spec->Ability)
+        if (Spec && Spec->Ability)
         {
-            continue;
-        }
-
-        //  이벤트 핸들러 등록 
-        EventHandle = ASC->RegisterGameplayTagEvent(
-            WatchedTag,
-            EGameplayTagEventType::NewOrRemoved
-        ).AddUObject(this, &UUSFBTTask_ExecuteAbilityByTag::ReceiveTagChanged);
-
-        //  Ability 활성화
-        bool bSuccess = ASC->TryActivateAbility(Spec->Handle);
-
-        if (bSuccess)
-        {
-            bActivated = true;
-            break;
-        }
-        else
-        {
-            // 활성화 실패 시 핸들러 제거
-            if (EventHandle.IsValid())
+            if (ASC->TryActivateAbility(Spec->Handle))
             {
-                ASC->RegisterGameplayTagEvent(
-                    WatchedTag,
-                    EGameplayTagEventType::NewOrRemoved
-                ).Remove(EventHandle);
-                EventHandle.Reset();
+                bActivated = true;
+                break;
             }
         }
     }
 
     if (!bActivated)
-    {
         return EBTNodeResult::Failed;
+
+    // Delegate 등록 (활성화 성공 후에만)
+    if (!EventHandle.IsValid())
+    {
+        EventHandle = ASC->RegisterGameplayTagEvent(WatchedTag, EGameplayTagEventType::NewOrRemoved)
+            .AddUObject(this, &UUSFBTTask_ExecuteAbilityByTag::OnTagChanged);
     }
 
     return EBTNodeResult::InProgress;
 }
 
-void UUSFBTTask_ExecuteAbilityByTag::ReceiveTagChanged(FGameplayTag Tag, int32 NewCount)
+void UUSFBTTask_ExecuteAbilityByTag::OnTagChanged(FGameplayTag Tag, int32 NewCount)
 {
-    //  Tag가 제거될 때 (Ability 종료)
-    if (NewCount == 0)
+    // 중복 호출 방지
+    if (bFinished)
+        return;
+
+    // Ability 종료 조건 (태그 카운트가 0이 됨)
+    if (NewCount != 0)
+        return;
+
+    bFinished = true;
+
+    if (UBehaviorTreeComponent* OwnerComp = CachedOwnerComp.Get())
     {
-        UBehaviorTreeComponent* OwnerComp = CachedOwnerComp.Get();
-        if (!OwnerComp)
+        CleanupDelegate(*OwnerComp);
+
+        // Blackboard 초기화는 태스크 완료 직전에
+        if (UBlackboardComponent* BB = OwnerComp->GetBlackboardComponent())
         {
-            return;
+            BB->ClearValue(AbilityTagKey.SelectedKeyName);
         }
 
-        //  Delegate 정리
-        UAbilitySystemComponent* ASC = GetASC(*OwnerComp);
-        if (ASC && EventHandle.IsValid())
-        {
-            ASC->RegisterGameplayTagEvent(
-                WatchedTag,
-                EGameplayTagEventType::NewOrRemoved
-            ).Remove(EventHandle);
-            EventHandle.Reset();
-        }
-
-    
         FinishLatentTask(*OwnerComp, EBTNodeResult::Succeeded);
     }
 }
 
 void UUSFBTTask_ExecuteAbilityByTag::OnTaskFinished(UBehaviorTreeComponent& OwnerComp, uint8* NodeMemory, EBTNodeResult::Type TaskResult)
 {
-    UAbilitySystemComponent* ASC = GetASC(OwnerComp);
-    if (ASC && EventHandle.IsValid())
-    {
-        ASC->RegisterGameplayTagEvent(
-            WatchedTag,
-            EGameplayTagEventType::NewOrRemoved
-        ).Remove(EventHandle);
-        EventHandle.Reset();
-    }
-    
-    UBlackboardComponent* BlackboardComp = OwnerComp.GetBlackboardComponent();
-    if (BlackboardComp && AbilityTagKey.SelectedKeyName != NAME_None)
-    {
-        BlackboardComp->ClearValue(AbilityTagKey.SelectedKeyName);
-    }
+    CleanupDelegate(OwnerComp);
     
     CachedOwnerComp.Reset();
-    WatchedTag = FGameplayTag();  
+    WatchedTag = FGameplayTag();
+    bFinished = false;
 
     Super::OnTaskFinished(OwnerComp, NodeMemory, TaskResult);
+}
+
+void UUSFBTTask_ExecuteAbilityByTag::CleanupDelegate(UBehaviorTreeComponent& OwnerComp)
+{
+    if (!EventHandle.IsValid())
+        return;
+
+    if (UAbilitySystemComponent* ASC = GetASC(OwnerComp))
+    {
+        ASC->UnregisterGameplayTagEvent(EventHandle, WatchedTag, EGameplayTagEventType::NewOrRemoved);
+    }
+    
+    EventHandle.Reset();
 }

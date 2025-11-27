@@ -13,6 +13,7 @@ class SF_API USFAbilitySystemComponent : public UAbilitySystemComponent
 	GENERATED_BODY()
 
 public:
+	
 	// Sets default values for this component's properties
 	USFAbilitySystemComponent(const FObjectInitializer& ObjectInitializer = FObjectInitializer::Get());
 

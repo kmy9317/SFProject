@@ -14,10 +14,6 @@ class SF_API ASFMeleeWeaponActor : public AActor, public ISFTraceActorInterface
 public:
 	ASFMeleeWeaponActor(const FObjectInitializer& ObjectInitializer = FObjectInitializer::Get());
 
-	virtual void Tick(float DeltaTime) override;
-
-	void PerformTrace();
-
 	// ISFTraceActorInterface
 	virtual bool CanBeTraced() const override;
 	virtual void OnTraced(const FHitResult& HitInfo, AActor* WeaponOwner) override;
@@ -25,23 +21,24 @@ public:
 	virtual void OnTraceEnd(AActor* WeaponOwner) override;
 
 protected:
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category= Mesh)
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Mesh")
 	TObjectPtr<UStaticMeshComponent> StaticMeshComponent;
 
-	UPROPERTY(EditDefaultsOnly, Category= "Weapon|Trace")
-	bool bShowTrace = false;
-    
-	UPROPERTY(EditDefaultsOnly, Category= "Weapon|Trace")
-	float TraceRadius = 50.f;
+	
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Collision")
+	TObjectPtr<class UBoxComponent> WeaponCollision;
 
-	UPROPERTY(EditDefaultsOnly, Category= "Weapon|Trace")
-	TArray<FName> TraceSockets;
+	UPROPERTY(EditDefaultsOnly, Category = "Weapon|Debug")
+	bool bShowDebug = false;
 
 private:
-	
+
+	UFUNCTION()
+	void OnWeaponOverlap(UPrimitiveComponent* OverlappedComp,  AActor* OtherActor, UPrimitiveComponent* OtherComp,int32 OtherBodyIndex,bool bFromSweep,const FHitResult& SweepResult);
+
+	UPROPERTY()
 	TObjectPtr<AActor> CurrentWeaponOwner;
-	
-	TMap<FName, FVector> PreviousSocketLocations;
-	
-	TSet<AActor*> HitActorsThisAttack;
+    
+	UPROPERTY()
+	TSet<TObjectPtr<AActor>> HitActorsThisAttack;
 };

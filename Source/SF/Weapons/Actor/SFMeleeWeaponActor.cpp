@@ -1,34 +1,35 @@
-﻿
-#include "SFMeleeWeaponActor.h"
+﻿#include "SFMeleeWeaponActor.h"
 #include "AbilitySystemBlueprintLibrary.h"
 #include "AbilitySystemComponent.h"
 #include "Abilities/GameplayAbilityTypes.h"
 #include "AbilitySystem/GameplayEvent/SFGameplayEventTags.h"
+#include "Components/BoxComponent.h"
+#include "DrawDebugHelpers.h"
 
 #include UE_INLINE_GENERATED_CPP_BY_NAME(SFMeleeWeaponActor)
-
 
 ASFMeleeWeaponActor::ASFMeleeWeaponActor(const FObjectInitializer& ObjectInitializer)
     : Super(ObjectInitializer)
 {
-    PrimaryActorTick.bCanEverTick = true;
-    PrimaryActorTick.bStartWithTickEnabled = false;
+    PrimaryActorTick.bCanEverTick = false;
 
+    // Static Mesh를 Root로
     StaticMeshComponent = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("WeaponMesh"));
     RootComponent = StaticMeshComponent;
-
     StaticMeshComponent->SetCollisionEnabled(ECollisionEnabled::NoCollision);
     StaticMeshComponent->SetSimulatePhysics(false);
-}
 
-void ASFMeleeWeaponActor::Tick(float DeltaTime)
-{
-    Super::Tick(DeltaTime);
-  
-    if (CurrentWeaponOwner)
-    {
-        PerformTrace();
-    }
+    // Collision Box
+    WeaponCollision = CreateDefaultSubobject<UBoxComponent>(TEXT("WeaponCollision"));
+    WeaponCollision->SetupAttachment(StaticMeshComponent);
+    WeaponCollision->SetCollisionObjectType(ECC_WorldDynamic);
+    WeaponCollision->SetCollisionResponseToAllChannels(ECR_Ignore);
+    WeaponCollision->SetCollisionResponseToChannel(ECC_Pawn, ECR_Overlap);
+    WeaponCollision->SetGenerateOverlapEvents(true);
+    WeaponCollision->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+    WeaponCollision->SetBoxExtent(FVector(50.f, 10.f, 50.f));
+    
+    WeaponCollision->OnComponentBeginOverlap.AddDynamic(this, &ASFMeleeWeaponActor::OnWeaponOverlap);
 }
 
 bool ASFMeleeWeaponActor::CanBeTraced() const
@@ -38,195 +39,86 @@ bool ASFMeleeWeaponActor::CanBeTraced() const
 
 void ASFMeleeWeaponActor::OnTraceStart(AActor* WeaponOwner)
 {
+    if (!WeaponOwner) return;
+
     CurrentWeaponOwner = WeaponOwner;
     HitActorsThisAttack.Empty();
-    PreviousSocketLocations.Empty();  
 
-    // Tick 활성화
-    SetActorTickEnabled(true);
-
-    // 초기 소켓 위치 저장
-    if (StaticMeshComponent)
+    if (WeaponCollision)
     {
-        for (const FName& Socket : TraceSockets)
-        {
-            if (StaticMeshComponent->DoesSocketExist(Socket))
-            {
-                FVector Location = StaticMeshComponent->GetSocketLocation(Socket);
-                PreviousSocketLocations.Emplace(Socket, Location);  
-            }
-        }
+        WeaponCollision->SetCollisionEnabled(ECollisionEnabled::QueryOnly);
     }
+    
 }
 
 void ASFMeleeWeaponActor::OnTraceEnd(AActor* WeaponOwner)
 {
-  
-    SetActorTickEnabled(false);
+    if (WeaponCollision)
+    {
+        WeaponCollision->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+    }
 
     CurrentWeaponOwner = nullptr;
-    PreviousSocketLocations.Empty();
     HitActorsThisAttack.Empty();
 }
 
-void ASFMeleeWeaponActor::PerformTrace()
+void ASFMeleeWeaponActor::OnWeaponOverlap( UPrimitiveComponent* OverlappedComp, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult)
 {
-    if (!CurrentWeaponOwner || !StaticMeshComponent || TraceSockets.Num() < 2)
-        return;
+    // 유효성 검사
+    if (!OtherActor || !CurrentWeaponOwner) return;
+    if (OtherActor == this || OtherActor == CurrentWeaponOwner) return;
+    if (HitActorsThisAttack.Contains(OtherActor)) return;
 
-    UWorld* World = GetWorld();
-    if (!World)
-        return;
+    // 히트 기록
+    HitActorsThisAttack.Add(OtherActor);
 
-   
-    for (int32 i = 0; i < TraceSockets.Num() - 1; ++i)
+    // HitResult 생성
+    FHitResult HitInfo;
+    HitInfo.HitObjectHandle = FActorInstanceHandle(OtherActor);
+    HitInfo.Component = OtherComp;
+
+    // 맞은 부위 판단
+    if (USkeletalMeshComponent* SkeletalMesh = Cast<USkeletalMeshComponent>(OtherComp))
     {
-        FName StartSocket = TraceSockets[i];
-        FName EndSocket = TraceSockets[i + 1];
-
-        // 현재 프레임 위치
-        FVector CurrentStart = StaticMeshComponent->GetSocketLocation(StartSocket);
-        FVector CurrentEnd = StaticMeshComponent->GetSocketLocation(EndSocket);
-
-        // 이전 프레임 위치
-        FVector* PrevStartPtr = PreviousSocketLocations.Find(StartSocket);
-        FVector* PrevEndPtr = PreviousSocketLocations.Find(EndSocket);
-
-        // 첫 프레임 처리
-        if (!PrevStartPtr || !PrevEndPtr)
-        {
-            // 첫 프레임에도 현재 위치에서 작은 범위 Trace 수행
-            PreviousSocketLocations.Emplace(StartSocket, CurrentStart);
-            PreviousSocketLocations.Emplace(EndSocket, CurrentEnd);
-
-            // 첫 프레임: 현재 위치에서 짧은 거리 Trace
-            TArray<FHitResult> InitialHitResults;
-            FCollisionQueryParams InitialQueryParams;
-            InitialQueryParams.AddIgnoredActor(this);
-            InitialQueryParams.AddIgnoredActor(CurrentWeaponOwner);
-            InitialQueryParams.bTraceComplex = false;
-
-            // 현재 위치에서 약간 앞으로 Trace 
-            FVector TraceDirection = (CurrentEnd - CurrentStart).GetSafeNormal();
-            FVector ShortTraceEnd = CurrentEnd + TraceDirection * TraceRadius;
-
-            World->SweepMultiByChannel(
-                InitialHitResults,
-                CurrentEnd,
-                ShortTraceEnd,
-                FQuat::Identity,
-                ECC_Pawn,
-                FCollisionShape::MakeSphere(TraceRadius),
-                InitialQueryParams
-            );
-
-            // 첫 프레임 Hit 처리
-            for (const FHitResult& Hit : InitialHitResults)
-            {
-                if (AActor* HitActor = Hit.GetActor())
-                {
-                    if (!HitActorsThisAttack.Contains(HitActor))
-                    {
-                        HitActorsThisAttack.Add(HitActor);
-                        OnTraced(Hit, CurrentWeaponOwner);
-                    }
-                }
-            }
-
-            continue;
-        }
-
-        // Collision Query 설정
-        FCollisionQueryParams QueryParams;
-        QueryParams.AddIgnoredActor(this);
-        QueryParams.AddIgnoredActor(CurrentWeaponOwner);
-        QueryParams.bTraceComplex = false;
-
-        TArray<FHitResult> HitResults;
-
-        // 이전 프레임과 현재 프레임의 중심점 계산
-        FVector PrevCenter = (*PrevStartPtr + *PrevEndPtr) / 2.0f;
-        FVector CurrentCenter = (CurrentStart + CurrentEnd) / 2.0f;
-
-        // 캡슐의 Half Height (StartSocket과 EndSocket 사이 거리의 절반)
-        float CapsuleHalfHeight = FVector::Dist(CurrentStart, CurrentEnd) / 2.0f;
-
-        // 캡슐의 방향 계산 (StartSocket에서 EndSocket 방향)
-        FVector CapsuleDirection = (CurrentEnd - CurrentStart).GetSafeNormal();
-        FQuat CapsuleRotation = FQuat::FindBetweenNormals(FVector::UpVector, CapsuleDirection);
-
-        // Capsule Sweep Trace 
-        World->SweepMultiByChannel(
-            HitResults,
-            PrevCenter,
-            CurrentCenter,
-            CapsuleRotation,
-            ECC_Pawn,
-            FCollisionShape::MakeCapsule(TraceRadius, CapsuleHalfHeight),
-            QueryParams
-        );
-
-        // Hit 처리
-        for (const FHitResult& Hit : HitResults)
-        {
-            if (AActor* HitActor = Hit.GetActor())
-            {
-                if (!HitActorsThisAttack.Contains(HitActor))
-                {
-                    HitActorsThisAttack.Add(HitActor);
-
-                    OnTraced(Hit, CurrentWeaponOwner);
-                }
-            }
-        }
-        
-        if (bShowTrace)
-        {
-            // 캡슐 시각화
-            DrawDebugCapsule(
-                World,
-                CurrentCenter,
-                CapsuleHalfHeight,
-                TraceRadius,
-                CapsuleRotation,
-                FColor::Red,
-                false,
-                0.1f,
-                0,
-                2.0f
-            );
-        }
-
-        // 위치 업데이트
-        PreviousSocketLocations.Emplace(StartSocket, CurrentStart);
-        PreviousSocketLocations.Emplace(EndSocket, CurrentEnd);
+        FVector WeaponLocation = WeaponCollision->GetComponentLocation();
+        HitInfo.BoneName = SkeletalMesh->FindClosestBone(WeaponLocation);
+        HitInfo.ImpactPoint = SkeletalMesh->GetBoneLocation(HitInfo.BoneName);
     }
+    else
+    {
+        HitInfo.BoneName = NAME_None;
+        HitInfo.ImpactPoint = OtherActor->GetActorLocation();
+    }
+
+    HitInfo.Location = HitInfo.ImpactPoint;
+    HitInfo.ImpactNormal = FVector::UpVector;
+    HitInfo.bBlockingHit = false;
+
+    // 데미지 처리
+    OnTraced(HitInfo, CurrentWeaponOwner);
 }
 
 void ASFMeleeWeaponActor::OnTraced(const FHitResult& HitInfo, AActor* WeaponOwner)
 {
-    
+    if (!WeaponOwner) return;
+
     UAbilitySystemComponent* OwnerASC = UAbilitySystemBlueprintLibrary::GetAbilitySystemComponent(WeaponOwner);
-    if (!OwnerASC)
-    {
-        return;
-    }
+    if (!OwnerASC) return;
 
     // EventData 생성
     FGameplayEventData EventData;
-    EventData.Instigator = CurrentWeaponOwner;
+    EventData.Instigator = WeaponOwner;
     EventData.Target = HitInfo.GetActor();
     EventData.OptionalObject = this;
     EventData.ContextHandle = OwnerASC->MakeEffectContext();
-    
-    
-    //HitResult를  TargetData
+
+    // TargetData 생성
     FGameplayAbilityTargetDataHandle TargetDataHandle;
-    FGameplayAbilityTargetData_SingleTargetHit* TargetData = new FGameplayAbilityTargetData_SingleTargetHit(HitInfo);
+    FGameplayAbilityTargetData_SingleTargetHit* TargetData = 
+        new FGameplayAbilityTargetData_SingleTargetHit(HitInfo);
     TargetDataHandle.Add(TargetData);
     EventData.TargetData = TargetDataHandle;
-    
-    //GameplayEvent 전송
+
+    // GameplayEvent 전송
     OwnerASC->HandleGameplayEvent(SFGameplayTags::GameplayEvent_TraceHit, &EventData);
-    
 }

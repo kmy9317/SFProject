@@ -2,6 +2,7 @@
 
 #include "CoreMinimal.h"
 #include "AbilitySystem/Abilities/SFGameplayAbility.h"
+#include "Interface/SFEnemyAbilityInterface.h"
 #include "SFGA_Enemy_BaseAttack.generated.h"
 
 UENUM(BlueprintType)
@@ -27,7 +28,7 @@ struct FTaggedMontage
  * 
  */
 UCLASS(Abstract)
-class SF_API USFGA_Enemy_BaseAttack : public USFGameplayAbility
+class SF_API USFGA_Enemy_BaseAttack : public USFGameplayAbility, public ISFEnemyAbilityInterface
 {
     GENERATED_BODY()
 
@@ -61,17 +62,14 @@ public:
     UFUNCTION(BlueprintPure, Category = "Attack")
     float GetBaseDamage() const { return BaseDamage; }
 
+    virtual float CalcAIScore(const FEnemyAbilitySelectContext& Context) const override;
     
 
     
 protected:
-    // 데미지 적용 
+ 
     UFUNCTION(BlueprintCallable, Category = "Attack")
-    virtual void ApplyDamageToTarget(AActor* Target, float DamageAmount = -1.0f);
-
-    // 공격 실행 로직 
-    UFUNCTION(BlueprintCallable, Category = "Attack")
-    virtual void ExecuteAttack() {};
+    virtual void ApplyDamageToTarget(AActor* Target);
 
     UFUNCTION(BlueprintCallable, Category = "Attack")
     virtual ASFCharacterBase* GetCurrentTarget() const;

@@ -2,7 +2,9 @@
 #include "SFBTS_SelectAbility.h"
 #include "AbilitySystemComponent.h"
 #include "AIController.h"
+#include "AI/Controller/SFEnemyCombatComponent.h"
 #include "BehaviorTree/BlackboardComponent.h"
+#include "Interface/SFEnemyAbilityInterface.h"
 
 USFBTS_SelectAbility::USFBTS_SelectAbility()
 {
@@ -29,102 +31,38 @@ void USFBTS_SelectAbility::TickNode(UBehaviorTreeComponent& OwnerComp, uint8* No
 {
     Super::TickNode(OwnerComp, NodeMemory, DeltaSeconds);
 
-
-    UBlackboardComponent* BlackboardComp = OwnerComp.GetBlackboardComponent();
-    if (BlackboardComp)
+    // 이미 선택된 Ability가 있으면 stop 
+    UBlackboardComponent* BB = OwnerComp.GetBlackboardComponent();
+    if (BB && BB->GetValueAsName(BlackboardKey.SelectedKeyName) != NAME_None)
     {
-        FName CurrentAbility = BlackboardComp->GetValueAsName(BlackboardKey.SelectedKeyName);
-        if (CurrentAbility != NAME_None)
-        {
-            return; 
-        }
+        return;
+    }
+    
+    AAIController* AIController = OwnerComp.GetAIOwner();
+    if (!AIController)
+    {
+        return;
+    }
+    
+    USFEnemyCombatComponent* CombatComp = USFEnemyCombatComponent::FindSFEnemyCombatComponent(AIController);
+    if (!CombatComp)
+    {
+        return;
     }
 
-    APawn* AIPawn = OwnerComp.GetAIOwner()->GetPawn();
+    FEnemyAbilitySelectContext Context;
+    APawn* AIPawn = AIController->GetPawn();
     if (!AIPawn)
     {
         return;
     }
-
-    UAbilitySystemComponent* ASC = AIPawn->FindComponentByClass<UAbilitySystemComponent>();
-    if (!ASC)
-    {
-        return;
-    }
- 
-    FBTSelectAbilityMemory* MyMemory = reinterpret_cast<FBTSelectAbilityMemory*>(NodeMemory);
-
-    FGameplayTag SelectedAbilityTag;
-
-    for (const FGameplayAbilitySpec& Spec : ASC->GetActivatableAbilities())
-    {
-        if (!Spec.Ability)
-        {
-            continue;
-        }
-
-        bool bTagMatches = false;
-
-        for (const FGameplayTag& SearchTag : AbilitySearchTags)
-        {
-            for (const FGameplayTag& AbilityTag : Spec.Ability->AbilityTags)
-            {
-                if (AbilityTag.MatchesTag(SearchTag))
-                {
-                    bTagMatches = true;
-                    break;
-                }
-            }
-
-            if (!bTagMatches && Spec.Ability->AbilityTags.Num() == 0)
-            {
-                for (const FGameplayTag& AssetTag : Spec.Ability->GetAssetTags())
-                {
-                    if (AssetTag.MatchesTag(SearchTag))
-                    {
-                        bTagMatches = true;
-                        break;
-                    }
-                }
-            }
-
-            if (bTagMatches) break;
-        }
-
-        if (!bTagMatches)
-        {
-            continue;
-        }
-        
-        bool bCanActivate = Spec.Ability->CanActivateAbility(Spec.Handle, ASC->AbilityActorInfo.Get());
-
-        if (bCanActivate)
-        {
-            if (Spec.Ability->AbilityTags.Num() > 0)
-            {
-                SelectedAbilityTag = Spec.Ability->AbilityTags.First();
-            }
-            else if (Spec.Ability->GetAssetTags().Num() > 0)
-            {
-                SelectedAbilityTag = Spec.Ability->GetAssetTags().First();
-            }
-            break;
-        }
-    }
     
-    if (SelectedAbilityTag != MyMemory->LastSelectedAbilityTag)
+    Context.Self   = AIPawn;
+    Context.Target = Cast<AActor>(BB->GetValueAsObject(TargetKey.SelectedKeyName));
+
+    FGameplayTag SelectedTag;
+    if (CombatComp->SelectAbility(Context, AbilitySearchTags, SelectedTag))
     {
-        if (SelectedAbilityTag.IsValid())
-        {
-            OwnerComp.GetBlackboardComponent()->SetValueAsName(
-                BlackboardKey.SelectedKeyName,
-                SelectedAbilityTag.GetTagName()
-            );
-        }
-        else
-        {
-            OwnerComp.GetBlackboardComponent()->ClearValue(BlackboardKey.SelectedKeyName);
-        }
-        MyMemory->LastSelectedAbilityTag = SelectedAbilityTag;
+        BB->SetValueAsName(BlackboardKey.SelectedKeyName, SelectedTag.GetTagName());
     }
 }
