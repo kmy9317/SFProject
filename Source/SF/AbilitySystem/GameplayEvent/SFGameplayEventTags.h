@@ -10,6 +10,11 @@ namespace SFGameplayTags
 	// Combat Events
 	SF_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(GameplayEvent_TraceHit);
 
+	SF_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(GameplayEvent_Montage_Begin);
+	SF_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(GameplayEvent_Montage_End);
+	SF_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(GameplayEvent_Tracing);
+	SF_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(GameplayEvent_ResetTrace);
+	
 
 	//Damage Events
 	SF_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(GameplayEvent_Damage_Critical);

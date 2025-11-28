@@ -111,3 +111,26 @@ void USFEquipmentComponent::UnequipItemByInstance(USFEquipmentInstance* Equipmen
 
 	EquipmentInstances.Remove(EquipmentInstance);
 }
+
+AActor* USFEquipmentComponent::GetFirstEquippedActorBySlot(const FGameplayTag& SlotTag) const
+{
+	USFEquipmentInstance* EquipmentInstance = FindEquipmentInstanceBySlot(SlotTag);
+	if (EquipmentInstance)
+	{
+		return EquipmentInstance->GetSpawnedActors()[0];
+	}
+
+	return nullptr;
+}
+
+bool USFEquipmentComponent::IsSlotEquipmentMatchesTag(const FGameplayTag& SlotTag, const FGameplayTag& CheckingTag) const
+{
+	USFEquipmentInstance* EquipmentInstance = FindEquipmentInstanceBySlot(SlotTag);
+	if (EquipmentInstance && EquipmentInstance->GetEquipmentDefinition())
+	{
+		return EquipmentInstance->GetEquipmentDefinition()->EquipmentTag.MatchesTag(CheckingTag);
+	}
+
+	return false;
+}
+

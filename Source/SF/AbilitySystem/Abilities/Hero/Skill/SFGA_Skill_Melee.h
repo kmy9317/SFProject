@@ -6,6 +6,7 @@
 #include "AbilitySystem/Abilities/SFGameplayAbility.h"
 #include "SFGA_Skill_Melee.generated.h"
 
+class ASFEquipmentBase;
 /**
  * 
  */
@@ -14,12 +15,15 @@ class SF_API USFGA_Skill_Melee : public USFGameplayAbility
 {
 	GENERATED_BODY()
 
+public:
+	USFGA_Skill_Melee(const FObjectInitializer& ObjectInitializer = FObjectInitializer::Get());
+
 protected:
 	virtual void ActivateAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, const FGameplayEventData* TriggerEventData) override;
 
 	void ParseTargetData(const FGameplayAbilityTargetDataHandle& InTargetDataHandle, TArray<int32>& OutActorsHitIndexes);
 	
-	void ProcessHitResult(FHitResult HitResult, float Damage/*, ASFEquipmentBase WeaponActor */);
+	void ProcessHitResult(FHitResult HitResult, float Damage, ASFEquipmentBase* WeaponActor);
 	
 	void ResetHitActors();
 

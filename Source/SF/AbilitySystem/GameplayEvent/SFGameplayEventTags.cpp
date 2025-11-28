@@ -8,6 +8,11 @@ namespace SFGameplayTags
 	
 	UE_DEFINE_GAMEPLAY_TAG(GameplayEvent_TraceHit, "GameplayEvent.TraceHit");
 	
+	UE_DEFINE_GAMEPLAY_TAG(GameplayEvent_Montage_Begin, "GameplayEvent.Montage.Begin");
+	UE_DEFINE_GAMEPLAY_TAG(GameplayEvent_Montage_End, "GameplayEvent.Montage.End");
+	UE_DEFINE_GAMEPLAY_TAG(GameplayEvent_Tracing, "GameplayEvent.Tracing");
+	UE_DEFINE_GAMEPLAY_TAG(GameplayEvent_ResetTrace, "GameplayEvent.ResetTrace");
+	
 	UE_DEFINE_GAMEPLAY_TAG(GameplayEvent_Damage_Critical, "GameplayEvent.Damage.Critical");
 	
 	

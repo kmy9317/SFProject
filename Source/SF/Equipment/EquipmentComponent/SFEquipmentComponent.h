@@ -17,7 +17,6 @@ class SF_API USFEquipmentComponent : public UPawnComponent
 
 public:
 	
-
 	static USFEquipmentComponent* FindEquipmentComponent(AActor* OwnerActor){ return (OwnerActor ? OwnerActor->FindComponentByClass<USFEquipmentComponent>() : nullptr); }
 
 	void EquipItem(USFEquipmentDefinition* EquipmentDefinition);
@@ -30,17 +29,19 @@ public:
 
 	UFUNCTION(BlueprintPure, Category = "Equipment")
 	const TArray<USFEquipmentInstance*>& GetEquippedItems() const { return EquipmentInstances; }
+	
+	UFUNCTION(BlueprintPure, Category = "Equipment")
+	AActor* GetFirstEquippedActorBySlot(const FGameplayTag& SlotTag) const;
 
 	void InitializeEquipment();
 
 	virtual void BeginPlay() override;
-	
-
-protected:
 
 	virtual USFEquipmentInstance* FindEquipmentInstance(FGameplayTag EquipmentTag) const;
 
 	virtual USFEquipmentInstance* FindEquipmentInstanceBySlot(FGameplayTag SlotTag) const;
+
+	bool IsSlotEquipmentMatchesTag(const FGameplayTag& SlotTag, const FGameplayTag& CheckingTag) const;
 
 protected:
 	UPROPERTY()
