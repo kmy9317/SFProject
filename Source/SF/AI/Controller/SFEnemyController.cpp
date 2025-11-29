@@ -103,9 +103,6 @@ void ASFEnemyController::BeginPlay()
         UE_LOG(LogTemp, Log, TEXT("[SFEnemyAI] Perception 이벤트 바인딩 완료 (Updated + Forgotten)"));
     }
 
-    // 디버그 - 현재 범위 출력
-    UE_LOG(LogTemp, Warning, TEXT("[SFEnemyAI] 감지 범위 → 근접: %.0f | 경계: %.0f | 시야: %.0f | 상실: %.0f"),
-        MeleeRange, GuardRange, SightRadius, LoseSightRadius);
 }
 
 
@@ -124,11 +121,9 @@ void ASFEnemyController::OnPossess(APawn* InPawn)
     
     if (!InPawn)
     {
-        UE_LOG(LogTemp, Warning, TEXT("[SFEnemyAI] OnPossess 실패: Pawn 이 nullptr 입니다"));
         return;
     }
 
-    UE_LOG(LogTemp, Log, TEXT("[SFEnemyAI] 제어한 Pawn: %s"), *InPawn->GetName());
 
     // 스폰 위치 저장 (귀환 행동 등에 사용 가능)
     SpawnLocation = InPawn->GetActorLocation();
@@ -243,101 +238,52 @@ bool ASFEnemyController::RunBehaviorTree(UBehaviorTree* BehaviorTree)
 
 void ASFEnemyController::OnTargetPerceptionUpdated(AActor* Actor, FAIStimulus Stimulus)
 {
-    if (!Actor)
-        return;
+    if (!Actor) return;
 
     // 시야 감각만 처리
     if (!Stimulus.Type.IsValid() || Stimulus.Type != UAISense::GetSenseID<UAISense_Sight>())
+    {
         return;
+    }
 
-    // 특정 태그만 타겟으로 감지하려는 경우
+    // 타겟 태그 필터링
     if (!TargetTag.IsNone() && !Actor->ActorHasTag(TargetTag))
+    {
         return;
+    }
 
-    UE_LOG(LogTemp, Log, TEXT("[SFEnemyAI] 감지된 액터: %s (Tag: %s)"), *Actor->GetName(), *TargetTag.ToString());
+    // CombatComponent에게 처리 위임
+    if (CombatComponent)
+    {
+        CombatComponent->HandleTargetPerceptionUpdated(Actor, Stimulus.WasSuccessfullySensed());
+    }
 
-    // 감지 성공 (전투 상태 진입)
+    // Blackboard 업데이트
     if (Stimulus.WasSuccessfullySensed())
     {
         TargetActor = Actor;
-
-        if (!bIsInCombat)
-        {
-            bIsInCombat = true;
-
-            // 전투 중에는 시야 360도
-            SightConfig->PeripheralVisionAngleDegrees = 180.f;
-            AIPerception->ConfigureSense(*SightConfig);
-
-            UE_LOG(LogTemp, Warning, TEXT("[SFEnemyAI] 상태: Idle → Combat (타겟: %s) | 시야 90° → 360°"),
-                *Actor->GetName());
-        }
-
-        SetFocus(Actor, EAIFocusPriority::Gameplay);
-
+        
         if (CachedBlackboardComponent)
         {
             CachedBlackboardComponent->SetValueAsObject("TargetActor", Actor);
             CachedBlackboardComponent->SetValueAsBool("bHasTarget", true);
-            CachedBlackboardComponent->SetValueAsBool("bIsInCombat", true);
             CachedBlackboardComponent->SetValueAsVector("LastKnownPosition", Stimulus.StimulusLocation);
         }
-    }
-    // 감지 상실 (전투 종료 체크)
-    else
-    {
-        // 여기서는 당장 잃었다고 전투를 끄지 않고, 모든 타겟을 놓쳤는지 확인
-        TArray<AActor*> PerceivedActors;
-        if (AIPerception)
-        {
-            AIPerception->GetCurrentlyPerceivedActors(UAISense_Sight::StaticClass(), PerceivedActors);
-        }
 
-        int32 PlayerCount = 0;
-        for (AActor* PerceivedActor : PerceivedActors)
-        {
-            if (!TargetTag.IsNone() && PerceivedActor->ActorHasTag(TargetTag))
-            {
-                PlayerCount++;
-            }
-        }
-
-        if (PlayerCount == 0 && bIsInCombat)
-        {
-            bIsInCombat = false;
-            TargetActor = nullptr;
-
-            // Idle 시야 각도 복원
-            SightConfig->PeripheralVisionAngleDegrees = PeripheralVisionAngleDegrees;
-            AIPerception->ConfigureSense(*SightConfig);
-
-            UE_LOG(LogTemp, Warning, TEXT("[SFEnemyAI] 상태: Combat → Idle | 시야 360° → 90°"));
-
-            ClearFocus(EAIFocusPriority::Gameplay);
-
-            if (CachedBlackboardComponent)
-            {
-                CachedBlackboardComponent->ClearValue("TargetActor");
-                CachedBlackboardComponent->SetValueAsBool("bHasTarget", false);
-                CachedBlackboardComponent->SetValueAsBool("bIsInCombat", false);
-            }
-        }
+        // 시선 고정
+        SetFocus(Actor, EAIFocusPriority::Gameplay);
     }
 }
 
-// [추가] MaxAge 경과 시 호출되는 안전장치 함수
+// MaxAge 경과 시 호출되는 안전장치 함수
 void ASFEnemyController::OnTargetPerceptionForgotten(AActor* Actor)
 {
-    if (!Actor)
-        return;
+    if (!Actor) return;
 
-    UE_LOG(LogTemp, Log, TEXT("[SFEnemyAI] OnTargetPerceptionForgotten: %s (MaxAge 만료)"), *Actor->GetName());
-
-    // TargetTag 필터링
     if (!TargetTag.IsNone() && !Actor->ActorHasTag(TargetTag))
         return;
 
-    // 감지된 플레이어가 여전히 있는지 확인 (이중 안전장치)
+    // 감지된 플레이어가 여전히 있는지 확인
     TArray<AActor*> PerceivedActors;
     if (AIPerception)
     {
@@ -353,200 +299,44 @@ void ASFEnemyController::OnTargetPerceptionForgotten(AActor* Actor)
         }
     }
 
-    // 모든 플레이어를 잃었으면 Combat → Idle 전환
-    if (PlayerCount == 0 && bIsInCombat)
+    // 모든 타겟을 잃었을 때 처리
+    if (PlayerCount == 0)
     {
-        bIsInCombat = false;
         TargetActor = nullptr;
-
-        // Idle 상태: 90도 전방 원뿔로 복원
-        if (SightConfig)
-        {
-            SightConfig->PeripheralVisionAngleDegrees = PeripheralVisionAngleDegrees;
-            AIPerception->ConfigureSense(*SightConfig);
-            UE_LOG(LogTemp, Warning, TEXT("[SFEnemyAI] 상태 변경 (Forgotten): Combat → Idle"));
-        }
-
         ClearFocus(EAIFocusPriority::Gameplay);
 
         if (CachedBlackboardComponent)
         {
             CachedBlackboardComponent->ClearValue("TargetActor");
             CachedBlackboardComponent->SetValueAsBool("bHasTarget", false);
-            CachedBlackboardComponent->SetValueAsBool("bIsInCombat", false);
         }
     }
 }
 
 
-float ASFEnemyController::GetDistanceToTarget() const
-{
-    if (!TargetActor || !GetPawn())
-        return 0.f;
-
-    return FVector::Dist(GetPawn()->GetActorLocation(), TargetActor->GetActorLocation());
-}
-
-bool ASFEnemyController::IsInMeleeRange() const
-{
-    const float Distance = GetDistanceToTarget();
-    return Distance > 0.f && Distance <= MeleeRange;
-}
-
-bool ASFEnemyController::IsInGuardRange() const
-{
-    const float Distance = GetDistanceToTarget();
-    return Distance > 0.f && Distance <= GuardRange;
-}
-
-bool ASFEnemyController::IsInTrackingRange() const
-{
-    const float Distance = GetDistanceToTarget();
-    return Distance > 0.f && Distance <= LoseSightRadius;
-}
-
-// [제거됨] FindBestTarget 구현부 삭제
 
 
 void ASFEnemyController::DrawDebugPerception()
 {
 #if !UE_BUILD_SHIPPING
     const bool bShowDebug = CVarShowAIDebug.GetValueOnGameThread();
-    if (!bShowDebug)
-        return;
+    if (!bShowDebug) return;
 
     APawn* ControlledPawn = GetPawn();
-    if (!ControlledPawn)
-        return;
+    if (!ControlledPawn) return;
 
-    const FVector PawnLocation = ControlledPawn->GetActorLocation();
-    const FRotator PawnRotation = ControlledPawn->GetActorRotation();
-    const FVector ForwardVector = PawnRotation.Vector();
-    const float LifeTime = 0.f;
-
-    FVector EyeLocation = PawnLocation;
-    if (ACharacter* ControlledCharacter = Cast<ACharacter>(ControlledPawn))
-        EyeLocation.Z += ControlledCharacter->BaseEyeHeight;
-    else
-        EyeLocation.Z += 90.f;
-
-    // Idle 시 상태
-    if (!bIsInCombat)
+    // 디버그 드로잉 (간소화됨)
+    
+    // 타겟 라인 그리기
+    if (TargetActor)
     {
-        DrawDebugCone(
+        DrawDebugLine(
             GetWorld(),
-            EyeLocation,
-            ForwardVector,
-            SightRadius,
-            FMath::DegreesToRadians(PeripheralVisionAngleDegrees),
-            FMath::DegreesToRadians(PeripheralVisionAngleDegrees),
-            16,
-            FColor::Green,
-            false,
-            LifeTime,
-            0,
-            2.0f
+            ControlledPawn->GetActorLocation(),
+            TargetActor->GetActorLocation(),
+            FColor::Red,
+            false, -1.0f, 0, 2.0f
         );
-
-        DrawDebugSphere(
-            GetWorld(),
-            PawnLocation,
-            SightRadius,
-            16,
-            FColor::Green,
-            false,
-            LifeTime,
-            0,
-            1.0f
-        );
-
-        DrawDebugString(
-            GetWorld(),
-            PawnLocation + FVector(0, 0, 150),
-            TEXT("STATE: IDLE"),
-            nullptr,
-            FColor::White,
-            LifeTime,
-            true,
-            1.5f
-        );
-    }
-    // 전투 상태
-    else
-    {
-        DrawDebugCone(
-            GetWorld(),
-            EyeLocation,
-            ForwardVector,
-            SightRadius,
-            FMath::DegreesToRadians(180.f),
-            FMath::DegreesToRadians(180.f),
-            16,
-            FColor::Cyan,
-            false,
-            LifeTime,
-            0,
-            1.5f
-        );
-
-        DrawDebugSphere(GetWorld(), PawnLocation, MeleeRange, 12, FColor::Red, false, LifeTime, 0, 4.0f);
-        DrawDebugSphere(GetWorld(), PawnLocation, GuardRange, 16, FColor::Yellow, false, LifeTime, 0, 2.5f);
-        DrawDebugSphere(GetWorld(), PawnLocation, LoseSightRadius, 16, FColor::Orange, false, LifeTime, 0, 2.0f);
-
-        if (TargetActor)
-        {
-            DrawDebugLine(
-                GetWorld(),
-                PawnLocation + FVector(0, 0, 50),
-                TargetActor->GetActorLocation() + FVector(0, 0, 50),
-                FColor::Cyan,
-                false,
-                LifeTime,
-                0,
-                2.0f
-            );
-
-            const float Distance = GetDistanceToTarget();
-            DrawDebugString(
-                GetWorld(),
-                PawnLocation + FVector(0, 0, 150),
-                FString::Printf(TEXT("Distance: %.0f"), Distance),
-                nullptr,
-                FColor::Yellow,
-                LifeTime,
-                true,
-                1.2f
-            );
-
-            FString StateText;
-            FColor StateColor;
-            if (Distance <= MeleeRange)
-            {
-                StateText = TEXT("STATE: MELEE");
-                StateColor = FColor::Red;
-            }
-            else if (Distance <= GuardRange)
-            {
-                StateText = TEXT("STATE: GUARD");
-                StateColor = FColor::Yellow;
-            }
-            else
-            {
-                StateText = TEXT("STATE: CHASE");
-                StateColor = FColor::Orange;
-            }
-
-            DrawDebugString(
-                GetWorld(),
-                PawnLocation + FVector(0, 0, 120),
-                StateText,
-                nullptr,
-                StateColor,
-                LifeTime,
-                true,
-                1.5f
-            );
-        }
     }
 #endif
 }

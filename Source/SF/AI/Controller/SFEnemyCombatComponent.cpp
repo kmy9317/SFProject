@@ -2,15 +2,48 @@
 
 
 #include "SFEnemyCombatComponent.h"
-
+#include "AIController.h"
 #include "AbilitySystemComponent.h"
 #include "AbilitySystemGlobals.h"
+#include "AbilitySystem/SFAbilitySystemComponent.h"
+#include "AbilitySystem/Attributes/Enemy/SFCombatSet_Enemy.h"
 #include "Interface/SFEnemyAbilityInterface.h"
+#include "Perception/AIPerceptionComponent.h"
+#include "Perception/AISenseConfig_Sight.h"
+#include "AI/SFAIGameplayTags.h"
+USFEnemyCombatComponent::USFEnemyCombatComponent(const FObjectInitializer& ObjectInitializer)
+    : Super(ObjectInitializer)
+{
+    // Tick 활성화 (거리 계산용)
+    PrimaryComponentTick.bCanEverTick = true;
+    PrimaryComponentTick.bStartWithTickEnabled = true;
+}
 
+void USFEnemyCombatComponent::BeginPlay()
+{
+	Super::BeginPlay();
+}
 
 void USFEnemyCombatComponent::InitializeCombatComponent()  // component 초기화 
 {
-    // 초기화 //
+    AAIController* AIC = GetController<AAIController>();
+    if (!AIC) return;
+
+    APawn* Pawn = AIC->GetPawn();
+    if (!Pawn) return;
+
+    // 1. ASC 가져오기
+    CachedASC = Cast<USFAbilitySystemComponent>(UAbilitySystemGlobals::GetAbilitySystemComponentFromActor(Pawn));
+	
+    // 2. AttributeSet 가져오기 (SFCombatSet_Enemy)
+    if (CachedASC)
+    {
+        const UAttributeSet* Set = CachedASC->GetAttributeSet(USFCombatSet_Enemy::StaticClass());
+        CachedCombatSet = const_cast<USFCombatSet_Enemy*>(Cast<USFCombatSet_Enemy>(Set));
+    }
+
+    // 3. 초기 Perception 설정 적용
+    UpdatePerceptionConfig();
 }
 
 bool USFEnemyCombatComponent::SelectAbility(
@@ -110,4 +143,128 @@ bool USFEnemyCombatComponent::SelectAbility(
 
     OutSelectedTag = BestTag;
     return true;
+}
+
+//========================================================
+//시야 로직
+//========================================================
+
+void USFEnemyCombatComponent::UpdatePerceptionConfig()
+{
+    if (!CachedCombatSet)
+    {
+        return;
+    }
+
+    float SightRadius = CachedCombatSet->GetSightRadius();
+    float LoseSightRadius = CachedCombatSet->GetLoseSightRadius();
+
+    if (AAIController* AIC = GetController<AAIController>())
+    {
+        if (UAIPerceptionComponent* Perception = AIC->GetPerceptionComponent())
+        {
+            // Sight 설정 가져와서 값 덮어쓰기
+            if (UAISenseConfig_Sight* SightConfig = Cast<UAISenseConfig_Sight>(Perception->GetSenseConfig(UAISense::GetSenseID<UAISense_Sight>())))
+            {
+                bool bUpdated = false;
+                if (SightRadius > 0.f)
+                {
+                    SightConfig->SightRadius = SightRadius;
+                    bUpdated = true;
+                }
+                if (LoseSightRadius > 0.f)
+                {
+                    SightConfig->LoseSightRadius = LoseSightRadius;
+                    bUpdated = true;
+                }
+				
+                // 변경된 설정 적용
+                if (bUpdated)
+                {
+                    Perception->ConfigureSense(*SightConfig);
+                    Perception->RequestStimuliListenerUpdate();
+					
+                UE_LOG(LogTemp, Log, TEXT("[SFCombatComp] 시야 설정 업데이트 완료 - 감지거리: %.1f, 추적중단거리: %.1f"), SightRadius, LoseSightRadius);                }
+            }
+        }
+    }
+}
+
+void USFEnemyCombatComponent::HandleTargetPerceptionUpdated(AActor* Actor, bool bSuccessfullySensed)
+{
+	// 타겟 감지 로직
+	if (bSuccessfullySensed)
+	{
+		// 새로운 적 발견 -> 타겟 설정 및 전투 상태 태그 부여
+		if (CurrentTarget != Actor)
+		{
+			CurrentTarget = Actor;
+			SetGameplayTagStatus(SFGameplayTags::AI_State_Combat, true);
+			UE_LOG(LogTemp, Log, TEXT("[SFCombatComp] 타겟 획득: %s"), *Actor->GetName());		}
+	}
+	else
+	{
+		// 시야 상실
+		if (CurrentTarget == Actor)
+		{
+			// 바로 해제할지, 일정 시간 유지할지는 플레이해보고 결정 일단은 즉시 해지
+			CurrentTarget = nullptr;
+			SetGameplayTagStatus(SFGameplayTags::AI_State_Combat, false);
+		}
+	}
+}
+
+void USFEnemyCombatComponent::TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction)
+{
+	Super::TickComponent(DeltaTime, TickType, ThisTickFunction);
+
+	// 매 프레임 거리 체크 및 태그 갱신
+	UpdateCombatRangeTags();
+}
+
+void USFEnemyCombatComponent::UpdateCombatRangeTags()
+{
+	// 필수 데이터가 없으면 태그 초기화 후 리턴
+	if (!CachedASC || !CachedCombatSet || !CurrentTarget)
+	{
+		SetGameplayTagStatus(SFGameplayTags::AI_Range_Melee, false);
+		SetGameplayTagStatus(SFGameplayTags::AI_Range_Guard, false);
+		return;
+	}
+
+	APawn* OwnerPawn = GetController<AAIController>()->GetPawn();
+	if (!OwnerPawn) return;
+
+	// 거리 계산
+	float Distance = FVector::Dist(OwnerPawn->GetActorLocation(), CurrentTarget->GetActorLocation());
+	
+	// AttributeSet에서 기준값 가져오기
+	float MeleeRange = CachedCombatSet->GetMeleeRange();
+	float GuardRange = CachedCombatSet->GetGuardRange();
+
+	// 거리 비교 후 태그 부여/제거
+	// - MeleeRange 내에 있으면 Melee 태그 부여
+	// - GuardRange 내에 있으면 Guard 태그 부여
+	SetGameplayTagStatus(SFGameplayTags::AI_Range_Melee, Distance <= MeleeRange);
+	SetGameplayTagStatus(SFGameplayTags::AI_Range_Guard, Distance <= GuardRange);
+}
+
+void USFEnemyCombatComponent::SetGameplayTagStatus(const FGameplayTag& Tag, bool bActive)
+{
+	if (!CachedASC || !Tag.IsValid()) return;
+
+	if (bActive)
+	{
+		if (!CachedASC->HasMatchingGameplayTag(Tag))
+		{
+			CachedASC->AddLooseGameplayTag(Tag);
+		}
+	}
+	else
+	{
+		if (CachedASC->HasMatchingGameplayTag(Tag))
+		{
+			CachedASC->RemoveLooseGameplayTag(Tag);
+		}
+	}
 }

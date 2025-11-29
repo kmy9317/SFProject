@@ -19,25 +19,33 @@ USFBTTask_RunEQSQuery::USFBTTask_RunEQSQuery(const FObjectInitializer& ObjectIni
 
 EBTNodeResult::Type USFBTTask_RunEQSQuery::ExecuteTask(UBehaviorTreeComponent& OwnerComp, uint8* NodeMemory)
 {
-
 	if (!QueryTemplate)
 	{
-
 		return EBTNodeResult::Failed;
 	}
 
 	AAIController* AIController = OwnerComp.GetAIOwner();
 	if (!AIController)
 	{
-
 		return EBTNodeResult::Failed;
 	}
+
 	ASFEnemyController* EnemyController = Cast<ASFEnemyController>(AIController);
 	if (!EnemyController)
 	{
 		return EBTNodeResult::Failed;
 	}
-	float CurrentDistance = EnemyController->GetDistanceToTarget();
+
+	// [수정] GetDistanceToTarget() 함수가 제거되었으므로 직접 계산합니다.
+	float CurrentDistance = 0.0f;
+	APawn* Pawn = EnemyController->GetPawn();
+	AActor* Target = EnemyController->TargetActor; // 컨트롤러가 관리하는 TargetActor 사용
+
+	if (Pawn && Target)
+	{
+		CurrentDistance = FVector::Dist(Pawn->GetActorLocation(), Target->GetActorLocation());
+	}
+	// -----------------------------------------------------------
 
 	UBlackboardComponent* BlackboardComp = OwnerComp.GetBlackboardComponent();
 	if (!BlackboardComp)
@@ -45,25 +53,22 @@ EBTNodeResult::Type USFBTTask_RunEQSQuery::ExecuteTask(UBehaviorTreeComponent& O
 		return EBTNodeResult::Failed;
 	}
 
-
 	UEnvQueryManager* EnvQueryManager = UEnvQueryManager::GetCurrent(AIController->GetWorld());
 	if (!EnvQueryManager)
 	{
-
 		return EBTNodeResult::Failed;
 	}
 
 	CachedOwnerComp = &OwnerComp;
 
 	FEnvQueryRequest QueryRequest(QueryTemplate, AIController);
-
 	
 	const float MaxMultiple = 1.5f;
 	const float MinMultiple = 0.7f;
+	
 	QueryRequest.SetFloatParam(FName("CurrentDistance"), CurrentDistance);
 	QueryRequest.SetFloatParam(FName("DistanceMin"), CurrentDistance  * MinMultiple);
 	QueryRequest.SetFloatParam(FName("DistanceMax"), CurrentDistance * MaxMultiple);
-
 
 	QueryID = QueryRequest.Execute(
 		RunMode,
