@@ -18,7 +18,7 @@ public:
 	USFPrimarySet_Enemy();
 
 	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
-	
+
 protected:
 	virtual bool PreGameplayEffectExecute(FGameplayEffectModCallbackData& Data) override;
 	virtual void PostGameplayEffectExecute(const FGameplayEffectModCallbackData& Data) override;
@@ -40,11 +40,12 @@ protected:
 	UFUNCTION()
 	void OnRep_MaxStagger(const FGameplayAttributeData& OldValue);
 
-private:
+public:
 	UPROPERTY(BlueprintReadOnly, ReplicatedUsing=OnRep_Stagger, meta=(AllowPrivateAccess="true"))
 	FGameplayAttributeData Stagger;
 	
 	UPROPERTY(BlueprintReadOnly, ReplicatedUsing=OnRep_MaxStagger, meta=(AllowPrivateAccess="true"))
 	FGameplayAttributeData MaxStagger;
 
+	
 };

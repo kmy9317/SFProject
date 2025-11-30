@@ -7,6 +7,7 @@
 #include "Abilities/GameplayAbilityTypes.h"
 #include "SFEnemy.generated.h"
 
+class USFStateReactionComponent;
 class USFCombatSet;
 class USFPawnData;
 class USFPrimarySet;
@@ -27,7 +28,14 @@ public:
 	
 	// ASC 초기화
 	void InitializeAbilitySystem();
+	//Attrtibute 초기화
+	void InitializeAttributeSet(USFPawnExtensionComponent* PawnExtComp);
 
+
+	//StateReaction Component 초기화
+	void InitializeStateReactionComponent();
+
+	void InitializeMovementComponent();
 
 protected:
 	
@@ -56,4 +64,11 @@ protected:
 	// 향후 제거를 위해 
 	UPROPERTY()
 	TArray<FGameplayAbilitySpecHandle> GrantedAbilityHandles;
+
+	UPROPERTY(VisibleAnywhere, Category= "Component")
+	TObjectPtr<USFStateReactionComponent> StateReactionComponent;
+
+	
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Enemy|InitializeEffect")
+	TSubclassOf<UGameplayEffect> InitializeEffect;
 };

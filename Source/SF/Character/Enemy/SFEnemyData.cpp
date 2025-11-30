@@ -16,3 +16,18 @@ UBehaviorTree* FSFBehaviourWrapperContainer::GetBehaviourTree(const FGameplayTag
 	}
 	return nullptr;
 }
+
+UAnimMontage* FSTTaggedMontageContainer::GetMontage(const FGameplayTag& Tag) const
+{
+	if (Container.Num() >0)
+	{
+		for (auto TaggedMontage : Container)
+		{
+			if (Tag.MatchesTagExact(TaggedMontage.Tag))
+			{
+				return TaggedMontage.AnimMontage;
+			}
+		}
+	}
+	return nullptr;
+}

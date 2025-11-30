@@ -1,5 +1,7 @@
 #include "SFCombatSet_Enemy.h"
 
+#include "System/SFGameInstance.h"
+
 USFCombatSet_Enemy::USFCombatSet_Enemy()
 {
 }

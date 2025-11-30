@@ -13,6 +13,8 @@
 #include "NavigationSystem.h"
 #include "Net/UnrealNetwork.h"
 #include "AI/Controller//SFEnemyCombatComponent.h"
+#include "Character/SFCharacterGameplayTags.h"
+#include "Character/Enemy/Component/SFStateReactionComponent.h"
 
 #include UE_INLINE_GENERATED_CPP_BY_NAME(SFEnemyController)
 
@@ -71,6 +73,32 @@ void ASFEnemyController::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& O
     // bIsInCombat 복제 (서버 → 클라이언트)
     DOREPLIFETIME(ASFEnemyController, bIsInCombat);
     DOREPLIFETIME(ASFEnemyController, bHasGuardSlot);
+
+}
+
+void ASFEnemyController::InitializeController()
+{
+    if (HasAuthority())
+    {
+        if (APawn* InPawn = GetPawn())
+        {
+            // 상태 머신 이벤트 바인딩
+            BindingStateMachine(InPawn);    
+        }
+    
+        if (CombatComponent)
+        {
+            CombatComponent->InitializeCombatComponent();
+        }
+    
+        USFStateReactionComponent* StateReactionComponent = USFStateReactionComponent::FindStateReactionComponent(GetPawn());
+        if (StateReactionComponent)
+        {
+            StateReactionComponent->OnStateStart.AddDynamic(this, &ThisClass::ReceiveStateStart);
+            StateReactionComponent->OnStateEnd.AddDynamic(this, &ThisClass::ReceiveStateEnd);
+        }
+        
+    }
 
 }
 
@@ -134,10 +162,8 @@ void ASFEnemyController::OnPossess(APawn* InPawn)
     SpawnLocation = InPawn->GetActorLocation();
     UE_LOG(LogTemp, Log, TEXT("[SFEnemyAI] Spawn 위치 저장: %s"), *SpawnLocation.ToString());
 
-    // 상태 머신 이벤트 바인딩
-    BindingStateMachine(InPawn);
-}
 
+}
 
 void ASFEnemyController::OnUnPossess()
 {
@@ -152,7 +178,40 @@ void ASFEnemyController::Tick(float DeltaTime)
     DrawDebugPerception();
 }
 
+#pragma region BT
+void ASFEnemyController::ReceiveStateStart(FGameplayTag StateTag)
+{
+    
+    if (StateTag == SFGameplayTags::Character_State_Stunned ||
+        StateTag == SFGameplayTags::Character_State_Groggy ||
+        StateTag == SFGameplayTags::Character_State_Parried||
+        StateTag == SFGameplayTags::Character_State_Knockback ||
+        StateTag == SFGameplayTags::Character_State_Knockdown ||
+        StateTag == SFGameplayTags::Character_State_Dead)
+    {
+        if (UBehaviorTreeComponent* BTComp = Cast<UBehaviorTreeComponent>(BrainComponent))
+        {
+            BTComp->PauseLogic("State Start"); // BT 일시정지
+        }
+    }
+}
 
+void ASFEnemyController::ReceiveStateEnd(FGameplayTag StateTag)
+{
+    
+    if (StateTag == SFGameplayTags::Character_State_Stunned ||
+        StateTag == SFGameplayTags::Character_State_Groggy ||
+        StateTag == SFGameplayTags::Character_State_Parried ||
+        StateTag == SFGameplayTags::Character_State_Knockback ||
+        StateTag == SFGameplayTags::Character_State_Knockdown ||
+        StateTag == SFGameplayTags::Character_State_Dead)
+    {
+        if (UBehaviorTreeComponent* BTComp = Cast<UBehaviorTreeComponent>(BrainComponent))
+        {
+            BTComp->ResumeLogic("State End"); // BT 재개
+        }
+    }
+}
 void ASFEnemyController::SetBehaviorTree(UBehaviorTree* NewBehaviorTree)
 {
     if (!NewBehaviorTree)
@@ -238,9 +297,7 @@ bool ASFEnemyController::RunBehaviorTree(UBehaviorTree* BehaviorTree)
     bIsInCombat = false;
     return bSuccess;
 }
-
-
-
+#pragma endregion 
 void ASFEnemyController::OnTargetPerceptionUpdated(AActor* Actor, FAIStimulus Stimulus)
 {
     if (!Actor)
