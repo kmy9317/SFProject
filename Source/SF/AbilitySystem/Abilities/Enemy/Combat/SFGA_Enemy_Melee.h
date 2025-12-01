@@ -36,6 +36,7 @@ protected:
 	void CleanupWeaponTraces();
 
 	void ApplyParriedEffectToSelf();
+
 protected:
 	UPROPERTY(EditDefaultsOnly)
 	uint8 Penetration; // 관통 숫자

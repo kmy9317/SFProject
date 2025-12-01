@@ -16,7 +16,7 @@ USFGA_Enemy_BaseAttack::USFGA_Enemy_BaseAttack(const FObjectInitializer& ObjectI
 	: Super(ObjectInitializer)
 {
 	// AI Ability는 서버에서만
-	NetExecutionPolicy = EGameplayAbilityNetExecutionPolicy::ServerOnly;
+	NetExecutionPolicy = EGameplayAbilityNetExecutionPolicy::ServerInitiated;
 	ReplicationPolicy  = EGameplayAbilityReplicationPolicy::ReplicateYes;
 
 	ActivationOwnedTags.AddTag(SFGameplayTags::Character_State_Attacking);
