@@ -32,13 +32,18 @@ protected:
 	virtual void ActivateAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, const FGameplayEventData* TriggerEventData) override;
 
 	virtual void EndAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, bool bReplicateEndAbility, bool bWasCancelled) override;
+	
 	void CleanupWeaponTraces();
+
+	void ApplyParriedEffectToSelf();
 
 protected:
 	UPROPERTY(EditDefaultsOnly)
 	uint8 Penetration; // 관통 숫자
-
-	uint8 CurrentPenetration;
 	
+	uint8 CurrentPenetration;
+
+	UPROPERTY(EditDefaultsOnly)
+	TSubclassOf<UGameplayEffect> ParriedGameplayEffectClass;
 	
 };

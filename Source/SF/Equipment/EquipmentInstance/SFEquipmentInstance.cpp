@@ -8,6 +8,9 @@
 #include "GameFramework/Pawn.h"
 #include "AbilitySystem/Abilities/SFGameplayAbility.h"
 #include "Animation/AnimInstance.h"
+#include "AbilitySystem/Abilities/Enemy/SFEnemyAbilityInitializer.h"
+#include "Character/Enemy/SFEnemy.h"
+#include "System/SFGameInstance.h"
 
 #include UE_INLINE_GENERATED_CPP_BY_NAME(SFEquipmentInstance)
 
@@ -44,7 +47,6 @@ void USFEquipmentInstance::Initialize(USFEquipmentDefinition* InDefinition, APaw
     {
         GrantAbilities(ASC);
     }
-    
     ApplyAnimationLayer();
 }
 
@@ -129,22 +131,63 @@ void USFEquipmentInstance::GrantAbilities(UAbilitySystemComponent* ASC)
         return;
     }
 
-    //  Ability 부여
-    for (TSubclassOf<USFGameplayAbility> AbilityClass : EquipmentDefinition->GrantedAbilities)
+    AActor* Owner = ASC->GetOwner();
+    if (!Owner)
+    {
+        return;
+    }
+
+    const bool bIsEnemy = Owner->IsA<ASFEnemy>();
+
+    USFGameInstance* GI = nullptr;
+    if (bIsEnemy)
+    {
+        GI = Cast<USFGameInstance>(Owner->GetWorld()->GetGameInstance());
+    }
+
+    for (const TSubclassOf<USFGameplayAbility>& AbilityClass : EquipmentDefinition->GrantedAbilities)
     {
         if (!AbilityClass)
         {
             continue;
         }
-        
-        FGameplayAbilitySpec AbilitySpec(AbilityClass, 1, INDEX_NONE, this);
-        FGameplayAbilitySpecHandle Handle = ASC->GiveAbility(AbilitySpec);
-        
-        if (Handle.IsValid())
+
+        FGameplayAbilitySpec Spec(AbilityClass, 1, INDEX_NONE, this);
+
+   
+        FGameplayAbilitySpecHandle Handle = ASC->GiveAbility(Spec);
+        if (!Handle.IsValid())
         {
-            GrantedAbilityHandles.Add(Handle);}
+            continue;
+        }
+
+        // 적일 경우에만 AbilityData 적용 
+        if (bIsEnemy && GI)
+        {
+            USFGameplayAbility* CDO = Cast<USFGameplayAbility>(AbilityClass->GetDefaultObject());
+            if (CDO)
+            {
+                FName AbilityID = CDO->GetAbilityID();
+                if (!AbilityID.IsNone())
+                {
+                    if (const FAbilityBaseData* Data = GI->FindAbilityData(AbilityID))
+                    {
+                        FGameplayAbilitySpec* RealSpec = ASC->FindAbilitySpecFromHandle(Handle);
+                        if (RealSpec)
+                        {
+                            USFEnemyAbilityInitializer::ApplyAbilityData(*RealSpec, *Data);
+                        }
+                    }
+                }
+            }
+        }
+
+        GrantedAbilityHandles.Add(Handle);
     }
 }
+
+
+
 
 void USFEquipmentInstance::Deinitialize(UAbilitySystemComponent* ASC)
 {
@@ -169,6 +212,9 @@ void USFEquipmentInstance::Deinitialize(UAbilitySystemComponent* ASC)
         }
         GrantedEffectHandles.Empty();
     }
+
+    // 애니메이션 레이어 제거
+    RemoveAnimationLayer();
 
     // 스폰된 Actor 제거
     SpawnedActorList.DestroySpawnedActors();

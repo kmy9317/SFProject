@@ -15,6 +15,7 @@ class ASFLobbyPlayerController;
 class USFTeamSelectionWidget;
 class UUniformGridPanel;
 class UButton;
+class UCommonButtonBase;
 class UWidgetSwitcher;
 class UWidget;
 
@@ -67,10 +68,10 @@ private:
 	// TObjectPtr<ULCAbilityListView> AbilityListView;
 
 	UPROPERTY(meta=(BindWidget))
-	TObjectPtr<UButton> Button_Start;
+	TObjectPtr<UCommonButtonBase> Button_Start;
 
 	UPROPERTY(meta=(BindWidget))
-	TObjectPtr<UButton> Button_Ready;
+	TObjectPtr<UCommonButtonBase> Button_Ready;
 
 	UPROPERTY()
 	TObjectPtr<ASFLobbyPlayerController> SFLobbyPlayerController;

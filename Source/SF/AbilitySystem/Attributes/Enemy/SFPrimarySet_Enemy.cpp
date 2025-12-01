@@ -2,6 +2,7 @@
 
 #include "AbilitySystem/SFAbilitySystemComponent.h"
 #include "Net/UnrealNetwork.h"
+#include "System/SFGameInstance.h"
 
 USFPrimarySet_Enemy::USFPrimarySet_Enemy()
 {

@@ -12,9 +12,11 @@
 #include "SFEnemyController.generated.h"
 
 
+class USFEnemyCombatComponent;
 class UBehaviorTreeComponent;
 class UBlackboardComponent;
 class UBehaviorTree;
+
 
 UCLASS()
 class SF_API ASFEnemyController : public AAIController
@@ -26,7 +28,8 @@ public:
 	ASFEnemyController(const FObjectInitializer& ObjectInitializer = FObjectInitializer::Get());
 
 	void SetBehaviourContainer(FSFBehaviourWrapperContainer InBehaviorTreeContainer){ BehaviorTreeContainer = InBehaviorTreeContainer; }
-
+	
+	void InitializeController();
 protected:
 
 	virtual void PreInitializeComponents() override;
@@ -49,6 +52,7 @@ public:
 	UPROPERTY(Replicated, VisibleAnywhere, BlueprintReadOnly, Category="AI|State")
 	bool bHasGuardSlot = false;
 protected:
+	
 	void ChangeBehaviorTree(FGameplayTag GameplayTag);
 	
 	void StopBehaviorTree();
@@ -85,6 +89,13 @@ protected:
 	
 #pragma endregion 
 
+#pragma region tagbinding
+protected:
+	UFUNCTION()
+	void ReceiveStateStart(FGameplayTag StateTag);
+	UFUNCTION()
+	void ReceiveStateEnd(FGameplayTag StateTag);
+#pragma endregion 
 #pragma region Perception
 	
 	// 시야 감지 컴포넌트
@@ -158,7 +169,9 @@ public:
 	//추격 범위 안에 있는가
 	UFUNCTION(BlueprintCallable, Category = "AI|Combat")
 	bool IsInTrackingRange() const;
-	
+
+protected:
+	TObjectPtr<USFEnemyCombatComponent> CombatComponent;
 #pragma endregion
 
 #pragma region Debug

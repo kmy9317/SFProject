@@ -33,6 +33,14 @@ public class SF : ModuleRules
 			"AnimationLocomotionLibraryRuntime",
 			"NavigationSystem",
 			"MotionWarping"
+			"MoviePlayer",
+			"EngineSettings",
+			"CommonLoadingScreen",
+      "PlayFab",
+      "PlayFabCpp",
+      "PlayFabCommon",
+      "Json",
+			"JsonUtilities",
 		});
 
 		PrivateDependencyModuleNames.AddRange(new string[] { });

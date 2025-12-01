@@ -10,6 +10,7 @@
 #include "Player/Lobby/SFLobbyPlayerController.h"
 #include "Player/Lobby/SFLobbyPlayerState.h"
 #include "System/SFAssetManager.h"
+#include "UI/Common/CommonButtonBase.h"
 
 void USFLobbyWidget::NativeConstruct()
 {
@@ -17,8 +18,8 @@ void USFLobbyWidget::NativeConstruct()
 	ConfigureGameState();
 	SFLobbyPlayerController = GetOwningPlayer<ASFLobbyPlayerController>();
 	SFLobbyPlayerState = GetOwningPlayerState<ASFLobbyPlayerState>();
-	Button_Start->OnClicked.AddDynamic(this, &ThisClass::StartMatchButtonClicked);
-	Button_Ready->OnClicked.AddDynamic(this, &ThisClass::ReadyButtonClicked);
+	Button_Start->OnButtonClickedDelegate.AddDynamic(this, &ThisClass::StartMatchButtonClicked);
+	Button_Ready->OnButtonClickedDelegate.AddDynamic(this, &ThisClass::ReadyButtonClicked);
 
 	Button_Ready->SetIsEnabled(false);
 	

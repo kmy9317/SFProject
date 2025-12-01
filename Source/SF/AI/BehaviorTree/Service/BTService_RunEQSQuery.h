@@ -73,9 +73,6 @@ private:
         /** 현재 실행 중인 쿼리 ID (중단용) */
         int32 QueryID;
 
-		FBTRunEQSQueryMemory()
-			: LastTargetActor(nullptr), QueryID(INDEX_NONE)
-		{
-		}
+		FBTRunEQSQueryMemory();
 	};
 };

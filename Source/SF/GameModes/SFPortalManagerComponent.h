@@ -88,7 +88,7 @@ private:
     FTimerHandle TravelTimerHandle;
     
     /** Travel 중인지 */
-    bool bIsPrepareToTravel;;
+    bool bIsPrepareToTravel;
 
     /** 현재 관리중인 Portal */
     UPROPERTY()

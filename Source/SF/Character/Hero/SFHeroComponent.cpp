@@ -156,6 +156,11 @@ void USFHeroComponent::HandleChangeInitState(UGameFrameworkComponentManager* Man
 			}
 		}
 	}
+
+	if (CurrentState == SFGameplayTags::InitState_DataInitialized && DesiredState == SFGameplayTags::InitState_GameplayReady)
+	{
+		
+	}
 }
 
 void USFHeroComponent::OnActorInitStateChanged(const FActorInitStateChangedParams& Params)

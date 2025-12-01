@@ -7,10 +7,41 @@
 
 namespace SFGameplayTags
 {
-	//Attack
-	SF_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(Ability_BaseAttack_Melee);
-	SF_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(Ability_BaseAttack_Range);
+	// ========== Enemy Attack Ability Tags ==========
+
+	// Light Attack (빠른 약공)
+	SF_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(Ability_Enemy_Attack_Light);
+
+	// Heavy Attack (강공)
+	SF_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(Ability_Enemy_Attack_Heavy);
+
+	// Charge Attack (돌진)
+	SF_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(Ability_Enemy_Attack_Charge);
+
+	// Guard Break Attack (가드 파괴)
+	SF_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(Ability_Enemy_Attack_GuardBreak);
+
+	// Grab Attack (잡기)
+	SF_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(Ability_Enemy_Attack_Grab);
+
+	// Range Attack (원거리)
+	SF_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(Ability_Enemy_Attack_Range);
+
+	// AoE Attack (범위)
+	SF_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(Ability_Enemy_Attack_AoE);
 
 
-	
+	// ========== Cooldown Tags ==========
+
+	// Global Attack Cooldown
+	SF_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(Ability_Cooldown_Enemy_Attack);
+
+	// Individual Cooldowns
+	SF_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(Ability_Cooldown_Enemy_Attack_Light);
+	SF_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(Ability_Cooldown_Enemy_Attack_Heavy);
+	SF_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(Ability_Cooldown_Enemy_Attack_Charge);
+	SF_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(Ability_Cooldown_Enemy_Attack_GuardBreak);
+	SF_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(Ability_Cooldown_Enemy_Attack_Grab);
+	SF_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(Ability_Cooldown_Enemy_Attack_Range);
+	SF_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(Ability_Cooldown_Enemy_Attack_AoE);
 }

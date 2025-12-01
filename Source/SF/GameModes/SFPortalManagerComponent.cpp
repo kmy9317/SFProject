@@ -5,10 +5,12 @@
 #include "GameModes/SFGameMode.h"
 #include "Player/SFPlayerState.h"
 #include "SFLogChannels.h"
+#include "Blueprint/UserWidget.h"
 #include "GameFramework/GameplayMessageSubsystem.h"
 #include "Net/UnrealNetwork.h"
 #include "GameFramework/GameStateBase.h"
 #include "Messages/SFMessageGameplayTags.h"
+#include "System/SFLoadingScreenSubsystem.h"
 
 USFPortalManagerComponent::USFPortalManagerComponent(const FObjectInitializer& ObjectInitializer)
     : Super(ObjectInitializer)
@@ -299,4 +301,18 @@ void USFPortalManagerComponent::OnRep_PortalStateChanged()
     
     // 각 클라이언트에서 UI는 이 메시지를 수신하여 자신을 표시/숨김/카운트다운
     MessageSubsystem.BroadcastMessage(SFGameplayTags::Message_Portal_StateChanged, PortalState);
+
+    if (PortalState.TravelCountdown > 0.f && ManagedPortal)
+    {
+        FString NextLevelPath = ManagedPortal->GetNextStageLevel().GetLongPackageName();
+        FString NextLevelName = FPackageName::GetShortName(NextLevelPath);
+        
+        if (UGameInstance* GI = GetWorld()->GetGameInstance())
+        {
+            if (USFLoadingScreenSubsystem* LoadingSubsystem = GI->GetSubsystem<USFLoadingScreenSubsystem>())
+            {
+                LoadingSubsystem->PreloadLoadingScreenForLevel(NextLevelName);
+            }
+        }
+    }
 }

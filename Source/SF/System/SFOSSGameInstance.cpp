@@ -27,7 +27,7 @@ void USFOSSGameInstance::Init()
 
 	//현재 OS의 인터페이스를 가져옴
 	SessionInterface = OnlineSubsystem->GetSessionInterface();
-
+	
 	//Steam 로그인 상태 확인
 	if (IOnlineIdentityPtr Identity = OnlineSubsystem->GetIdentityInterface())
 	{
@@ -78,7 +78,8 @@ void USFOSSGameInstance::CreateGameSession(const FString& RoomName, bool bProtec
 		PendingCreateSettings->bUsesPresence = true;
 		PendingCreateSettings->bUseLobbiesIfAvailable = true;
 		PendingCreateSettings->BuildUniqueId = 1;
-		
+
+		PendingCreateSettings->Set(TEXT("PASSWORD"), SessionPassword, EOnlineDataAdvertisementType::ViaOnlineServiceAndPing);
 		PendingCreateSettings->Set(TEXT("ROOM_NAME"), RoomName, EOnlineDataAdvertisementType::ViaOnlineServiceAndPing);
 		PendingCreateSettings->Set(TEXT("PROTECTED"), bProtected, EOnlineDataAdvertisementType::ViaOnlineServiceAndPing);
 
@@ -100,6 +101,7 @@ void USFOSSGameInstance::CreateGameSession(const FString& RoomName, bool bProtec
 	PendingCreateSettings->bUseLobbiesIfAvailable = true;
 	PendingCreateSettings->BuildUniqueId = 1;
 
+	PendingCreateSettings->Set(TEXT("PASSWORD"), SessionPassword, EOnlineDataAdvertisementType::ViaOnlineServiceAndPing);
 	PendingCreateSettings->Set(TEXT("ROOM_NAME"), RoomName, EOnlineDataAdvertisementType::ViaOnlineServiceAndPing);
 	PendingCreateSettings->Set(TEXT("PROTECTED"), bProtected, EOnlineDataAdvertisementType::ViaOnlineServiceAndPing);
 
@@ -224,7 +226,7 @@ void USFOSSGameInstance::FindSessions(bool bIncludePasswordProtected)
 	
 	SessionSearch = MakeShareable(new FOnlineSessionSearch());
 	SessionSearch->bIsLanQuery = false;
-	SessionSearch->MaxSearchResults = 100;
+	SessionSearch->MaxSearchResults = 999999;
 	SessionSearch->QuerySettings.Set(SEARCH_PRESENCE, true, EOnlineComparisonOp::Equals);
 	
 	SessionInterface->AddOnFindSessionsCompleteDelegate_Handle(

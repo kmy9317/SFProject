@@ -1,12 +1,18 @@
 #include "SFGameplayAbility.h"
 
 #include "AbilitySystemComponent.h"
+#include "AbilitySystem/SFAbilitySystemComponent.h"
 #include "Character/SFCharacterBase.h"
 
 USFGameplayAbility::USFGameplayAbility(const FObjectInitializer& ObjectInitializer)
 {
 	ActivationPolicy = ESFAbilityActivationPolicy::OnInputTriggered;
 	InstancingPolicy = EGameplayAbilityInstancingPolicy::InstancedPerActor;
+}
+
+USFAbilitySystemComponent* USFGameplayAbility::GetSFAbilitySystemComponentFromActorInfo() const
+{
+	return (CurrentActorInfo ? Cast<USFAbilitySystemComponent>(CurrentActorInfo->AbilitySystemComponent.Get()) : nullptr);
 }
 
 ASFCharacterBase* USFGameplayAbility::GetSFCharacterFromActorInfo() const

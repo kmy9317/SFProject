@@ -9,7 +9,7 @@ UBTD_IsInGuardRange::UBTD_IsInGuardRange()
 {
 	NodeName = "Is In Guard Range";
 
-	// Observer Aborts 기본값
+	// Observer Aborts본값
 	FlowAbortMode = EBTFlowAbortMode::LowerPriority;
 
 	//Tick 활성화

@@ -4,6 +4,7 @@
 #include "GameFramework/PlayerController.h"
 #include "SFPlayerController.generated.h"
 
+class USFLoadingCheckComponent;
 class ASFPlayerState;
 class USFAbilitySystemComponent;
 
@@ -32,4 +33,8 @@ public:
 
 protected:
 	virtual void PostProcessInput(const float DeltaTime, const bool bGamePaused) override;
+
+private:
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "SF|Components", meta = (AllowPrivateAccess = "true"))
+	TObjectPtr<USFLoadingCheckComponent> LoadingCheckComponent;
 };

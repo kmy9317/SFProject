@@ -111,6 +111,8 @@ void USFEnemyComponent::HandleChangeInitState(UGameFrameworkComponentManager* Ma
 		if (ASFEnemy* Enemy = GetPawn<ASFEnemy>())
 		{
 			Enemy->InitializeAbilitySystem();
+			Enemy->InitializeStateReactionComponent();
+			Enemy->InitializeMovementComponent(); 
 		}
 	}
 	else if (CurrentState == SFGameplayTags::InitState_DataInitialized && DesiredState == SFGameplayTags::InitState_GameplayReady)
@@ -179,13 +181,9 @@ void USFEnemyComponent::InitializeAI()
 	{
 		return;
 	}
-	
+
+	EnemyController->InitializeController();
 	EnemyController->SetBehaviourContainer(EnemyData->BehaviourContainer);
-	USFStateMachine* CachedStateMachine = USFStateMachine::FindStateMachineComponent(Pawn);
-	if (!IsValid(CachedStateMachine))
-	{
-		return;
-	}
 }
 
 void USFEnemyComponent::InitalizeStateMachineComponent()

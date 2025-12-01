@@ -3,10 +3,12 @@
 #include "AbilitySystemGlobals.h"
 #include "SFPlayerState.h"
 #include "AbilitySystem/SFAbilitySystemComponent.h"
+#include "Components/SFLoadingCheckComponent.h"
 
 ASFPlayerController::ASFPlayerController(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 {
+	LoadingCheckComponent = CreateDefaultSubobject<USFLoadingCheckComponent>(TEXT("LoadingCheckComponent"));
 }
 
 void ASFPlayerController::BeginPlay()

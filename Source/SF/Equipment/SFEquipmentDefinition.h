@@ -104,7 +104,7 @@ public:
 
 	//해당 무기 장착 시 사용할 AnimationLayer 
 	UPROPERTY(EditDefaultsOnly)
-	FEquipmentAnimLayer AnimLayerInfo;
+	TSubclassOf<UAnimInstance> AnimLayerInfo;
 	
 	
 };

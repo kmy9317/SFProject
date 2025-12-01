@@ -4,6 +4,7 @@
 #include "Abilities/GameplayAbility.h"
 #include "SFGameplayAbility.generated.h"
 
+class USFAbilitySystemComponent;
 class ASFCharacterBase;
 
 UENUM(BlueprintType)
@@ -25,7 +26,12 @@ class SF_API USFGameplayAbility : public UGameplayAbility
 public:
 	USFGameplayAbility(const FObjectInitializer& ObjectInitializer = FObjectInitializer::Get());
 
+	UFUNCTION(BlueprintCallable, Category = "SF|Ability")
+	USFAbilitySystemComponent* GetSFAbilitySystemComponentFromActorInfo() const;
+
+	UFUNCTION(BlueprintCallable, Category = "SF|Ability")
 	ASFCharacterBase* GetSFCharacterFromActorInfo() const;
+	
 	ESFAbilityActivationPolicy GetActivationPolicy() const { return ActivationPolicy; }
 
 	UFUNCTION(BlueprintCallable, Category = "SF|Ability")
@@ -33,6 +39,7 @@ public:
 
 	void TryActivateAbilityOnSpawn(const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilitySpec& Spec) const;
 
+	FName GetAbilityID() const { return AbilityID; }
 protected:
 	//~UGameplayAbility interface
 	virtual void OnGiveAbility(const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilitySpec& Spec) override;
@@ -42,4 +49,7 @@ protected:
 	
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "SF|AbilityActivation")
 	ESFAbilityActivationPolicy ActivationPolicy;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "SF|AbilityID")
+	FName AbilityID;
 };

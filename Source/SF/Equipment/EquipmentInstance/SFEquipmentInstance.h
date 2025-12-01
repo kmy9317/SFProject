@@ -8,12 +8,10 @@
 #include "SFEquipmentInstance.generated.h"
 
 struct FGameplayAbilitySpecHandle;
-// Forward Declarations
 struct FActiveGameplayEffectHandle;
 class UAbilitySystemComponent;
 class USFEquipmentDefinition;
 
-// SFEquipmentInstance.h
 USTRUCT(BlueprintType)
 struct FSFEquipmentList
 {
@@ -35,10 +33,8 @@ public:
 		return SpawnedActors.Num();
 	}
 };
-/**
- * 
- */
-// SFEquipmentInstance.h
+
+
 UCLASS()
 class SF_API USFEquipmentInstance : public UObject
 {
@@ -47,6 +43,7 @@ class SF_API USFEquipmentInstance : public UObject
 public:
 	void Initialize(USFEquipmentDefinition* InDefinition, APawn* InPawn, UAbilitySystemComponent* ASC);
 	void Deinitialize(UAbilitySystemComponent* ASC);
+	
 
 	UFUNCTION(BlueprintPure, Category = "Equipment")
 	USFEquipmentDefinition* GetEquipmentDefinition() const { return EquipmentDefinition; }
