@@ -36,4 +36,9 @@ namespace SFGameplayTags
 	SF_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(AI_Enemy_Behaviour_Boss_Phase2);
 	SF_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(AI_Enemy_Behaviour_Boss_Phase3);
 	SF_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(AI_Enemy_Behaviour_Boss_Groggy);
+
+	//AI 상태 판단 및 거리 체크용 태그
+	SF_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(AI_State_Combat);   // 전투 상태 (타겟 감지 중)
+	SF_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(AI_Range_Melee);    // 근접 공격 범위 내
+	SF_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(AI_Range_Guard);    // 경계/원거리 범위 내
 }

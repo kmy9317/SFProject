@@ -37,8 +37,14 @@ EBTNodeResult::Type USFBTTask_RunEQSQuery::ExecuteTask(UBehaviorTreeComponent& O
 	{
 		return EBTNodeResult::Failed;
 	}
-	float CurrentDistance = EnemyController->GetDistanceToTarget();
-
+	float CurrentDistance = 0.0f;
+	if (AActor* Target = EnemyController->TargetActor)
+	{
+		if (APawn* Pawn = EnemyController->GetPawn())
+		{
+			CurrentDistance = FVector::Dist(Pawn->GetActorLocation(), Target->GetActorLocation());
+		}
+	}
 	UBlackboardComponent* BlackboardComp = OwnerComp.GetBlackboardComponent();
 	if (!BlackboardComp)
 	{

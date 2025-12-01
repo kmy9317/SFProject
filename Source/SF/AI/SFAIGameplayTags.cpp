@@ -38,4 +38,9 @@ namespace SFGameplayTags
     UE_DEFINE_GAMEPLAY_TAG_COMMENT(Enemy_AI_Behaviour_Boss_Phase2, "Enemy.AI.Behaviour.Boss.Phase2", "Boss Phase 2 Behaviour");
     UE_DEFINE_GAMEPLAY_TAG_COMMENT(Enemy_AI_Behaviour_Boss_Phase3, "Enemy.AI.Behaviour.Boss.Phase3", "Boss Phase 3 Behaviour");
     UE_DEFINE_GAMEPLAY_TAG_COMMENT(Enemy_AI_Behaviour_Boss_Groggy, "Enemy.AI.Behaviour.Boss.Groggy", "Boss Groggy Behaviour");
+    
+    //AI 상태 판단 태그 정의
+    UE_DEFINE_GAMEPLAY_TAG_COMMENT(AI_State_Combat, "AI.State.Combat", "AI is in combat state");
+    UE_DEFINE_GAMEPLAY_TAG_COMMENT(AI_Range_Melee, "AI.Range.Melee", "Target is within melee range");
+    UE_DEFINE_GAMEPLAY_TAG_COMMENT(AI_Range_Guard, "AI.Range.Guard", "Target is within guard range");
 }
