@@ -25,14 +25,13 @@ struct FTaggedMontage
 };
 
 /**
- * 
+ * Enemy 기본 공격 Ability
+ * DataTable의 값을 SetByCaller로 받아와서 사용
  */
 UCLASS(Abstract)
 class SF_API USFGA_Enemy_BaseAttack : public USFGameplayAbility, public ISFEnemyAbilityInterface
 {
     GENERATED_BODY()
-
-    
 
 public:
     USFGA_Enemy_BaseAttack(const FObjectInitializer& ObjectInitializer = FObjectInitializer::Get());
@@ -49,25 +48,28 @@ public:
     UFUNCTION(BlueprintCallable, Category = "Attack")
     virtual bool CanAttackTarget(const AActor* Target) const;
 
-    // Getter 함수들
+    
     UFUNCTION(BlueprintPure, Category = "Attack")
     EAttackType GetAttackType() const { return AttackType; }
 
     UFUNCTION(BlueprintPure, Category = "Attack")
-    float GetAttackRange() const { return AttackRange; }
+    float GetAttackRange() const;
 
     UFUNCTION(BlueprintPure, Category = "Attack")
-    float GetMinAttackRange() const { return MinAttackRange; }
+    float GetMinAttackRange() const;
 
     UFUNCTION(BlueprintPure, Category = "Attack")
-    float GetBaseDamage() const { return BaseDamage; }
+    float GetBaseDamage() const;
+
+    UFUNCTION(BlueprintPure, Category = "Attack")
+    float GetCooldown() const;
+
+    UFUNCTION(BlueprintPure, Category = "Attack")
+    float GetAttackAngle() const;
 
     virtual float CalcAIScore(const FEnemyAbilitySelectContext& Context) const override;
-    
 
-    
 protected:
- 
     UFUNCTION(BlueprintCallable, Category = "Attack")
     virtual void ApplyDamageToTarget(AActor* Target);
 
@@ -77,32 +79,14 @@ protected:
     virtual void ApplyCooldown(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo) const override;
 
     virtual void EndAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, bool bReplicateEndAbility, bool bWasCancelled) override;
+
 protected:
+    
     UPROPERTY(EditDefaultsOnly, Category = "Animation Montage")
     FTaggedMontage AttackTypeMontage;
     
     UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Attack")
     EAttackType AttackType;
-
-    // 공격 범위
-    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Attack")
-    float AttackRange = 200.0f;
-
-    // 최소 공격 거리 
-    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Attack")
-    float MinAttackRange = 0.0f;
-
-    // 공격 데미지
-    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Attack")
-    float BaseDamage = 10.0f;
-
-    // 공격 쿨다운
-    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Attack")
-    float Cooldown = 1.0f;
-
-    // 공격 각도
-    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Attack")
-    float AttackAngle = 45.0f;
 
     UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Attack")
     FGameplayTag CoolDownTag;
@@ -110,5 +94,8 @@ protected:
     // 데미지 GameplayEffect 클래스
     UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Attack|Damage")
     TSubclassOf<UGameplayEffect> DamageGameplayEffectClass;
-    
+
+private:
+    // SetByCaller 값 가져오기 헬퍼 함수
+    float GetSetByCallerValue(const FGameplayTag& Tag, float DefaultValue = 0.0f) const;
 };

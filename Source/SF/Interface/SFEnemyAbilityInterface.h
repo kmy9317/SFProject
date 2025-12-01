@@ -4,10 +4,14 @@
 
 #include "CoreMinimal.h"
 #include "UObject/Interface.h"
+#include "GameplayAbilitySpec.h"
 #include "SFEnemyAbilityInterface.generated.h"
+
 
 struct FEnemyAbilitySelectContext
 {
+	const FGameplayAbilitySpec* AbilitySpec = nullptr;
+	
 	AActor* Target = nullptr;
 	AActor* Self = nullptr;
 	

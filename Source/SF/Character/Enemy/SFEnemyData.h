@@ -4,6 +4,7 @@
 
 #include "CoreMinimal.h"
 #include "GameplayTagContainer.h"
+#include "AbilitySystem/Abilities/Enemy/Combat/SFGA_Enemy_BaseAttack.h"
 #include "Character/SFPawnData.h"
 #include "SFEnemyData.generated.h"
 
@@ -54,6 +55,17 @@ struct FSTStateWrapperContainer
 	TArray<FSTStateWrapper> States;
 };
 
+USTRUCT(BlueprintType)
+struct FSTTaggedMontageContainer
+{
+	GENERATED_BODY()
+	
+	UPROPERTY(EditAnywhere, BlueprintReadOnly)
+	TArray<FTaggedMontage> Container;
+
+	UAnimMontage* GetMontage(const FGameplayTag& Tag) const;
+};
+
 /**
  * 
  */
@@ -63,6 +75,10 @@ class SF_API USFEnemyData : public USFPawnData
 	GENERATED_BODY()
 
 public:
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Enemy|ID")
+	FName EnemyID;
+
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Enemy|Type")
 	FGameplayTag EnemyType;
 
@@ -74,6 +90,10 @@ public:
 	FSTStateWrapperContainer StateContainer;
 	
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Enemy|State")
-	FGameplayTag DefaultStateTag; 
+	FGameplayTag DefaultStateTag;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Enemy|Montage")
+	FSTTaggedMontageContainer MontageContainer;
+	
 	
 };

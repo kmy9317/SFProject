@@ -4,6 +4,7 @@
 #include "AbilitySystemInterface.h"
 #include "GameplayTagAssetInterface.h"
 #include "GameFramework/Character.h"
+#include "MotionWarpingComponent.h"
 #include "SFCharacterBase.generated.h"
 
 class USFPawnExtensionComponent;
@@ -33,10 +34,31 @@ public:
 	virtual bool HasAnyMatchingGameplayTags(const FGameplayTagContainer& TagContainer) const override;
 
 	void ToggleCrouch();
+
+	UFUNCTION(BlueprintCallable, Category = "SF|Character")
+	UMotionWarpingComponent* GetMotionWarpingComponent() const { return MotionWarpingComponent; }
+
+	UFUNCTION(BlueprintPure, Category = "SF|Character")
+	float GetGroundSpeed() const { return GroundSpeed; }
+
+	UFUNCTION(BlueprintPure, Category = "SF|Character")
+	float GetDirection() const { return Direction; }
+
+	UFUNCTION(BlueprintPure, Category = "SF|Character")
+	bool IsFalling() const;
 	
 protected:
 	// Called when the game starts or when spawned
 	virtual void BeginPlay() override;
+
+	virtual void Tick(float DeltaSeconds) override;
+
+protected:
+	UPROPERTY(VisibleInstanceOnly, BlueprintReadOnly, Category = "SF|Character|Animation")
+	float GroundSpeed;
+
+	UPROPERTY(VisibleInstanceOnly, BlueprintReadOnly, Category = "SF|Character|Animation")
+	float Direction;
 
 	virtual void PossessedBy(AController* NewController) override;
 	virtual void UnPossessed() override;
@@ -51,4 +73,9 @@ private:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "SF|Character", Meta = (AllowPrivateAccess = "true"))
 	TObjectPtr<USFPawnExtensionComponent> PawnExtComponent;
 
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "SF|Character", Meta = (AllowPrivateAccess = "true"))
+	TObjectPtr<UMotionWarpingComponent> MotionWarpingComponent;
+
+private:
+	void UpdateAnimValue();
 };

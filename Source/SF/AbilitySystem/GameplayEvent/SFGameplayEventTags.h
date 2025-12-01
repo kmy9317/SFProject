@@ -18,8 +18,8 @@ namespace SFGameplayTags
 
 	//Damage Events
 	SF_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(GameplayEvent_Damage_Critical);
-	
-	
+    
+    
 	// Data Tags (SetByCaller)
     
 	// Damage Data
@@ -35,5 +35,26 @@ namespace SFGameplayTags
 	SF_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(Data_Duration_Stun);
 	SF_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(Data_Duration_Root);
 	SF_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(Data_Duration_Slow);
-	
+    
+	// Enemy Ability Data - Attack
+	SF_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(Data_EnemyAbility_Cooldown);
+	SF_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(Data_EnemyAbility_BaseDamage);
+	SF_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(Data_EnemyAbility_AttackRange);
+	SF_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(Data_EnemyAbility_AttackAngle);
+	SF_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(Data_EnemyAbility_MinAttackRange);
+    
+	// Enemy Ability Data - Buff
+	SF_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(Data_EnemyAbility_BuffValue);
+	SF_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(Data_EnemyAbility_Duration);
+
+	// Attribute Data
+	SF_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(Data_MaxHealth);
+	SF_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(Data_AttackPower);
+	SF_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(Data_MoveSpeed);
+	SF_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(Data_Defense);
+	SF_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(Data_CriticalDamage);
+	SF_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(Data_CriticalChance);
+
+	// --- Enemy Attribute Data ---
+	SF_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(Data_Enemy_MaxStagger);
 }

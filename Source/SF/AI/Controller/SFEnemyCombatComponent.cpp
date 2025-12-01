@@ -69,7 +69,11 @@ bool USFEnemyCombatComponent::SelectAbility(
             continue;
         }
 
-        float Score = AIInterface->CalcAIScore(Context);
+        // Context에 Spec 전달
+        FEnemyAbilitySelectContext ContextWithSpec = Context;
+        ContextWithSpec.AbilitySpec = &Spec;
+
+        float Score = AIInterface->CalcAIScore(ContextWithSpec);
 
         if (Score > BestScore)
         {

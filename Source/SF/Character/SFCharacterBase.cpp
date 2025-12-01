@@ -3,12 +3,12 @@
 #include "GameFramework/CharacterMovementComponent.h"
 #include "AbilitySystem/SFAbilitySystemComponent.h"
 #include "SFPawnExtensionComponent.h"
+#include "Player/SFPlayerState.h"
 
 ASFCharacterBase::ASFCharacterBase(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 {
-	PrimaryActorTick.bCanEverTick = false;
-	PrimaryActorTick.bStartWithTickEnabled = false;
+	PrimaryActorTick.bCanEverTick = true;
 
 	// SFPawnExtensionComponent만 native c++로 설정해 줌. 해당 컴포넌트가 다른 컴포넌트들의
 	// 초기화를 담당하는 컴포넌트이기 떄문에 가장 먼저 생성해 주어야 한다. 엔진에서는  native c++의 컴포넌트가 먼저 생성되고 
@@ -16,6 +16,9 @@ ASFCharacterBase::ASFCharacterBase(const FObjectInitializer& ObjectInitializer)
 	PawnExtComponent = CreateDefaultSubobject<USFPawnExtensionComponent>(TEXT("PawnExtensionComponent"));
 	PawnExtComponent->OnAbilitySystemInitialized_RegisterAndCall(FSimpleMulticastDelegate::FDelegate::CreateUObject(this, &ThisClass::OnAbilitySystemInitialized));
 	PawnExtComponent->OnAbilitySystemUninitialized_Register(FSimpleMulticastDelegate::FDelegate::CreateUObject(this, &ThisClass::OnAbilitySystemUninitialized));
+
+	// Motion Warping Component 초기화 (소울류 공격 시 적에게 달라붙는 기능)
+	MotionWarpingComponent = CreateDefaultSubobject<UMotionWarpingComponent>(TEXT("MotionWarpingComponent"));
 }
 
 void ASFCharacterBase::OnAbilitySystemInitialized()
@@ -125,7 +128,20 @@ void ASFCharacterBase::OnRep_PlayerState()
 {
 	Super::OnRep_PlayerState();
 
-	PawnExtComponent->HandlePlayerStateReplicated();
+	if (PawnExtComponent)
+	{
+		PawnExtComponent->HandlePlayerStateReplicated();
+	}
+
+	// Binds the ASC to the Pawn, linking the PlayerState's ASC to the character instance.
+	// This is the most reliable place to do this on clients.
+	if (ASFPlayerState* PS = GetPlayerState<ASFPlayerState>())
+	{
+		if (PawnExtComponent)
+		{
+			PawnExtComponent->InitializeAbilitySystem(PS->GetSFAbilitySystemComponent(), PS);
+		}
+	}
 }
 
 void ASFCharacterBase::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent)
@@ -133,5 +149,33 @@ void ASFCharacterBase::SetupPlayerInputComponent(UInputComponent* PlayerInputCom
 	Super::SetupPlayerInputComponent(PlayerInputComponent);
 
 	PawnExtComponent->SetupPlayerInputComponent();
+}
+
+void ASFCharacterBase::Tick(float DeltaSeconds)
+{
+	Super::Tick(DeltaSeconds);
+
+	UpdateAnimValue();
+}
+
+bool ASFCharacterBase::IsFalling() const
+{
+	if (const UCharacterMovementComponent* CMC = GetCharacterMovement())
+	{
+		return CMC->IsFalling();
+	}
+
+	return false;
+}
+
+void ASFCharacterBase::UpdateAnimValue()
+{
+	const FVector Velocity = GetVelocity();
+	const FRotator Rotation = GetActorRotation();
+
+	GroundSpeed = FVector(Velocity.X, Velocity.Y, 0.0).Size();
+
+	const FVector RelativeVelocity = Rotation.UnrotateVector(Velocity);
+	Direction = FMath::Atan2(RelativeVelocity.Y, RelativeVelocity.X) * (180.0f / PI);
 }
 

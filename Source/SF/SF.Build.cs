@@ -32,6 +32,7 @@ public class SF : ModuleRules
 			"AnimGraphRuntime",
 			"AnimationLocomotionLibraryRuntime",
 			"NavigationSystem",
+			"MotionWarping",
 			"MoviePlayer",
 			"EngineSettings",
 			"CommonLoadingScreen",

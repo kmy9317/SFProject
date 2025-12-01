@@ -11,4 +11,5 @@ namespace SFGameplayTags
 
 	// Ability Input Tags
 	SF_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(InputTag_PrimarySkill);
+	SF_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(InputTag_Attack);
 }

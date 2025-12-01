@@ -101,7 +101,10 @@ EBTNodeResult::Type USFBTTask_FindAttackPoint::ExecuteTask(UBehaviorTreeComponen
 
 					if (bTagMatches)
 					{
-						BaseAttack = Cast<USFGA_Enemy_BaseAttack>(Spec.Ability);
+						UGameplayAbility* AbilityInstance = Spec.GetPrimaryInstance();
+						if (!AbilityInstance)
+							continue;
+						BaseAttack = Cast<USFGA_Enemy_BaseAttack>(AbilityInstance);
 						if (BaseAttack)
 						{
 							MinDist = BaseAttack->GetMinAttackRange();

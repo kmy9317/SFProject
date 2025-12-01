@@ -113,7 +113,7 @@ void USFBTS_FindAttackPoint::TickNode(UBehaviorTreeComponent& OwnerComp, uint8* 
 
                     if (bTagMatches)
                     {
-                        BaseAttack = Cast<USFGA_Enemy_BaseAttack>(Spec.Ability);
+                        BaseAttack = Cast<USFGA_Enemy_BaseAttack>(Spec.GetPrimaryInstance());
                         if (BaseAttack)
                         {
                             MinDist = BaseAttack->GetMinAttackRange();

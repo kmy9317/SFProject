@@ -34,6 +34,7 @@ USFEnemyAnimInstance::USFEnemyAnimInstance(const FObjectInitializer& ObjectIniti
 	, LocalVelocityDirectionAngle(0.0f)
 	, CardinalDirectionDeadZone(10.f)
 	, bWasMovingLastFrame(false)
+	,PreviousWorldVelocity2D(FVector::ZeroVector)
 {
 }
 
@@ -87,21 +88,22 @@ void USFEnemyAnimInstance::NativeUpdateAnimation(float DeltaSeconds)
 	if (!bIsFirstUpdate)
 	{
 		PreviousWorldLocation = CachedLocation;
+		PreviousWorldVelocity2D = CachedWorldVelocity2D;  
 	}
 	else
 	{
 		PreviousWorldLocation = Character->GetActorLocation();
+		PreviousWorldVelocity2D = FVector::ZeroVector;  
 		bIsFirstUpdate = false;
 	}
 
-	
 	CachedLocation = Character->GetActorLocation();
 	CachedRotation = Character->GetActorRotation();
-	
+
 	// Velocity 캐싱
 	CachedWorldVelocity = CachedMovementComponent->Velocity;
 	CachedWorldVelocity2D = FVector(CachedWorldVelocity.X, CachedWorldVelocity.Y, 0.0f);
-	
+
 	// Acceleration 캐싱
 	const FVector Acceleration = CachedMovementComponent->GetCurrentAcceleration();
 	CachedWorldAcceleration2D = FVector(Acceleration.X, Acceleration.Y, 0.0f);
@@ -190,18 +192,47 @@ void USFEnemyAnimInstance::UpdateVelocityData()
 	LocalVelocityDirection = GetCardinalDirectionFromAngle(LocalVelocityDirectionAngle, CardinalDirectionDeadZone, LocalVelocityDirection,bWasMovingLastFrame);
 
 	bWasMovingLastFrame = bHasVelocity;
+	
+
 }
 
 void USFEnemyAnimInstance::UpdateAccelerationData()
 {
-	WorldAcceleration2D = CachedWorldAcceleration2D;
-	
+	// 서버: 실제 Acceleration 사용
+	// 클라이언트: Velocity 변화량으로 Acceleration 추정
+	if (GetOwningActor() && GetOwningActor()->HasAuthority())
+	{
+		WorldAcceleration2D = CachedWorldAcceleration2D;
+	}
+	else
+	{
+		// 클라이언트는 Velocity 변화량으로 Acceleration 추정
+		// Acceleration = (CurrentVelocity - PreviousVelocity) / DeltaTime
+		const UWorld* World = GetWorld();
+		if (World)
+		{
+			const float DeltaTime = World->GetDeltaSeconds();
+			if (DeltaTime > UE_SMALL_NUMBER) 
+			{
+				WorldAcceleration2D = (CachedWorldVelocity2D - PreviousWorldVelocity2D) / DeltaTime;
+			}
+			else
+			{
+				WorldAcceleration2D = FVector::ZeroVector;
+			}
+		}
+		else
+		{
+			WorldAcceleration2D = FVector::ZeroVector;
+		}
+	}
+    
 	// Local 좌표계로 변환
 	LocalAcceleration2D = CachedRotation.UnrotateVector(WorldAcceleration2D);
-	
+    
 	// Acceleration 체크
 	const float AccelerationLength = LocalAcceleration2D.Size();
-	bHasAcceleration = AccelerationLength > 1.0f; 
+	bHasAcceleration = AccelerationLength > 1.0f;
 }
 
 bool USFEnemyAnimInstance::ShouldDistanceMatchStop() const

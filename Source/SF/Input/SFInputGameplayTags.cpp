@@ -9,4 +9,5 @@ namespace SFGameplayTags
 
 	// Ability Input Tags
 	UE_DEFINE_GAMEPLAY_TAG_COMMENT(InputTag_PrimarySkill, "InputTag.PrimarySkill", "Primary Skill input.");
+	UE_DEFINE_GAMEPLAY_TAG_COMMENT(InputTag_Attack, "InputTag.Attack", "Attack input.");
 }

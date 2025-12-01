@@ -70,6 +70,8 @@ private:
 	void DestroyEquipmentActors();
 	void GrantAbilities(UAbilitySystemComponent* ASC);
 	void RemoveAbilities(UAbilitySystemComponent* ASC);
+	
+	// Animation Layer 연결/해제
 	void ApplyAnimationLayer();
 	void RemoveAnimationLayer();
 };

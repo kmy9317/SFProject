@@ -90,6 +90,8 @@ private:
     // Acceleration Cache
     FVector CachedWorldAcceleration2D;
 
+    FVector PreviousWorldVelocity2D;
+
 protected:
     
     //  Location Data

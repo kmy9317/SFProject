@@ -57,6 +57,14 @@
 			"Enabled": true
 		},
     {
+        "Name": "GameplayMessageRouter",
+        "Enabled": true
+    },
+    {
+        "Name": "MotionWarping",
+        "Enabled": true
+    },
+    {
 			"Name": "CommonLoadingScreen",
 			"Enabled": true
 		}
