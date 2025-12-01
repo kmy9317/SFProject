@@ -1,5 +1,6 @@
 #include "SFPawnExtensionComponent.h"
 
+#include "AbilitySystem/SFAbilitySet.h"
 #include "AbilitySystem/SFAbilitySystemComponent.h"
 #include "SF/System/SFInitGameplayTags.h"
 #include "Net/UnrealNetwork.h"
@@ -145,6 +146,18 @@ void USFPawnExtensionComponent::InitializeAbilitySystem(USFAbilitySystemComponen
 	AbilitySystemComponent = InASC;
 	AbilitySystemComponent->InitAbilityActorInfo(InOwnerActor, Pawn);
 
+	if (PawnData)
+	{
+		// PawnData 클래스 안에 'AbilitySets'라는 배열 변수가 있다고 가정
+		for (const USFAbilitySet* AbilitySet : PawnData->AbilitySets)
+		{
+			if (AbilitySet)
+			{
+				AbilitySet->GiveToAbilitySystem(AbilitySystemComponent, nullptr);
+			}
+		}
+	}
+	
 	// 해당 시점에 캐릭터에 대해 RegisterGameplayTagEvent 등록을 해둘 수 있음
 
 	OnAbilitySystemInitialized.Broadcast();

@@ -31,7 +31,8 @@ public class SF : ModuleRules
 			"GameplayMessageRuntime",
 			"AnimGraphRuntime",
 			"AnimationLocomotionLibraryRuntime",
-			"NavigationSystem"
+			"NavigationSystem",
+			"MotionWarping"
 		});
 
 		PrivateDependencyModuleNames.AddRange(new string[] { });

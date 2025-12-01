@@ -122,8 +122,8 @@ void ASFPlayerState::PostInitializeComponents()
 {
 	Super::PostInitializeComponents();
 
-	check(AbilitySystemComponent);
-	AbilitySystemComponent->InitAbilityActorInfo(this, GetPawn());
+	//check(AbilitySystemComponent); // ASC가 연결되기 전이므로 필요없음
+	//AbilitySystemComponent->InitAbilityActorInfo(this, GetPawn()); // Pawn이 null일 가능성 있어 주석 처리 (HeroComponent에서 진행)
 
 	// TODO : PawnData등의 로드 완료 Delegate 바인딩
 	// 서버에서만 PawnData 로드 관리
