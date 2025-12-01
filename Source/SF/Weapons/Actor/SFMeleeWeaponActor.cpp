@@ -12,6 +12,7 @@ ASFMeleeWeaponActor::ASFMeleeWeaponActor(const FObjectInitializer& ObjectInitial
     : Super(ObjectInitializer)
 {
     PrimaryActorTick.bCanEverTick = false;
+    bReplicates = true;
 
     // Static Mesh를 Root로
     StaticMeshComponent = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("WeaponMesh"));

@@ -7,33 +7,11 @@
 #include "UObject/Object.h"
 #include "SFEquipmentInstance.generated.h"
 
+class USFEquipmentComponent;
 struct FGameplayAbilitySpecHandle;
 struct FActiveGameplayEffectHandle;
 class UAbilitySystemComponent;
 class USFEquipmentDefinition;
-
-USTRUCT(BlueprintType)
-struct FSFEquipmentList
-{
-	GENERATED_BODY()
-    
-	FSFEquipmentList()
-	{}
-    
-	//스폰된 Actor
-	UPROPERTY()
-	TArray<TObjectPtr<AActor>> SpawnedActors;
-
-public:
-
-	void DestroySpawnedActors();
-
-	int32 Num() const
-	{
-		return SpawnedActors.Num();
-	}
-};
-
 
 UCLASS()
 class SF_API USFEquipmentInstance : public UObject
@@ -41,9 +19,14 @@ class SF_API USFEquipmentInstance : public UObject
 	GENERATED_BODY()
 
 public:
+
+	USFEquipmentInstance(const FObjectInitializer& ObjectInitializer = FObjectInitializer::Get());
+
+	virtual bool IsSupportedForNetworking() const override { return true; }
+	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
+	
 	void Initialize(USFEquipmentDefinition* InDefinition, APawn* InPawn, UAbilitySystemComponent* ASC);
 	void Deinitialize(UAbilitySystemComponent* ASC);
-	
 
 	UFUNCTION(BlueprintPure, Category = "Equipment")
 	USFEquipmentDefinition* GetEquipmentDefinition() const { return EquipmentDefinition; }
@@ -52,17 +35,28 @@ public:
 	APawn* GetInstigator() const { return Instigator; }
 
 	UFUNCTION(BlueprintPure, Category = "Equipment")
-	TArray<AActor*> GetSpawnedActors() const { return SpawnedActorList.SpawnedActors; }
+	TArray<AActor*> GetSpawnedActors() const { return SpawnedActors; }
+
+	// 리플리케이션 콜백
+	void OnEquipped();
+	void OnUnequipped();
 
 protected:
-	UPROPERTY()
+	UFUNCTION()
+	void OnRep_EquipmentDefinition();
+
+	UFUNCTION()
+	void OnRep_Instigator();
+
+protected:
+	UPROPERTY(ReplicatedUsing = OnRep_EquipmentDefinition)
 	TObjectPtr<USFEquipmentDefinition> EquipmentDefinition;
     
-	UPROPERTY()
+	UPROPERTY(ReplicatedUsing = OnRep_Instigator)
 	TObjectPtr<APawn> Instigator;
     
-	UPROPERTY()
-	FSFEquipmentList SpawnedActorList;
+	UPROPERTY(Replicated)
+	TArray<TObjectPtr<AActor>> SpawnedActors;
     
 	UPROPERTY()
 	TArray<FGameplayAbilitySpecHandle> GrantedAbilityHandles;
@@ -73,7 +67,9 @@ protected:
 private:
 
 	void SpawnEquipmentActors();
+	void DestroyEquipmentActors();
 	void GrantAbilities(UAbilitySystemComponent* ASC);
+	void RemoveAbilities(UAbilitySystemComponent* ASC);
 	
 	// Animation Layer 연결/해제
 	void ApplyAnimationLayer();
