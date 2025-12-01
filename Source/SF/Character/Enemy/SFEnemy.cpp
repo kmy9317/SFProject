@@ -8,9 +8,6 @@
 #include "AbilitySystem/Attributes/SFCombatSet.h"
 #include "AbilitySystem/Attributes/SFPrimarySet.h"
 #include "AbilitySystem/Attributes/Enemy/SFCombatSet_Enemy.h"
-#include "AbilitySystem/Attributes/Enemy/SFPrimarySet_Enemy.h"
-#include "AbilitySystem/GameplayEvent/SFGameplayEventTags.h"
-#include "AI/SFAIGameplayTags.h"
 #include "Character/SFPawnData.h"
 #include "Character/SFPawnExtensionComponent.h"
 #include "Component/SFEnemyMovementComponent.h"
@@ -25,12 +22,13 @@ ASFEnemy::ASFEnemy(const FObjectInitializer& ObjectInitializer)
 {
 
 	// Ability
+	
 	AbilitySystemComponent = ObjectInitializer.CreateDefaultSubobject<USFAbilitySystemComponent>(this, TEXT("AbilitySystemComponent"));
 	AbilitySystemComponent->SetIsReplicated(true);
 	AbilitySystemComponent->SetReplicationMode(EGameplayEffectReplicationMode::Mixed);
 
 	//AttributeSet
-	PrimarySet = CreateDefaultSubobject<USFPrimarySet_Enemy>(TEXT("PrimarySet"));
+	PrimarySet = CreateDefaultSubobject<USFPrimarySet>(TEXT("PrimarySet"));
 	CombatSet = CreateDefaultSubobject<USFCombatSet_Enemy>(TEXT("CombatSet"));
 	
 	SetNetUpdateFrequency(100.f);
