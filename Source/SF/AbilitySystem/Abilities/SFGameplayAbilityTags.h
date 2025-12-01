@@ -44,4 +44,9 @@ namespace SFGameplayTags
 	SF_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(Ability_Cooldown_Enemy_Attack_Grab);
 	SF_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(Ability_Cooldown_Enemy_Attack_Range);
 	SF_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(Ability_Cooldown_Enemy_Attack_AoE);
+
+
+	
+	// Hero Skill Cooldowns
+	SF_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(Ability_Cooldown_Hero_Skill_Primary);
 }

@@ -280,6 +280,18 @@ void ASFGameMode::RequestTravelToNextStage(TSoftObjectPtr<UWorld> NextStageLevel
 		return;
 	}
 
+	// 트래블 시작 전 모든 플레이어의 ASC 데이터를 백업
+	if (GameState)
+	{
+		for (APlayerState* PS : GameState->PlayerArray)
+		{
+			if (ASFPlayerState* SFPS = Cast<ASFPlayerState>(PS))
+			{
+				SFPS->SavePersistedData();
+			}
+		}
+	}
+
 	UE_LOG(LogSF, Log, TEXT("[GameMode] Traveling to next stage: %s"), *NextStageLevel.ToString());
 
 	if (USFGameInstance* SFGameInstance = Cast<USFGameInstance>(GetWorld()->GetGameInstance()))

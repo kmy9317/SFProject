@@ -3,5 +3,6 @@
 void USFUserWidget::SetWidgetController(USFWidgetController* InWidgetController)
 {
 	WidgetController = InWidgetController;
+	NativeOnWidgetControllerSet();
 	OnWidgetControllerSet();
 }

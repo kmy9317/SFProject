@@ -145,21 +145,8 @@ void USFPawnExtensionComponent::InitializeAbilitySystem(USFAbilitySystemComponen
 	// ASC를 업데이트하고 InitAbilityActorInfo를 Pawn과 같이 호출하여 AvatarActor를 Pawn으로 업데이트 해준다
 	AbilitySystemComponent = InASC;
 	AbilitySystemComponent->InitAbilityActorInfo(InOwnerActor, Pawn);
-
-	if (PawnData)
-	{
-		// PawnData 클래스 안에 'AbilitySets'라는 배열 변수가 있다고 가정
-		for (const USFAbilitySet* AbilitySet : PawnData->AbilitySets)
-		{
-			if (AbilitySet)
-			{
-				AbilitySet->GiveToAbilitySystem(AbilitySystemComponent, nullptr);
-			}
-		}
-	}
 	
 	// 해당 시점에 캐릭터에 대해 RegisterGameplayTagEvent 등록을 해둘 수 있음
-
 	OnAbilitySystemInitialized.Broadcast();
 }
 

@@ -83,6 +83,9 @@ public:
 	const USFPrimarySet_Hero* GetPrimarySet() const { return PrimarySet; }
 	const USFCombatSet_Hero* GetCombatSet() const { return CombatSet; }
 
+	// 트래블 직전에 데이터를 미리 저장하는 함수
+	void SavePersistedData();
+	
 	// 저장된 어빌리티 시스템 데이터가 있는지 (초기 PawnData AbilitySet 부여 스킵 판단용) 
 	bool HasSavedAbilitySystemData() const { return SavedASCData.IsValid(); }
 	

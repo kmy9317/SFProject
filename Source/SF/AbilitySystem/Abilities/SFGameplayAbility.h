@@ -4,6 +4,7 @@
 #include "Abilities/GameplayAbility.h"
 #include "SFGameplayAbility.generated.h"
 
+class UInputMappingContext;
 class USFAbilitySystemComponent;
 class ASFCharacterBase;
 
@@ -52,4 +53,17 @@ protected:
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "SF|AbilityID")
 	FName AbilityID;
+
+public:
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category="SF|Ability")
+	TObjectPtr<UInputMappingContext> InputMappingContext;
+	
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category="SF|AbilityInfo")
+	TObjectPtr<UTexture2D> Icon;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category="SF|AbilityInfo")
+	FText Name;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category="SF|AbilityInfo")
+	FText Description;
 };

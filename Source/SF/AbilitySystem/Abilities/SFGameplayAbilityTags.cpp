@@ -42,4 +42,9 @@ namespace SFGameplayTags
 	UE_DEFINE_GAMEPLAY_TAG_COMMENT(Ability_Cooldown_Enemy_Attack_Grab, "Ability.Cooldown.Enemy.Attack.Grab", "Cooldown for Grab Attack");
 	UE_DEFINE_GAMEPLAY_TAG_COMMENT(Ability_Cooldown_Enemy_Attack_Range, "Ability.Cooldown.Enemy.Attack.Range", "Cooldown for Range Attack");
 	UE_DEFINE_GAMEPLAY_TAG_COMMENT(Ability_Cooldown_Enemy_Attack_AoE, "Ability.Cooldown.Enemy.Attack.AoE", "Cooldown for AoE Attack");
+
+
+	
+	// Hero Skill Cooldowns
+	UE_DEFINE_GAMEPLAY_TAG_COMMENT(Ability_Cooldown_Hero_Skill_Primary, "Ability.Cooldown.Hero.Skill.Primary", "Cooldown for primary skill");
 }

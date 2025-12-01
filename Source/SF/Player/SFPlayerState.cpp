@@ -72,12 +72,9 @@ void ASFPlayerState::CopyProperties(APlayerState* PlayerState)
 
 	NewPlayerState->SetPlayerSelection(PlayerSelection);
 
-	// ASC 데이터 저장
-	if (AbilitySystemComponent)
+	if (SavedASCData.IsValid())
 	{
-		AbilitySystemComponent->SaveAttributesToData(NewPlayerState->SavedASCData);
-		AbilitySystemComponent->SaveAbilitiesToData(NewPlayerState->SavedASCData);
-		AbilitySystemComponent->SaveGameplayEffectsToData(NewPlayerState->SavedASCData);
+		NewPlayerState->SavedASCData = SavedASCData;
 	}
 }
 
@@ -132,9 +129,9 @@ UAbilitySystemComponent* ASFPlayerState::GetAbilitySystemComponent() const
 void ASFPlayerState::PostInitializeComponents()
 {
 	Super::PostInitializeComponents();
-
-	//check(AbilitySystemComponent); // ASC가 연결되기 전이므로 필요없음
-	//AbilitySystemComponent->InitAbilityActorInfo(this, GetPawn()); // Pawn이 null일 가능성 있어 주석 처리 (HeroComponent에서 진행)
+	
+	check(AbilitySystemComponent);
+	AbilitySystemComponent->InitAbilityActorInfo(this, GetPawn());
 
 	// TODO : PawnData등의 로드 완료 Delegate 바인딩
 	// 서버에서만 PawnData 로드 관리
@@ -261,6 +258,17 @@ void ASFPlayerState::SetPlayerConnectionType(ESFPlayerConnectionType NewType)
 {
 	MARK_PROPERTY_DIRTY_FROM_NAME(ThisClass, MyPlayerConnectionType, this);
 	MyPlayerConnectionType = NewType;
+}
+
+void ASFPlayerState::SavePersistedData()
+{
+	if (AbilitySystemComponent)
+	{
+		SavedASCData.Reset();
+		AbilitySystemComponent->SaveAttributesToData(SavedASCData);
+		AbilitySystemComponent->SaveAbilitiesToData(SavedASCData);
+		AbilitySystemComponent->SaveGameplayEffectsToData(SavedASCData);
+	}
 }
 
 void ASFPlayerState::RestorePersistedAbilityData()

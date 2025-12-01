@@ -3,6 +3,7 @@
 
 #include "SFOverlayWidgetController.h"
 
+#include "AbilitySystem/SFAbilitySystemComponent.h"
 #include "AbilitySystem/Attributes/Hero/SFPrimarySet_Hero.h"
 #include "Player/SFPlayerState.h"
 
@@ -31,6 +32,11 @@ void USFOverlayWidgetController::BindCallbacksToDependencies()
 	if (SFPS)
 	{
 		SFPS->OnPlayerInfoChanged.AddDynamic(this, &ThisClass::HandlePlayerInfoChanged);
+	}
+
+	if (USFAbilitySystemComponent* SFASC = Cast<USFAbilitySystemComponent>(TargetAbilitySystemComponent))
+	{
+		SFASC->AbilityChangedDelegate.AddUObject(this, &ThisClass::HandleAbilityChanged);
 	}
 	// TODO : 다른 Model들에 대한 Callbacks도 추가할 것
 }
@@ -94,6 +100,11 @@ void USFOverlayWidgetController::BindPrimaryAttributeCallbacks()
 void USFOverlayWidgetController::HandlePlayerInfoChanged(const FSFPlayerSelectionInfo& NewPlayerSelection)
 {
 	OnPlayerInfoChanged.Broadcast(NewPlayerSelection);
+}
+
+void USFOverlayWidgetController::HandleAbilityChanged(FGameplayAbilitySpecHandle AbilitySpecHandle, bool bGiven)
+{
+	OnAbilityChanged.Broadcast(AbilitySpecHandle, bGiven);
 }
 
 

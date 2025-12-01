@@ -1,10 +1,13 @@
 #pragma once
 
 #include "CoreMinimal.h"
+#include "GameplayAbilitySpecHandle.h"
 #include "SFWidgetController.h"
 #include "SFOverlayWidgetController.generated.h"
 
 struct FSFPlayerSelectionInfo;
+
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FOnAbilityChangedSignature, FGameplayAbilitySpecHandle, AbilitySpecHandle, bool, bGiven);
 /**
  * 
  */
@@ -22,6 +25,8 @@ public:
 protected:
 	UFUNCTION()
 	void HandlePlayerInfoChanged(const FSFPlayerSelectionInfo& NewPlayerSelection);
+
+	void HandleAbilityChanged(FGameplayAbilitySpecHandle AbilitySpecHandle, bool bGiven);
 
 private:
 	void BindPrimaryAttributeCallbacks();
@@ -50,4 +55,7 @@ public:
 	// FSFPlayerSelectionInfo 구조체 변경을 알릴 델리게이트
 	UPROPERTY(BlueprintAssignable, Category="SF|Info")
 	FOnPlayerInfoChangedSignature OnPlayerInfoChanged;
+
+	UPROPERTY(BlueprintAssignable, Category="SF|Abilities")
+	FOnAbilityChangedSignature OnAbilityChanged;
 };

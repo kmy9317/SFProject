@@ -29,6 +29,9 @@ public:
 	T* GetWidgetControllerTyped() const { return Cast<T>(WidgetController); }
 
 protected:
+	/// C++에서 오버라이드 가능한 WidgetController 설정 완료 콜백 
+	virtual void NativeOnWidgetControllerSet() {}
+	
 	UPROPERTY(BlueprintReadOnly, Category = "SF|Widget")
 	TObjectPtr<USFWidgetController> WidgetController;
 };
