@@ -28,7 +28,9 @@ public:
 	ASFEnemyController(const FObjectInitializer& ObjectInitializer = FObjectInitializer::Get());
 
 	void SetBehaviourContainer(FSFBehaviourWrapperContainer InBehaviorTreeContainer){ BehaviorTreeContainer = InBehaviorTreeContainer; }
-	
+
+	USFEnemyCombatComponent* GetCombatComponent() const { return CombatComponent; }
+
 	void InitializeController();
 protected:
 
@@ -44,7 +46,6 @@ protected:
 
 	virtual void Tick(float DeltaTime) override;
 
-    // [추가] 네트워크 복제 설정
     virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
 
 #pragma region BehaviorTree
@@ -80,7 +81,6 @@ protected:
 	FVector SpawnLocation;
 
 	// 전투 상태 플래그 (false: Idle / true: Combat)
-    // [수정] Replicated 속성 추가
 	UPROPERTY(Replicated, VisibleAnywhere, BlueprintReadOnly, Category="AI|State")
 	bool bIsInCombat;
 	
@@ -126,7 +126,7 @@ protected:
 	UFUNCTION()
 	void OnTargetPerceptionUpdated(AActor* Actor, FAIStimulus Stimulus);
 	
-    // [추가] 시야 완전 소실 이벤트 (MaxAge 경과)
+    // 시야 완전 소실 이벤트 (MaxAge 경과)
     UFUNCTION()
     void OnTargetPerceptionForgotten(AActor* Actor);
 
@@ -134,43 +134,11 @@ protected:
 
 #pragma region Combat
 public:
-	// 근접 공격 가능한 거리
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="AI|Combat")
-	float MeleeRange = 300.f;
-
-	// 경계 거리 (전투 거리 변수명 유지)
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="AI|Combat")
-	float GuardRange = 1200.f;
-
-	// 현재 타겟 유지 우선도 (높을수록 타겟 변경을 덜 함)
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="AI|Combat")
-	float EngagementBonus = 500.f;
 
 	// 현재 타겟 Actor
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="AI|Combat")
 	TObjectPtr<AActor> TargetActor;
 
-	// 타겟까지 거리 반환
-	UFUNCTION(BlueprintCallable, Category="AI|Combat")
-	float GetDistanceToTarget() const;
-
-	// 타겟이 근접 공격 범위 안에 있는지
-	UFUNCTION(BlueprintCallable, Category="AI|Combat")
-	bool IsInMeleeRange() const;
-
-	// 타겟이 원거리 공격 범위 안에 있는지
-	UFUNCTION(BlueprintCallable, Category="AI|Combat")
-	bool IsInGuardRange() const;
-
-    // [제거됨] FindBestTarget 제거
-	// UFUNCTION(BlueprintCallable, Category="AI|Combat")
-	// AActor* FindBestTarget();
-
-	//추격 범위 안에 있는가
-	UFUNCTION(BlueprintCallable, Category = "AI|Combat")
-	bool IsInTrackingRange() const;
-
-protected:
 	TObjectPtr<USFEnemyCombatComponent> CombatComponent;
 #pragma endregion
 
