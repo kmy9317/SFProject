@@ -32,10 +32,10 @@ protected:
 	UCommonButtonBase* Btn_Quit;
 
 	// ------------- Game Flow -------------
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Game Flow")
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "UI|GameFlow")
 	TSoftObjectPtr<UWorld> LobbyMapAsset;
 
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="UI")
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="UI|GameFlow")
 	TSubclassOf<UUserWidget> CreateGameWidgetClass;
 
 	// ------------- Function -------------

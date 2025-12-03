@@ -61,9 +61,9 @@ private:
 	float CachedCooldownDuration = 0.f;
 
 public:
-	// UFUNCTION(BlueprintCallable, Category = "UI/Common/SkillSlotBase")
-	// void SetSlotVisuals(UTexture2D* InIcon, const FText& InKeyText);
-	//
-	// UFUNCTION(BlueprintCallable, Category = "UI/Common/SkillSlotBase")
-	// void StartCooldown(float InDuration);
+	UFUNCTION(BlueprintCallable, Category = "UI|Function")
+	void SetSlotVisuals(UTexture2D* InIcon, const FText& InKeyText);
+
+	UFUNCTION(BlueprintCallable, Category = "UI|Function")
+	void StartCooldown(float InDuration);
 };

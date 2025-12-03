@@ -16,23 +16,23 @@ protected:
 	virtual void NativeTick(const FGeometry & MyGeometry, float InDeltaTime) override;
 	virtual void NativePreConstruct() override;
 
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "UI/Common/CommonBarBase")
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "UI|Common")
 	float TargetPercent;
 
 	// 보간될 프로그래스바(Fill / Ghost) 판단을 위한 bool 변수 2종류
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "UI/Common/CommonBarBase")
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "UI|Common")
 	bool bIsRecovering;
 	
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "UI/Common/CommonBarBase")
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "UI|Common")
 	bool bIsDecreasing;
 
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "UI/Common/CommonBarBase")
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "UI|Common")
 	float InterpSpeedToRecover = 2.5f;
 
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "UI/Common/CommonBarBase")
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "UI|Common")
 	float InterpSpeedToDecrease = 2.5f;
 
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "UI/Common/CommonBarBase")
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "UI|Common")
 	FLinearColor BarFillColor;
 	
 	UPROPERTY(meta = (BindWidget))
@@ -43,6 +43,6 @@ protected:
 	
 public:
 	// InGameHUD 호출용 함수 (0.0 ~ 1.0 사이의 수치로 UI 프로그래스바 수치 조절)
-	UFUNCTION(BlueprintCallable, Category="UI/Common/CommonBarBase")
+	UFUNCTION(BlueprintCallable, Category="UI|Function")
 	void SetPercentVisuals(float InPercent);
 };
