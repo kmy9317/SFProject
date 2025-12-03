@@ -14,7 +14,7 @@
 #include "Net/UnrealNetwork.h"
 #include "AI/Controller/SFEnemyCombatComponent.h"
 #include "Character/SFCharacterGameplayTags.h"
-#include "Character/Enemy/Component/SFStateReactionComponent.h" // [복구] 필수 헤더
+#include "Character/Enemy/Component/SFStateReactionComponent.h"
 
 #include UE_INLINE_GENERATED_CPP_BY_NAME(SFEnemyController)
 
@@ -65,7 +65,7 @@ ASFEnemyController::ASFEnemyController(const FObjectInitializer& ObjectInitializ
     CombatComponent = ObjectInitializer.CreateDefaultSubobject<USFEnemyCombatComponent>(this, TEXT("CombatComponent")); 
 }
 
-// 네트워크 복제 함수
+// 네트워크 복제 함수 <- 제거
 void ASFEnemyController::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
 {
     Super::GetLifetimeReplicatedProps(OutLifetimeProps);
@@ -74,7 +74,7 @@ void ASFEnemyController::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& O
     DOREPLIFETIME(ASFEnemyController, bHasGuardSlot);
 }
 
-// [수정] 컨트롤러 초기화 통합 함수 (StateMachine, Combat, StateReaction 모두 처리)
+// 컨트롤러 초기화 통합 함수 (StateMachine, Combat, StateReaction 모두 처리)
 void ASFEnemyController::InitializeController()
 {
     if (HasAuthority())
@@ -88,7 +88,7 @@ void ASFEnemyController::InitializeController()
             USFStateReactionComponent* StateReactionComponent = USFStateReactionComponent::FindStateReactionComponent(InPawn);
             if (StateReactionComponent)
             {
-                // [수정] IsAlreadyBound를 사용하여 안전하게 바인딩 (중복 방지)
+                //  IsAlreadyBound를 사용하여 안전하게 바인딩 (중복 방지)
                 if (!StateReactionComponent->OnStateStart.IsAlreadyBound(this, &ThisClass::ReceiveStateStart))
                 {
                     StateReactionComponent->OnStateStart.AddDynamic(this, &ThisClass::ReceiveStateStart);
@@ -303,7 +303,7 @@ void ASFEnemyController::OnTargetPerceptionUpdated(AActor* Actor, FAIStimulus St
     if (!TargetTag.IsNone() && !Actor->ActorHasTag(TargetTag))
         return;
 
-    // [중요 수정] CombatComponent에게 시야 감지 결과 전달 (거리 계산 및 태그 부여의 핵심 연결고리)
+    //  CombatComponent에게 시야 감지 결과 전달 (거리 계산 및 태그 부여의 핵심 연결고리)
     if (CombatComponent)
     {
         CombatComponent->HandleTargetPerceptionUpdated(Actor, Stimulus.WasSuccessfullySensed());
