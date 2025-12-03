@@ -21,7 +21,7 @@ protected:
 	virtual void NativeConstruct() override;
 
 	// 버튼 위에 띄울 글자 (에디터 상 수정 가능)
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "UI/Common/CommonButtonBase")
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "UI|Common")
 	FText ButtonTitle;
 
 	UPROPERTY(meta = (BindWidget))
@@ -35,10 +35,10 @@ protected:
 	TObjectPtr<UWidgetAnimation> Anim_HoverGlow;
 
 	// --------------- [Sound] ---------------
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "UI/Common/CommonButtonBase")
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "UI|Sound")
 	TObjectPtr<USoundBase> HoverSound;
 
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "UI/Common/CommonButtonBase")
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "UI|Sound")
 	TObjectPtr<USoundBase> ClickSound;
 
 	UFUNCTION()
@@ -51,6 +51,6 @@ protected:
 	void OnButtonUnHovered(); // 마우스가 버튼을 벗어났을 때
 	
 public: 
-	UPROPERTY(BlueprintAssignable, Category = "UI/DELEGATE")
+	UPROPERTY(BlueprintAssignable, Category = "UI|Event")
 	FOnButtonClickedDelegate OnButtonClickedDelegate;
 };
