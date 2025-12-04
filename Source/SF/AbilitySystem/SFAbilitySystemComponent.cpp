@@ -134,8 +134,23 @@ void USFAbilitySystemComponent::AbilityInputTagPressed(const FGameplayTag& Input
 		{
 			if (AbilitySpec.Ability && AbilitySpec.GetDynamicSpecSourceTags().HasTagExact(InputTag))
 			{
+				// 입력을 큐에 넣어서 ProcessAbilityInput에서 처리하게 함
 				InputPressedSpecHandles.AddUnique(AbilitySpec.Handle);
 				InputHeldSpecHandles.AddUnique(AbilitySpec.Handle);
+
+				// 콤보 시스템을 위한 핵심 로직
+				// 만약 이 어빌리티가 이미 '활성화(Active)' 상태라면? -> 콤보 입력으로 간주
+				if (AbilitySpec.IsActive())
+				{
+					// "Input.Action.Attack" 같은 태그를 Payload에 담음
+					FGameplayEventData Payload;
+					Payload.EventTag = InputTag;
+					Payload.Instigator = GetAvatarActor();
+					Payload.Target = GetAvatarActor();
+
+					// 이벤트를 즉시 발송 -> GA 블루프린트의 'Wait Gameplay Event'가 이걸 받음
+					HandleGameplayEvent(InputTag, &Payload);
+				}
 			}
 		}
 	}

@@ -10,7 +10,8 @@ namespace SFGameplayTags
 	SF_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(Character_State_Attacking);
 	SF_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(Character_State_Hit);
 	SF_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(Character_State_Stunned);
-
+	SF_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(Character_State_ComboWindow);
+	
 	// ========== 방어/회피 ==========
 	SF_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(Character_State_Blocking);
 	SF_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(Character_State_Dodging);
