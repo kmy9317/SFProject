@@ -15,6 +15,9 @@
 #include "GameFramework/CharacterMovementComponent.h"
 #include "Interface/SFTraceActorInterface.h"
 
+// <-- 추가된 include: 커스텀 EffectContext
+#include "AbilitySystem/GameplayEffect/Enemy/EffectContext/FSFHitEffectContext.h"
+
 class USFEquipmentComponent;
 
 USFGA_Enemy_Melee::USFGA_Enemy_Melee(const FObjectInitializer& ObjectInitializer)
@@ -31,14 +34,14 @@ void USFGA_Enemy_Melee::ActivateAbility(
 {
 	Super::ActivateAbility(Handle, ActorInfo, ActivationInfo, TriggerEventData);
 
-	// 기본 검증 (모든 머신)
+	// 기본 검증
 	if (AttackTypeMontage.AnimMontage == nullptr)
 	{
 		EndAbility(Handle, ActorInfo, ActivationInfo, true, true);
 		return;
 	}
 
-	// 몽타주 재생 (모든 머신에서 실행 - 클라이언트도 애니메이션 보임)
+	// 몽타주 재생 
 	UAbilityTask_PlayMontageAndWait* PlayMontageTask =
 		UAbilityTask_PlayMontageAndWait::CreatePlayMontageAndWaitProxy(
 			this,
@@ -122,24 +125,58 @@ void USFGA_Enemy_Melee::CleanupWeaponTraces()
 
 void USFGA_Enemy_Melee::OnTraceHit(FGameplayEventData Payload)
 {
-	// 서버 체크 (이미 서버 전용 Task지만 안전장치)
 	if (!GetAvatarActorFromActorInfo()->HasAuthority())
-	{
 		return;
+
+	const FGameplayAbilityTargetData* RawData = Payload.TargetData.Get(0);
+	const FGameplayAbilityTargetData_SingleTargetHit* HitData =
+		static_cast<const FGameplayAbilityTargetData_SingleTargetHit*>(RawData);
+
+	if (!HitData)
+		return;
+
+	const FHitResult& Hit = HitData->HitResult;
+
+	// 기본값 (폴백)
+	FVector AttackDirection = FVector::ZeroVector;
+	FVector AttackLocation  = FVector::ZeroVector;
+
+	// ========== 1) 먼저 Payload의 Context에서 FSFHitEffectContext 읽기 ==========
+	if (const FSFHitEffectContext* SFContext = static_cast<const FSFHitEffectContext*>(Payload.ContextHandle.Get()))
+	{
+		AttackDirection = SFContext->GetAttackDirection();
+		AttackLocation  = SFContext->GetHitLocation();
+	}
+
+	// ========== 2) Context에 정보가 없으면 HitResult 기반 폴백 ==========
+	if (AttackLocation.IsNearlyZero())
+	{
+		AttackLocation = Hit.ImpactPoint;
+	}
+
+	if (AttackDirection.IsNearlyZero())
+	{
+		// Hit.ImpactNormal에 값이 들어있을 수 있음 
+		if (!Hit.ImpactNormal.IsNearlyZero())
+		{
+			AttackDirection = Hit.ImpactNormal.GetSafeNormal();
+		}
+		else
+		{
+			// Instigator(공격자) 위치 기준으로 계산 (마지막 수단)
+			if (AActor* Instigator = const_cast<AActor*>(Payload.Instigator.Get()))
+			{
+				AttackDirection = (Hit.ImpactPoint - Instigator->GetActorLocation()).GetSafeNormal();
+			}
+		}
 	}
 
 	AActor* HitActor = const_cast<AActor*>(Payload.Target.Get());
-	if (!IsValid(HitActor))
-	{
-		return;
-	}
+	if (!IsValid(HitActor)) return;
 
 	ASFCharacterBase* HitCharacter = Cast<ASFCharacterBase>(HitActor);
-	if (!HitCharacter)
-	{
-		return;
-	}
-	
+	if (!HitCharacter) return;
+
 	// 패링 체크
 	if (HitCharacter->HasMatchingGameplayTag(SFGameplayTags::Character_State_Parrying))
 	{
@@ -147,14 +184,15 @@ void USFGA_Enemy_Melee::OnTraceHit(FGameplayEventData Payload)
 		EndAbility(CurrentSpecHandle, CurrentActorInfo, CurrentActivationInfo, true, true);
 		return;
 	}
-	
-	// 관통 공격 처리
+
+	// 관통 처리
 	if (CurrentPenetration > 0)
 	{
-		ApplyDamageToTarget(HitActor);
+		ApplyDamageToTarget(HitActor, AttackDirection, AttackLocation);
 		CurrentPenetration--;
 	}
 }
+
 
 void USFGA_Enemy_Melee::ApplyParriedEffectToSelf()
 {

@@ -47,4 +47,5 @@ namespace SFGameplayTags
 	
 	// Hero Skill Cooldowns
 	UE_DEFINE_GAMEPLAY_TAG_COMMENT(Ability_Cooldown_Hero_Skill_Primary, "Ability.Cooldown.Hero.Skill.Primary", "Cooldown for primary skill");
+	UE_DEFINE_GAMEPLAY_TAG_COMMENT(Ability_Cooldown_Hero_Skill_Secondary, "Ability.Cooldown.Hero.Skill.Secondary", "Cooldown for Secondary skill");
 }

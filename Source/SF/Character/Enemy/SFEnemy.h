@@ -27,15 +27,16 @@ public:
 	USFAbilitySystemComponent* GetSFAbilitySystemComponent() const {return AbilitySystemComponent;};
 	
 	// ASC 초기화
-	void InitializeAbilitySystem();
+	virtual void InitializeAbilitySystem();
+	
 	//Attrtibute 초기화
-	void InitializeAttributeSet(USFPawnExtensionComponent* PawnExtComp);
+	virtual void InitializeAttributeSet(USFPawnExtensionComponent* PawnExtComp);
 
 
 	//StateReaction Component 초기화
-	void InitializeStateReactionComponent();
+	virtual void InitializeStateReactionComponent();
 
-	void InitializeMovementComponent();
+	virtual void InitializeMovementComponent();
 
 protected:
 	

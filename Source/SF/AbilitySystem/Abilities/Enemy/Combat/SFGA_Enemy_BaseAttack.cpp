@@ -5,6 +5,7 @@
 #include "AbilitySystemBlueprintLibrary.h"
 #include "AbilitySystemComponent.h"
 #include "AbilitySystem/Abilities/SFGameplayAbilityTags.h"
+#include "AbilitySystem/GameplayEffect/Enemy/EffectContext/FSFHitEffectContext.h"
 #include "AbilitySystem/GameplayEvent/SFGameplayEventTags.h"
 #include "AI/Controller/SFEnemyController.h"
 #include "Character/SFCharacterBase.h"
@@ -166,25 +167,52 @@ float USFGA_Enemy_BaseAttack::CalcAIScore(const FEnemyAbilitySelectContext& Cont
 	return Score;
 }
 
-void USFGA_Enemy_BaseAttack::ApplyDamageToTarget(AActor* Target)
+void USFGA_Enemy_BaseAttack::ApplyDamageToTarget(
+	AActor* Target,
+	const FVector& AttackDirection,
+	const FVector& AttackLocation
+)
 {
 	if (!Target || !DamageGameplayEffectClass)
 		return;
 
-	auto* TargetASC = UAbilitySystemBlueprintLibrary::GetAbilitySystemComponent(Target);
+	UAbilitySystemComponent* TargetASC =
+		UAbilitySystemBlueprintLibrary::GetAbilitySystemComponent(Target);
 	if (!TargetASC)
 		return;
 
-	FGameplayEffectContextHandle Context = GetAbilitySystemComponentFromActorInfo()->MakeEffectContext();
-	Context.AddSourceObject(this);
+	UAbilitySystemComponent* SourceASC = GetAbilitySystemComponentFromActorInfo();
+	if (!SourceASC)
+		return;
+	
+	FGameplayEffectContextHandle ContextHandle = SourceASC->MakeEffectContext();
+	ContextHandle.AddSourceObject(this);
 
-	FGameplayEffectSpecHandle SpecHandle = MakeOutgoingGameplayEffectSpec(DamageGameplayEffectClass, GetAbilityLevel());
+	// 커스텀 Context로 캐스트
+	if (FSFHitEffectContext* SFContext =
+		static_cast<FSFHitEffectContext*>(ContextHandle.Get()))
+	{
+		SFContext->SetAttackDirection(AttackDirection);
+		SFContext->SetAttackLocation(AttackLocation);
+	}
+
+	// Spec 생성
+	FGameplayEffectSpecHandle SpecHandle =
+		MakeOutgoingGameplayEffectSpec(DamageGameplayEffectClass, GetAbilityLevel());
+
 	if (!SpecHandle.IsValid())
 		return;
 
-	SpecHandle.Data->SetSetByCallerMagnitude(SFGameplayTags::Data_Damage_BaseDamage, GetBaseDamage());
+	// context 넣기
+	SpecHandle.Data->SetContext(ContextHandle);
 
-	GetAbilitySystemComponentFromActorInfo()->ApplyGameplayEffectSpecToTarget(*SpecHandle.Data.Get(), TargetASC);
+	// SetByCaller로 데미지 넣기
+	SpecHandle.Data->SetSetByCallerMagnitude(
+		SFGameplayTags::Data_Damage_BaseDamage,
+		GetBaseDamage()
+	);
+
+	SourceASC->ApplyGameplayEffectSpecToTarget(*SpecHandle.Data.Get(), TargetASC);
 }
 
 ASFCharacterBase* USFGA_Enemy_BaseAttack::GetCurrentTarget() const

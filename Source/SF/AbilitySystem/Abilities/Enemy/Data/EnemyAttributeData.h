@@ -37,4 +37,13 @@ struct FEnemyAttributeData : public FTableRowBase
     
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	float MaxStagger = 100.f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	float SightRadius = 100.f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	float LoseSightRadius = 100.f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	float GuardRange = 100.f;
 };

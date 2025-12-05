@@ -13,6 +13,8 @@ namespace SFGameplayTags
 	UE_DEFINE_GAMEPLAY_TAG(GameplayEvent_Montage_End, "GameplayEvent.Montage.End");
 	UE_DEFINE_GAMEPLAY_TAG(GameplayEvent_Tracing, "GameplayEvent.Tracing");
 	UE_DEFINE_GAMEPLAY_TAG(GameplayEvent_ResetTrace, "GameplayEvent.ResetTrace");
+	UE_DEFINE_GAMEPLAY_TAG(GameplayEvent_HitReaction, "GameplayEvent.HitReaction");
+	UE_DEFINE_GAMEPLAY_TAG(GameplayEvent_Death, "GameplayEvent.Death");
 	
 
 	// Damage Events
@@ -56,6 +58,9 @@ namespace SFGameplayTags
 
 	// Enemy 전용 속성
 	UE_DEFINE_GAMEPLAY_TAG(Data_Enemy_MaxStagger, "Data.Attribute.Enemy.MaxStagger");
-
+	UE_DEFINE_GAMEPLAY_TAG(Data_Enemy_GuardRange, "Data.Attribute.Enemy.GuardRange");
+	UE_DEFINE_GAMEPLAY_TAG(Data_Enemy_SightRadius, "Data.Attribute.Enemy.SightRadius");
+	UE_DEFINE_GAMEPLAY_TAG(Data_Enemy_LoseSightRadius, "Data.Attribute.Enemy.LoseSightRadius");
+	
 	
 }

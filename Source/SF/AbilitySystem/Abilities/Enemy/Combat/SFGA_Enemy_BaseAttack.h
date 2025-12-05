@@ -71,7 +71,8 @@ public:
 
 protected:
     UFUNCTION(BlueprintCallable, Category = "Attack")
-    virtual void ApplyDamageToTarget(AActor* Target);
+    void ApplyDamageToTarget(   AActor* Target, const FVector& AttackDirection = FVector::ZeroVector,   const FVector& AttackLocation = FVector::ZeroVector );
+
 
     UFUNCTION(BlueprintCallable, Category = "Attack")
     virtual ASFCharacterBase* GetCurrentTarget() const;

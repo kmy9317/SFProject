@@ -19,6 +19,7 @@
 #include "AbilitySystem/Attributes/Hero/SFCombatSet_Hero.h"
 #include "AbilitySystem/Attributes/Hero/SFPrimarySet_Hero.h"
 #include "Camera/SFCameraMode.h"
+#include "Character/SFCharacterGameplayTags.h"
 
 const FName USFHeroComponent::NAME_ActorFeatureName("Hero");
 
@@ -306,6 +307,25 @@ void USFHeroComponent::Input_AbilityInputTagReleased(FGameplayTag InputTag)
 void USFHeroComponent::Input_Move(const FInputActionValue& InputActionValue)
 {
 	APawn* Pawn = GetPawn<APawn>();
+
+	if (!Pawn)
+	{
+		return;
+	}
+	
+	if (const USFPawnExtensionComponent* PawnExtComp = USFPawnExtensionComponent::FindPawnExtensionComponent(Pawn))
+	{
+		if (const USFAbilitySystemComponent* SFASC = PawnExtComp->GetSFAbilitySystemComponent())
+		{
+			// "Character.State.Attacking" 태그를 가지고 있다면?
+			// (GA_Hero_ComboAttack의 Activation Owned Tag에 이 태그가 있어야 함)
+			if (SFASC->HasMatchingGameplayTag(SFGameplayTags::Character_State_Attacking)) 
+			{
+				return; // 입력을 처리하지 않고 함수를 강제 종료 -> 이동 불가
+			}
+		}
+	}
+	
 	AController* Controller = Pawn ? Pawn->GetController() : nullptr;
 	
 	if (Controller)

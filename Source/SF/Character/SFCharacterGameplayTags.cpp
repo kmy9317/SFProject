@@ -11,7 +11,8 @@ namespace SFGameplayTags
 	UE_DEFINE_GAMEPLAY_TAG_COMMENT(Character_State_Attacking, "Character.State.Attacking", "Character is attacking");
 	UE_DEFINE_GAMEPLAY_TAG_COMMENT(Character_State_Hit, "Character.State.Hit", "Character is hit/damaged");
 	UE_DEFINE_GAMEPLAY_TAG_COMMENT(Character_State_Stunned, "Character.State.Stunned", "Character is stunned");
-
+	UE_DEFINE_GAMEPLAY_TAG_COMMENT(Character_State_ComboWindow, "Character.State.ComboWindow", "Valid input window for next combo attack");
+	
 	// ========== 방어/회피 ==========
 	UE_DEFINE_GAMEPLAY_TAG_COMMENT(Character_State_Blocking, "Character.State.Blocking", "Character is blocking");
 	UE_DEFINE_GAMEPLAY_TAG_COMMENT(Character_State_Dodging, "Character.State.Dodging", "Character is dodging");
