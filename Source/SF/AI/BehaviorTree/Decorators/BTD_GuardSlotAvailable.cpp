@@ -1,88 +1,39 @@
+// Fill out your copyright notice in the Description page of Project Settings.
+
 #include "BTD_GuardSlotAvailable.h"
 
 #include "AI/Controller/SFEnemyController.h"
 #include "BehaviorTree/BlackboardComponent.h"
 #include "BehaviorTree/BTNode.h"
-#include "AI/SFCombatSlotManager.h"
+// #include "AI/SFCombatSlotManager.h" // [제거] 매니저 직접 접근 불필요
 
 UBtd_GuardSlotAvailable::UBtd_GuardSlotAvailable()
 {
-	NodeName = "Guard Slot Available"; // [변경] 노드 이름 변경
+	NodeName = "Guard Slot Available (Check Only)"; 
 
-	// ⭐ Observer Aborts: Both
-	// 슬롯 상태가 바뀌면 즉시 현재 행동을 중단하거나, 다시 진입하도록 설정
-	FlowAbortMode = EBTFlowAbortMode::Both;
+	// [중요] Observer Aborts: Lower Priority
+	// 슬롯을 잃으면(bHasGuardSlot = false가 되면) 즉시 하위 노드(공격 등) 실행을 중단하고 탈출
+	FlowAbortMode = EBTFlowAbortMode::LowerPriority;
 
-	// ⭐ Tick 활성화
+	// 실시간 상태 감지를 위해 Tick 활성화
 	bNotifyTick = true;
 }
 
 bool UBtd_GuardSlotAvailable::CalculateRawConditionValue(UBehaviorTreeComponent& OwnerComp, uint8* NodeMemory) const
 {
-	// [변경] 캐스팅 대상을 SFEnemyController로 변경
+	// SFEnemyController 캐스팅
 	ASFEnemyController* AIController = Cast<ASFEnemyController>(OwnerComp.GetAIOwner());
 	if (!AIController)
 	{
-		UE_LOG(LogTemp, Error, TEXT("[SFBTD_GuardSlotAvailable] AIController is NULL or not ASFEnemyController!"));
 		return false;
 	}
 
-	// ⭐ 멀티플레이 대응: 클라이언트는 서버가 복제해준 변수값 사용
-	UWorld* World = AIController->GetWorld();
-	if (World && World->GetNetMode() == NM_Client)
-	{
-		// [변경] 변수명 매핑: bHasAttackSlot -> bHasGuardSlot
-		return AIController->bHasGuardSlot;
-	}
-
-	// ⭐ 서버 로직 시작
-	UBlackboardComponent* BlackboardComp = OwnerComp.GetBlackboardComponent();
-	if (!BlackboardComp)
-	{
-		return false;
-	}
-
-	AActor* TargetActor = Cast<AActor>(BlackboardComp->GetValueAsObject("TargetActor"));
-	
-	// CombatSlotManager 가져오기
-	USFCombatSlotManager* Manager = World->GetSubsystem<USFCombatSlotManager>();
-	if (!Manager)
-	{
-		UE_LOG(LogTemp, Error, TEXT("[SFBTD_GuardSlotAvailable] CombatSlotManager is NULL!"));
-		return false;
-	}
-
-	// 타겟이 없으면 슬롯 해제 후 false 반환
-	if (!TargetActor)
-	{
-		Manager->ReleaseSlot(AIController);
-		return false;
-	}
-
-	// ========================================
-	// 슬롯 매니저를 통한 슬롯 확인 및 요청
-	// ========================================
-	
-	// 이미 슬롯을 보유하고 있는지 확인
-	if (Manager->HasSlot(AIController, TargetActor))
-	{
-		// [추가 안전장치] 매니저는 있다고 하는데 컨트롤러 변수가 false라면 동기화
-		if (!AIController->bHasGuardSlot)
-		{
-			AIController->bHasGuardSlot = true;
-		}
-		return true;
-	}
-
-	// 새로운 슬롯 요청
-	// (Manager 내부에서 SFEnemyController를 처리할 수 있도록 Manager도 수정되어야 함)
-	const bool bGranted = Manager->RequestSlot(AIController, TargetActor);
-	
-	// [중요] 요청 결과에 따라 컨트롤러 변수 업데이트 (서버 권한)
-	// SFEnemyController.h에 bHasGuardSlot이 Replicated로 되어 있으므로 여기서 설정하면 클라로 전파됨
-	AIController->bHasGuardSlot = bGranted;
-
-	return bGranted;
+	// [핵심 수정] 
+	// 기존: Manager->RequestSlot() 호출 (직접 요청)
+	// 변경: AIController->bHasGuardSlot 확인 (단순 검사)
+	//
+	// 실제 슬롯 요청은 이제 BTService_UpdateTarget에서 타겟을 보고 있는 동안 지속적으로 수행됩니다.
+	return AIController->bHasGuardSlot;
 }
 
 void UBtd_GuardSlotAvailable::InitializeMemory(UBehaviorTreeComponent& OwnerComp, uint8* NodeMemory, EBTMemoryInit::Type InitType) const
@@ -92,12 +43,6 @@ void UBtd_GuardSlotAvailable::InitializeMemory(UBehaviorTreeComponent& OwnerComp
 	FSFGuardSlotMemory* Memory = reinterpret_cast<FSFGuardSlotMemory*>(NodeMemory);
 	if (Memory)
 	{
-		ASFEnemyController* AIController = Cast<ASFEnemyController>(OwnerComp.GetAIOwner());
-		FString PawnName = AIController && AIController->GetPawn() ? AIController->GetPawn()->GetName() : TEXT("Unknown");
-
-		// [로그] 이름 변경 반영
-		UE_LOG(LogTemp, Verbose, TEXT("[SFBTD_GuardSlotAvailable] 🎬 %s: InitializeMemory"), *PawnName);
-
 		Memory->bLastResult = false;
 		Memory->bInitialized = false;
 	}
@@ -113,55 +58,27 @@ void UBtd_GuardSlotAvailable::TickNode(UBehaviorTreeComponent& OwnerComp, uint8*
 		return;
 	}
 
-	// 현재 상태 계산
+	// 현재 상태 계산 (bHasGuardSlot 변수 체크)
 	const bool bCurrentResult = CalculateRawConditionValue(OwnerComp, NodeMemory);
 
-	// 상태 변경 감지 시 재평가 요청
+	// 상태 변경 감지 시 (있음 <-> 없음) 트리 재평가 요청
 	if (!Memory->bInitialized || Memory->bLastResult != bCurrentResult)
 	{
+		// [로그] 디버깅 필요시 주석 해제
+		/*
 		ASFEnemyController* AIController = Cast<ASFEnemyController>(OwnerComp.GetAIOwner());
 		FString PawnName = AIController && AIController->GetPawn() ? AIController->GetPawn()->GetName() : TEXT("Unknown");
+		UE_LOG(LogTemp, Log, TEXT("[SFBTD_GuardSlotAvailable] %s: Slot Changed -> %s"), 
+			*PawnName, bCurrentResult ? TEXT("HasSlot") : TEXT("LostSlot"));
+		*/
 
-		if (Memory->bInitialized)
-		{
-			UE_LOG(LogTemp, Log, TEXT("[SFBTD_GuardSlotAvailable] %s: Slot Changed: %s → %s (RequestExecution)"),
-				*PawnName,
-				Memory->bLastResult ? TEXT("HasSlot") : TEXT("NoSlot"),
-				bCurrentResult ? TEXT("HasSlot") : TEXT("NoSlot"));
-		}
-		else
-		{
-			Memory->bInitialized = true;
-		}
-
+		Memory->bInitialized = true;
 		Memory->bLastResult = bCurrentResult;
 		
-		// 트리 재평가 (Decorator 조건이 바뀌었으니 실행 흐름 변경)
+		// 조건이 바뀌었으므로 Behavior Tree에게 "나 다시 체크해줘(=Abort 등 처리해줘)" 라고 요청
 		OwnerComp.RequestExecution(this);
 	}
 }
 
-void UBtd_GuardSlotAvailable::OnCeaseRelevant(UBehaviorTreeComponent& OwnerComp, uint8* NodeMemory)
-{
-	Super::OnCeaseRelevant(OwnerComp, NodeMemory);
-
-	ASFEnemyController* AIController = Cast<ASFEnemyController>(OwnerComp.GetAIOwner());
-	if (!AIController)
-	{
-		return;
-	}
-
-	// 이 노드가 더 이상 유효하지 않게 되면(트리 분기 탈출 등) 슬롯 해제 시도
-	UWorld* World = AIController->GetWorld();
-	if (World)
-	{
-		USFCombatSlotManager* Manager = World->GetSubsystem<USFCombatSlotManager>();
-		if (Manager)
-		{
-			Manager->ReleaseSlot(AIController);
-			
-			// [중요] 변수 상태 동기화
-			AIController->bHasGuardSlot = false;
-		}
-	}
-}
+// [삭제됨] OnCeaseRelevant
+// 공격이 끝나거나 트리가 재평가될 때 슬롯을 반납해버리는 문제를 막기 위해 함수 자체를 삭제했습니다.

@@ -16,6 +16,7 @@ void USFEnemyMovementComponent::InitializeMovementComponent()
 	{
 		StateReactionComponent->OnStateStart.AddDynamic(this, &ThisClass::OnStateStart);
 		StateReactionComponent->OnStateEnd.AddDynamic(this, &ThisClass::OnStateEnd);
+		bUseRVOAvoidance = false;
 	}
 	
 }

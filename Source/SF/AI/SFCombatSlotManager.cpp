@@ -1,72 +1,65 @@
 // SFCombatSlotManager.cpp
 
 #include "SFCombatSlotManager.h"
-#include "GameFramework/PlayerController.h"
-#include "EngineUtils.h"
 #include "AI/Controller/SFEnemyController.h"
+#include "GameFramework/GameStateBase.h" 
+#include "GameFramework/PlayerState.h"   
+#include "GameFramework/Pawn.h"
+#include "Engine/World.h"
 
-bool USFCombatSlotManager::RequestSlot(ASFEnemyController* Requester, AActor* Target)
+bool USFCombatSlotManager::RequestSlot(ASFEnemyController* Requester, AActor* Target, bool bForce)
 {
-	if (!Requester || !Target)
-	{
-		UE_LOG(LogTemp, Error, TEXT("[SFCombatSlotManager] RequestSlot: Invalid Requester or Target!"));
-		return false;
-	}
+	if (!Requester || !Target) return false;
 
-	// 1. 타겟 슬롯 정보 가져오기 (없으면 생성)
 	FSFCombatSlotInfo& SlotInfo = TargetSlots.FindOrAdd(Target);
 
-	// [주의] SFEnemyController에 MaxSlotsPerPlayer 변수가 없다면 추가해야 합니다!
-	// 기본값을 3으로 가정하거나, SFEnemyController.h에 변수를 추가하세요.
-	// 여기서는 하드코딩된 기본값 3을 사용하지 않고, 컨트롤러 설정을 우선시하는 로직을 유지합니다.
-	/*
-	if (SlotInfo.MaxSlots == 3 && Requester->MaxSlotsPerPlayer != 3)
+	// 1. 먼저 유효성 검사 및 정리 (죽은 AI 정리 & 현재 인원 파악)
+	// (순서 변경: 이미 가지고 있는지 확인하기 전에, 현재 상황(인원수)을 먼저 알아야 '방출' 여부를 결정할 수 있음)
+	const int32 CurrentValidSlots = CleanupAndCountSlots(SlotInfo);
+
+	// 전투 시작 시간 기록 (0명일 때)
+	if (CurrentValidSlots == 0)
 	{
-		SlotInfo.MaxSlots = Requester->MaxSlotsPerPlayer;
+		SlotInfo.CombatStartTime = GetWorld()->GetTimeSeconds();
 	}
-	*/
-	// 만약 SFEnemyController에 해당 변수가 없다면 위 코드를 주석 처리하고 아래를 사용하세요.
-	// SlotInfo.MaxSlots = 3; 
+	
+	// 2. 최대 허용 슬롯 계산
+	const int32 MaxAllowedSlots = CalculateMaxSlotsForTarget(Target, SlotInfo);
 
-	// 2. 정리
-	CleanupInvalidSlotHolders(SlotInfo);
-
-	// 3. 이미 보유 중인지 확인
+	// 3. 이미 보유 중인 경우 (유지 or 방출 판단)
 	if (SlotInfo.SlotHolders.Contains(Requester))
 	{
+		// 강제 공격권(bForce)이 없는데, 현재 인원이 최대치를 초과했다면? -> 슬롯 반납하고 쫓겨남
+		if (!bForce && CurrentValidSlots > MaxAllowedSlots)
+		{
+			SlotInfo.SlotHolders.Remove(Requester);
+			Requester->bHasGuardSlot = false; // 쫓겨났으니 false
+			return false;
+		}
+
+		// 유지 성공
+		if (!Requester->bHasGuardSlot) Requester->bHasGuardSlot = true;
 		return true;
 	}
 
-	// 4. 가용성 확인
-	const int32 EffectiveMaxSlots = GetEffectiveMaxSlots(Target);
-	const int32 CurrentSlots = SlotInfo.SlotHolders.Num();
-
-	if (CurrentSlots >= EffectiveMaxSlots)
+	// 4. 신규 진입 (자리 확인)
+	// Force가 true면 무조건 통과, 아니면 자리가 있어야 통과
+	if (bForce || CurrentValidSlots < MaxAllowedSlots)
 	{
-		return false;
+		SlotInfo.SlotHolders.Add(Requester);
+		Requester->bHasGuardSlot = true;
+		return true;
 	}
 
-	// 5. 할당
-	SlotInfo.SlotHolders.Add(Requester);
-	
-	// [변경] bHasAttackSlot -> bHasGuardSlot
-	Requester->bHasGuardSlot = true;
-
-	FString PawnName = Requester->GetPawn() ? Requester->GetPawn()->GetName() : TEXT("Unknown");
-	UE_LOG(LogTemp, Log, TEXT("[SFCombatSlotManager] ✅ %s: SLOT GRANTED for %s → Slots %d/%d"),
-		*PawnName, *Target->GetName(), CurrentSlots + 1, EffectiveMaxSlots);
-
-	return true;
+	// 자리 없음
+	Requester->bHasGuardSlot = false;
+	return false;
 }
+
 
 void USFCombatSlotManager::ReleaseSlot(ASFEnemyController* Releaser, AActor* Target)
 {
-	if (!Releaser)
-	{
-		return;
-	}
-
-	FString PawnName = Releaser->GetPawn() ? Releaser->GetPawn()->GetName() : TEXT("Unknown");
+	if (!Releaser) return;
 
 	if (!Target)
 	{
@@ -74,151 +67,113 @@ void USFCombatSlotManager::ReleaseSlot(ASFEnemyController* Releaser, AActor* Tar
 		return;
 	}
 
-	FSFCombatSlotInfo* SlotInfo = TargetSlots.Find(Target);
-	if (!SlotInfo)
+	if (FSFCombatSlotInfo* SlotInfo = TargetSlots.Find(Target))
 	{
-		return;
-	}
-
-	CleanupInvalidSlotHolders(*SlotInfo);
-
-	const int32 RemovedCount = SlotInfo->SlotHolders.Remove(Releaser);
-	if (RemovedCount > 0)
-	{
-		// [변경] bHasAttackSlot -> bHasGuardSlot
-		Releaser->bHasGuardSlot = false;
-
-		const int32 RemainingSlots = SlotInfo->SlotHolders.Num();
-
-
-		if (RemainingSlots == 0)
+		if (SlotInfo->SlotHolders.Remove(Releaser) > 0)
 		{
-			TargetSlots.Remove(Target);
+			if (CleanupAndCountSlots(*SlotInfo) == 0)
+			{
+				TargetSlots.Remove(Target);
+			}
 		}
 	}
-}
-
-bool USFCombatSlotManager::GetSlotInfo(AActor* Target, int32& OutCurrentSlots, int32& OutMaxSlots) const
-{
-	if (!Target)
-	{
-		return false;
-	}
-
-	const FSFCombatSlotInfo* SlotInfo = TargetSlots.Find(Target);
-	if (!SlotInfo)
-	{
-		OutCurrentSlots = 0;
-		OutMaxSlots = 3;
-		return false;
-	}
-
-	OutCurrentSlots = SlotInfo->SlotHolders.Num();
-	OutMaxSlots = GetEffectiveMaxSlots(Target);
-	return true;
-}
-
-bool USFCombatSlotManager::HasSlot(ASFEnemyController* AIController, AActor* Target) const
-{
-	if (!AIController || !Target)
-	{
-		return false;
-	}
-
-	const FSFCombatSlotInfo* SlotInfo = TargetSlots.Find(Target);
-	if (!SlotInfo)
-	{
-		return false;
-	}
-
-	return SlotInfo->SlotHolders.Contains(AIController);
+	Releaser->bHasGuardSlot = false;
 }
 
 void USFCombatSlotManager::ReleaseAllSlots(ASFEnemyController* AIController)
 {
-	if (!AIController)
+	if (!AIController) return;
+
+	for (auto It = TargetSlots.CreateIterator(); It; ++It)
 	{
-		return;
-	}
-
-	FString PawnName = AIController->GetPawn() ? AIController->GetPawn()->GetName() : TEXT("Unknown");
-	TArray<AActor*> TargetsToRemove;
-
-	for (auto& Pair : TargetSlots)
-	{
-		AActor* Target = Pair.Key;
-		FSFCombatSlotInfo& SlotInfo = Pair.Value;
-
-		CleanupInvalidSlotHolders(SlotInfo);
-
-		const int32 RemovedCount = SlotInfo.SlotHolders.Remove(AIController);
-		if (RemovedCount > 0)
+		if (!It.Key().IsValid())
 		{
-			if (SlotInfo.SlotHolders.Num() == 0)
+			It.RemoveCurrent();
+			continue;
+		}
+
+		FSFCombatSlotInfo& SlotInfo = It.Value();
+		if (SlotInfo.SlotHolders.Remove(AIController) > 0)
+		{
+			if (CleanupAndCountSlots(SlotInfo) == 0)
 			{
-				TargetsToRemove.Add(Target);
+				It.RemoveCurrent(); 
 			}
 		}
 	}
-
-	for (AActor* Target : TargetsToRemove)
-	{
-		TargetSlots.Remove(Target);
-	}
-
-	// [변경] bHasAttackSlot -> bHasGuardSlot
 	AIController->bHasGuardSlot = false;
-	
 }
 
-TArray<AActor*> USFCombatSlotManager::GetPlayerGroup(AActor* Player) const
+bool USFCombatSlotManager::HasSlot(ASFEnemyController* AIController, AActor* Target) const
 {
-	TArray<AActor*> Group;
-	if (!Player) return Group;
+	if (!AIController || !Target) return false;
+	if (const FSFCombatSlotInfo* SlotInfo = TargetSlots.Find(Target))
+	{
+		return SlotInfo->SlotHolders.Contains(AIController);
+	}
+	return false;
+}
+
+bool USFCombatSlotManager::GetSlotInfo(AActor* Target, int32& OutCurrentSlots, int32& OutMaxSlots) const
+{
+	if (!Target) return false;
+	if (const FSFCombatSlotInfo* SlotInfo = TargetSlots.Find(Target))
+	{
+		OutCurrentSlots = SlotInfo->SlotHolders.Num();
+		OutMaxSlots = CalculateMaxSlotsForTarget(Target, *SlotInfo);
+		return true;
+	}
+	OutCurrentSlots = 0;
+	OutMaxSlots = 0;
+	return false;
+}
+
+int32 USFCombatSlotManager::CalculateMaxSlotsForTarget(AActor* Target, const FSFCombatSlotInfo& SlotInfo) const
+{
+	
+	if (!Target) return 5;
 
 	UWorld* World = GetWorld();
-	if (!World) return Group;
+	if (!World) return 5;
 
-	Group.Add(Player);
-
-	for (TActorIterator<APlayerController> It(World); It; ++It)
+	int32 NearbyPlayerCount = 0;
+	if (AGameStateBase* GameState = World->GetGameState())
 	{
-		APlayerController* PC = *It;
-		if (!PC || !PC->GetPawn()) continue;
-
-		AActor* OtherPlayer = PC->GetPawn();
-		if (OtherPlayer == Player) continue;
-
-		const float Distance = FVector::Dist(Player->GetActorLocation(), OtherPlayer->GetActorLocation());
-		if (Distance <= PlayerGroupDistance)
+		for (APlayerState* PS : GameState->PlayerArray)
 		{
-			Group.Add(OtherPlayer);
+			if (!PS) continue;
+			APawn* PlayerPawn = PS->GetPawn();
+			if (!PlayerPawn) continue;
+
+			float DistSq = FVector::DistSquared(Target->GetActorLocation(), PlayerPawn->GetActorLocation());
+			if (DistSq <= (PlayerGroupDistance * PlayerGroupDistance))
+			{
+				NearbyPlayerCount++;
+			}
+		}
+	}
+	NearbyPlayerCount = FMath::Max(1, NearbyPlayerCount);
+	
+	int32 BaseSlots = SlotInfo.BaseMaxSlots * NearbyPlayerCount;
+
+	int32 ExtraSlots = 0;
+	if (CombatTempoScale > 0.0f)
+	{
+		double CombatDuration = World->GetTimeSeconds() - SlotInfo.CombatStartTime;
+		if (CombatDuration > 0.0f)
+		{
+			ExtraSlots = FMath::FloorToInt(CombatDuration / CombatTempoScale);
 		}
 	}
 
-	return Group;
+	return BaseSlots + ExtraSlots;
 }
 
-void USFCombatSlotManager::CleanupInvalidSlotHolders(FSFCombatSlotInfo& SlotInfo)
+int32 USFCombatSlotManager::CleanupAndCountSlots(FSFCombatSlotInfo& SlotInfo)
 {
-	SlotInfo.SlotHolders.RemoveAll([](const TObjectPtr<ASFEnemyController>& AI)
+	SlotInfo.SlotHolders.RemoveAll([](const TWeakObjectPtr<ASFEnemyController>& Ptr)
 	{
-		return !IsValid(AI) || !IsValid(AI->GetPawn());
+		return !Ptr.IsValid();
 	});
-}
-
-int32 USFCombatSlotManager::GetEffectiveMaxSlots(AActor* Target) const
-{
-	if (!Target) return 3;
-
-	TArray<AActor*> PlayerGroup = GetPlayerGroup(Target);
-	if (PlayerGroup.Num() > 1)
-	{
-		const FSFCombatSlotInfo* SlotInfo = TargetSlots.Find(Target);
-		const int32 BaseSlots = SlotInfo ? SlotInfo->MaxSlots : 3;
-		return BaseSlots * PlayerGroup.Num();
-	}
-
-	const FSFCombatSlotInfo* SlotInfo = TargetSlots.Find(Target);
-	return SlotInfo ? SlotInfo->MaxSlots : 3;
+	return SlotInfo.SlotHolders.Num();
 }
