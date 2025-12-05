@@ -14,6 +14,8 @@ namespace SFGameplayTags
 	SF_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(GameplayEvent_Montage_End);
 	SF_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(GameplayEvent_Tracing);
 	SF_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(GameplayEvent_ResetTrace);
+	SF_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(GameplayEvent_HitReaction);
+	SF_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(GameplayEvent_Death);
 	
 
 	//Damage Events

@@ -7,6 +7,7 @@
 #include "Net/UnrealNetwork.h"
 
 #include "GameplayEffectExtension.h"
+#include "AbilitySystem/GameplayEvent/SFGameplayEventTags.h"
 #include "Character/SFCharacterGameplayTags.h"
 
 USFPrimarySet::USFPrimarySet()
@@ -61,8 +62,8 @@ void USFPrimarySet::PostGameplayEffectExecute(const FGameplayEffectModCallbackDa
 					SFASC->AddLooseGameplayTag(SFGameplayTags::Character_State_Dead);
 
 					// TODO: 후에 GA_Death와 같은 사망 전용 어빌리티 활성화
-					// FGamplayEventData Payload;
-					// SFASC->HandleGameplayEvent(SFGameplayTags::Event_Death, &Payload);
+					 FGameplayEventData Payload;
+					 SFASC->HandleGameplayEvent(SFGameplayTags::GameplayEvent_Death, &Payload);
 				}
 			}
 		}

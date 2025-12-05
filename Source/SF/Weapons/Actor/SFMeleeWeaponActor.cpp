@@ -5,6 +5,7 @@
 #include "AbilitySystem/GameplayEvent/SFGameplayEventTags.h"
 #include "Components/BoxComponent.h"
 #include "DrawDebugHelpers.h"
+#include "AbilitySystem/GameplayEffect/Enemy/EffectContext/FSFHitEffectContext.h"
 
 #include UE_INLINE_GENERATED_CPP_BY_NAME(SFMeleeWeaponActor)
 
@@ -94,9 +95,14 @@ void ASFMeleeWeaponActor::OnWeaponOverlap( UPrimitiveComponent* OverlappedComp, 
     HitInfo.Location = HitInfo.ImpactPoint;
     HitInfo.ImpactNormal = FVector::UpVector;
     HitInfo.bBlockingHit = false;
+    
+    const FVector Direction = 
+        (HitInfo.ImpactPoint - CurrentWeaponOwner->GetActorLocation()).GetSafeNormal();
+    
+    HitInfo.ImpactNormal = Direction;
 
-    // 데미지 처리
     OnTraced(HitInfo, CurrentWeaponOwner);
+    
 }
 
 void ASFMeleeWeaponActor::OnTraced(const FHitResult& HitInfo, AActor* WeaponOwner)
@@ -106,20 +112,29 @@ void ASFMeleeWeaponActor::OnTraced(const FHitResult& HitInfo, AActor* WeaponOwne
     UAbilitySystemComponent* OwnerASC = UAbilitySystemBlueprintLibrary::GetAbilitySystemComponent(WeaponOwner);
     if (!OwnerASC) return;
 
-    // EventData 생성
+    FSFHitEffectContext* SFContext = new FSFHitEffectContext();
+    FGameplayEffectContextHandle ContextHandle(SFContext);
+
+    // 공격 방향 계산
+    const FVector AttackDirection =
+        (HitInfo.ImpactPoint - WeaponOwner->GetActorLocation()).GetSafeNormal();
+
+    SFContext->SetAttackDirection(AttackDirection);
+    SFContext->SetAttackLocation(HitInfo.ImpactPoint);
+    SFContext->AddHitResult(HitInfo);
+
     FGameplayEventData EventData;
     EventData.Instigator = WeaponOwner;
     EventData.Target = HitInfo.GetActor();
     EventData.OptionalObject = this;
-    EventData.ContextHandle = OwnerASC->MakeEffectContext();
-
-    // TargetData 생성
+    
+    EventData.ContextHandle = ContextHandle;
+    
     FGameplayAbilityTargetDataHandle TargetDataHandle;
-    FGameplayAbilityTargetData_SingleTargetHit* TargetData = 
+    FGameplayAbilityTargetData_SingleTargetHit* TargetData =
         new FGameplayAbilityTargetData_SingleTargetHit(HitInfo);
     TargetDataHandle.Add(TargetData);
     EventData.TargetData = TargetDataHandle;
 
-    // GameplayEvent 전송
     OwnerASC->HandleGameplayEvent(SFGameplayTags::GameplayEvent_TraceHit, &EventData);
 }
