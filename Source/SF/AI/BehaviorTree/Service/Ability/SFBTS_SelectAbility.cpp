@@ -31,12 +31,16 @@ void USFBTS_SelectAbility::TickNode(UBehaviorTreeComponent& OwnerComp, uint8* No
 {
     Super::TickNode(OwnerComp, NodeMemory, DeltaSeconds);
 
-    // 이미 선택된 Ability가 있으면 stop 
     UBlackboardComponent* BB = OwnerComp.GetBlackboardComponent();
+    if (!BB) return;
+
+    // [삭제] 이 부분이 있으면 한 번 스킬을 정한 뒤 쿨타임이 돌아도 갱신되지 않는 문제가 발생합니다.
+    /*
     if (BB && BB->GetValueAsName(BlackboardKey.SelectedKeyName) != NAME_None)
     {
         return;
     }
+    */
     
     AAIController* AIController = OwnerComp.GetAIOwner();
     if (!AIController)
@@ -61,8 +65,17 @@ void USFBTS_SelectAbility::TickNode(UBehaviorTreeComponent& OwnerComp, uint8* No
     Context.Target = Cast<AActor>(BB->GetValueAsObject(TargetKey.SelectedKeyName));
 
     FGameplayTag SelectedTag;
+    
+    // [수정] 스킬 선택 시도
     if (CombatComp->SelectAbility(Context, AbilitySearchTags, SelectedTag))
     {
+        // 성공: 사용 가능한 스킬이 있으므로 블랙보드 갱신
         BB->SetValueAsName(BlackboardKey.SelectedKeyName, SelectedTag.GetTagName());
+    }
+    else
+    {
+        // [추가] 중요: 쿨타임이거나 사거리 밖이라서 쓸 스킬이 없으면 태그를 지웁니다.
+        // 태그가 지워져야 BT가 공격 노드를 탈출하고 이동/대기 로직으로 넘어갑니다.
+        BB->ClearValue(BlackboardKey.SelectedKeyName);
     }
 }

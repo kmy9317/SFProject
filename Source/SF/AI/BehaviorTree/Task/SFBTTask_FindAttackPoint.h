@@ -1,4 +1,4 @@
-// Fill out your copyright notice in the Description page of Project Settings.
+// SFBTTask_FindAttackPoint.h
 
 #pragma once
 
@@ -9,14 +9,6 @@
 
 class UEnvQuery;
 
-/**
- * USFBTTask_FindAttackPoint
- * 
- * Ability 기반 공격 위치를 EQS로 찾는 Task
- * - Ability에서 MinDistance, MaxDistance 자동 추출
- * - EQS 완료를 보장한 후 Success/Failed 반환
- * - Service와 달리 한 번만 실행
- */
 UCLASS()
 class SF_API USFBTTask_FindAttackPoint : public UBTTaskNode
 {
@@ -26,6 +18,9 @@ public:
 	USFBTTask_FindAttackPoint(const FObjectInitializer& ObjectInitializer = FObjectInitializer::Get());
 
 	virtual EBTNodeResult::Type ExecuteTask(UBehaviorTreeComponent& OwnerComp, uint8* NodeMemory) override;
+
+    // [필수 추가] 태스크 중단 시 EQS 취소를 위해 필요
+	virtual EBTNodeResult::Type AbortTask(UBehaviorTreeComponent& OwnerComp, uint8* NodeMemory) override;
 
 	/** 실행할 EQS Query 에셋 */
 	UPROPERTY(EditAnywhere, Category = "EQS")
@@ -76,4 +71,3 @@ private:
 	/** 현재 실행 중인 쿼리 ID */
 	int32 QueryID = INDEX_NONE;
 };
-

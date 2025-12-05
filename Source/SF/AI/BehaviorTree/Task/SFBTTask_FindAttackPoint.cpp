@@ -1,4 +1,4 @@
-// Fill out your copyright notice in the Description page of Project Settings.
+// SFBTTask_FindAttackPoint.cpp
 
 #include "SFBTTask_FindAttackPoint.h"
 #include "AI/Controller/SFEnemyController.h"
@@ -19,46 +19,29 @@ USFBTTask_FindAttackPoint::USFBTTask_FindAttackPoint(const FObjectInitializer& O
 	NodeName = "Find Attack Point(Task)";
 	bNotifyTaskFinished = true;
 	bNotifyTick = false;
+
+    // [핵심 수정] 이 옵션이 없으면 여러 AI가 QueryID 변수를 공유해서 무한 대기에 빠집니다.
+	bCreateNodeInstance = true; 
 }
 
 EBTNodeResult::Type USFBTTask_FindAttackPoint::ExecuteTask(UBehaviorTreeComponent& OwnerComp, uint8* NodeMemory)
 {
-
-	if (!QueryTemplate)
-	{
-		return EBTNodeResult::Failed;
-	}
+	if (!QueryTemplate) return EBTNodeResult::Failed;
 
 	UBlackboardComponent* BlackboardComp = OwnerComp.GetBlackboardComponent();
-	if (!BlackboardComp)
-	{
-		return EBTNodeResult::Failed;
-	}
+	if (!BlackboardComp) return EBTNodeResult::Failed;
 
 	ASFEnemyController* AIController = Cast<ASFEnemyController>(OwnerComp.GetAIOwner());
-	if (!AIController)
-	{
-		return EBTNodeResult::Failed;
-	}
-
+	if (!AIController) return EBTNodeResult::Failed;
 
 	FName SelectedAbilityTagName = BlackboardComp->GetValueAsName(AbilityTagKeyName);
-	if (SelectedAbilityTagName == NAME_None)
-	{
-		return EBTNodeResult::Failed;
-	}
+	if (SelectedAbilityTagName == NAME_None) return EBTNodeResult::Failed;
 
 	AActor* TargetActor = Cast<AActor>(BlackboardComp->GetValueAsObject(TargetActorKeyName));
-	if (!TargetActor)
-	{
-		return EBTNodeResult::Failed;
-	}
+	if (!TargetActor) return EBTNodeResult::Failed;
 	
 	FGameplayTag AbilityTag = FGameplayTag::RequestGameplayTag(SelectedAbilityTagName);
-	if (!AbilityTag.IsValid())
-	{
-		return EBTNodeResult::Failed;
-	}
+	if (!AbilityTag.IsValid()) return EBTNodeResult::Failed;
 	
 	float MinDist = 0.0f;
 	float MaxDist = 1000.0f;
@@ -70,40 +53,18 @@ EBTNodeResult::Type USFBTTask_FindAttackPoint::ExecuteTask(UBehaviorTreeComponen
 		USFAbilitySystemComponent* ASC = Character->GetSFAbilitySystemComponent();
 		if (ASC)
 		{
-			// Ability 찾기
 			for (const FGameplayAbilitySpec& Spec : ASC->GetActivatableAbilities())
 			{
 				if (Spec.Ability)
 				{
-					
-					bool bTagMatches = false;
-					
-					for (const FGameplayTag& SpecAbilityTag : Spec.Ability->AbilityTags)
-					{
-						if (SpecAbilityTag.MatchesTag(AbilityTag))
-						{
-							bTagMatches = true;
-							break;
-						}
-					}
-					
-					if (!bTagMatches && Spec.Ability->AbilityTags.Num() == 0)
-					{
-						for (const FGameplayTag& AssetTag : Spec.Ability->GetAssetTags())
-						{
-							if (AssetTag.MatchesTag(AbilityTag))
-							{
-								bTagMatches = true;
-								break;
-							}
-						}
-					}
+					bool bTagMatches = Spec.Ability->AbilityTags.HasTag(AbilityTag) || 
+									   Spec.Ability->GetAssetTags().HasTag(AbilityTag);
 
 					if (bTagMatches)
 					{
 						UGameplayAbility* AbilityInstance = Spec.GetPrimaryInstance();
-						if (!AbilityInstance)
-							continue;
+						if (!AbilityInstance) AbilityInstance = Spec.Ability;
+
 						BaseAttack = Cast<USFGA_Enemy_BaseAttack>(AbilityInstance);
 						if (BaseAttack)
 						{
@@ -117,6 +78,7 @@ EBTNodeResult::Type USFBTTask_FindAttackPoint::ExecuteTask(UBehaviorTreeComponen
 		}
 	}
 	
+    // 이미 범위 내라면 즉시 성공
 	if (bSkipIfInRange && BaseAttack && TargetActor)
 	{
 		if (BaseAttack->IsWithinAttackRange(TargetActor))
@@ -130,25 +92,17 @@ EBTNodeResult::Type USFBTTask_FindAttackPoint::ExecuteTask(UBehaviorTreeComponen
 	}
 	
 	UEnvQueryManager* EnvQueryManager = UEnvQueryManager::GetCurrent(AIController->GetWorld());
-	if (!EnvQueryManager)
-	{
-		return EBTNodeResult::Failed;
-	}
+	if (!EnvQueryManager) return EBTNodeResult::Failed;
 
 	CachedOwnerComp = &OwnerComp;
 
-	// EQS Query 요청 생성
 	FEnvQueryRequest QueryRequest(QueryTemplate, AIController);
 	QueryRequest.SetFloatParam(FName("MinDistance"), MinDist);
 	QueryRequest.SetFloatParam(FName("MaxDistance"), MaxDist);
 
-	// 쿼리 실행
 	QueryID = QueryRequest.Execute(
 		RunMode,
-		FQueryFinishedSignature::CreateUObject(
-			this,
-			&USFBTTask_FindAttackPoint::OnQueryFinished
-		)
+		FQueryFinishedSignature::CreateUObject(this, &USFBTTask_FindAttackPoint::OnQueryFinished)
 	);
 
 	if (QueryID == INDEX_NONE)
@@ -160,38 +114,39 @@ EBTNodeResult::Type USFBTTask_FindAttackPoint::ExecuteTask(UBehaviorTreeComponen
 	return EBTNodeResult::InProgress;
 }
 
+// [추가] AbortTask 구현
+EBTNodeResult::Type USFBTTask_FindAttackPoint::AbortTask(UBehaviorTreeComponent& OwnerComp, uint8* NodeMemory)
+{
+	if (QueryID != INDEX_NONE)
+	{
+		UEnvQueryManager* EnvQueryManager = UEnvQueryManager::GetCurrent(OwnerComp.GetWorld());
+		if (EnvQueryManager)
+		{
+			EnvQueryManager->AbortQuery(QueryID);
+		}
+		QueryID = INDEX_NONE;
+	}
+	
+	return Super::AbortTask(OwnerComp, NodeMemory);
+}
+
 void USFBTTask_FindAttackPoint::OnQueryFinished(TSharedPtr<FEnvQueryResult> Result)
 {
+    // 이미 태스크가 종료되었거나 Owner가 사라졌으면 무시
+	if (!CachedOwnerComp.IsValid()) return;
+
 	UBehaviorTreeComponent* OwnerComp = CachedOwnerComp.Get();
-	if (!OwnerComp)
+	QueryID = INDEX_NONE; // ID 초기화
+
+    // 실패 처리 조건들
+	if (!Result.IsValid() || !Result->IsSuccessful() || Result->Items.Num() == 0)
 	{
+		FinishLatentTask(*OwnerComp, FailureResult);
 		return;
 	}
-
-	AAIController* AIController = OwnerComp->GetAIOwner();
-	EBTNodeResult::Type TaskResult = FailureResult;
-
-	if (!Result.IsValid())
-	{
-		FinishLatentTask(*OwnerComp, TaskResult);
-		return;
-	}
-
-	if (!Result->IsSuccessful())
-	{
-		FinishLatentTask(*OwnerComp, TaskResult);
-		return;
-	}
-
-	if (Result->Items.Num() == 0)
-	{
-		FinishLatentTask(*OwnerComp, TaskResult);
-		return;
-	}
-
 
 	FVector ResultLocation = Result->GetItemAsLocation(0);
-
+    AAIController* AIController = OwnerComp->GetAIOwner();
 
 	if (bProjectToNavMesh && AIController)
 	{
@@ -199,10 +154,11 @@ void USFBTTask_FindAttackPoint::OnQueryFinished(TSharedPtr<FEnvQueryResult> Resu
 		if (NavSys)
 		{
 			FNavLocation NavLocation;
+            // [수정] Z축 범위 500.f로 넉넉하게 확장 (언덕/계단 문제 해결)
 			const bool bOnNavMesh = NavSys->ProjectPointToNavigation(
 				ResultLocation,
 				NavLocation,
-				FVector(NavMeshProjectionRadius, NavMeshProjectionRadius, NavMeshProjectionRadius)
+				FVector(NavMeshProjectionRadius, NavMeshProjectionRadius, 500.0f)
 			);
 
 			if (bOnNavMesh)
@@ -211,31 +167,26 @@ void USFBTTask_FindAttackPoint::OnQueryFinished(TSharedPtr<FEnvQueryResult> Resu
 			}
 			else
 			{
-				// NavMesh에 없으면 실패
-				FinishLatentTask(*OwnerComp, TaskResult);
+				FinishLatentTask(*OwnerComp, FailureResult);
 				return;
 			}
 		}
 	}
-
 	
 	UBlackboardComponent* BlackboardComp = OwnerComp->GetBlackboardComponent();
 	if (BlackboardComp && ResultKeyName != NAME_None)
 	{
 		BlackboardComp->SetValueAsVector(ResultKeyName, ResultLocation);
-		TaskResult = EBTNodeResult::Succeeded;
+		FinishLatentTask(*OwnerComp, EBTNodeResult::Succeeded);
 	}
 	else
 	{
-		TaskResult = EBTNodeResult::Failed;
+		FinishLatentTask(*OwnerComp, EBTNodeResult::Failed);
 	}
-
-	FinishLatentTask(*OwnerComp, TaskResult);
 }
 
 void USFBTTask_FindAttackPoint::OnTaskFinished(UBehaviorTreeComponent& OwnerComp, uint8* NodeMemory, EBTNodeResult::Type TaskResult)
 {
-
 	if (QueryID != INDEX_NONE)
 	{
 		UEnvQueryManager* EnvQueryManager = UEnvQueryManager::GetCurrent(OwnerComp.GetWorld());
@@ -250,4 +201,3 @@ void USFBTTask_FindAttackPoint::OnTaskFinished(UBehaviorTreeComponent& OwnerComp
 
 	Super::OnTaskFinished(OwnerComp, NodeMemory, TaskResult);
 }
-
