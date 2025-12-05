@@ -7,6 +7,8 @@
 #include "Abilities/GameplayAbilityTypes.h"
 #include "SFEnemy.generated.h"
 
+class USFCombatSet_Enemy;
+class USFPrimarySet_Enemy;
 class USFStateReactionComponent;
 class USFCombatSet;
 class USFPawnData;
@@ -52,11 +54,11 @@ protected:
 
 	// 캐릭터의 기본 AttributeSet
 	UPROPERTY()
-	TObjectPtr<USFPrimarySet> PrimarySet;
+	TObjectPtr<USFPrimarySet_Enemy> PrimarySet;
 	
 	// 전투 관련 AttributeSet
 	UPROPERTY()
-	TObjectPtr<USFCombatSet> CombatSet;
+	TObjectPtr<USFCombatSet_Enemy> CombatSet;
 
 	//PawnData를 직접 배치해야함 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "PawnData")
@@ -68,6 +70,9 @@ protected:
 
 	UPROPERTY(VisibleAnywhere, Category= "Component")
 	TObjectPtr<USFStateReactionComponent> StateReactionComponent;
+
+	UPROPERTY(VisibleAnywhere, Category="Component")
+	TObjectPtr<class USFEnemyWidgetComponent> EnemyWidgetComponent;
 
 	
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Enemy|InitializeEffect")

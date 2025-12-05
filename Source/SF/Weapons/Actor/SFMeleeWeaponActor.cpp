@@ -5,7 +5,8 @@
 #include "AbilitySystem/GameplayEvent/SFGameplayEventTags.h"
 #include "Components/BoxComponent.h"
 #include "DrawDebugHelpers.h"
-#include "AbilitySystem/GameplayEffect/Enemy/EffectContext/FSFHitEffectContext.h"
+#include "AbilitySystem/GameplayEffect/SFGameplayEffectContext.h"
+
 
 #include UE_INLINE_GENERATED_CPP_BY_NAME(SFMeleeWeaponActor)
 
@@ -109,32 +110,28 @@ void ASFMeleeWeaponActor::OnTraced(const FHitResult& HitInfo, AActor* WeaponOwne
 {
     if (!WeaponOwner) return;
 
-    UAbilitySystemComponent* OwnerASC = UAbilitySystemBlueprintLibrary::GetAbilitySystemComponent(WeaponOwner);
+    UAbilitySystemComponent* OwnerASC =
+        UAbilitySystemBlueprintLibrary::GetAbilitySystemComponent(WeaponOwner);
     if (!OwnerASC) return;
+    
+    FGameplayEffectContextHandle ContextHandle = OwnerASC->MakeEffectContext();
+    FSFGameplayEffectContext* SFContext =
+        static_cast<FSFGameplayEffectContext*>(ContextHandle.Get());
 
-    FSFHitEffectContext* SFContext = new FSFHitEffectContext();
-    FGameplayEffectContextHandle ContextHandle(SFContext);
-
-    // 공격 방향 계산
-    const FVector AttackDirection =
-        (HitInfo.ImpactPoint - WeaponOwner->GetActorLocation()).GetSafeNormal();
-
-    SFContext->SetAttackDirection(AttackDirection);
-    SFContext->SetAttackLocation(HitInfo.ImpactPoint);
-    SFContext->AddHitResult(HitInfo);
-
+    
+    SFContext->AddHitResult(HitInfo);     
+    SFContext->AddSourceObject(this);     
+    
     FGameplayEventData EventData;
-    EventData.Instigator = WeaponOwner;
-    EventData.Target = HitInfo.GetActor();
-    EventData.OptionalObject = this;
+    EventData.Instigator = WeaponOwner;      
+    EventData.Target = HitInfo.GetActor();    
+    EventData.ContextHandle = ContextHandle;  
     
-    EventData.ContextHandle = ContextHandle;
-    
+    // HitResult를 위한 TargetData
     FGameplayAbilityTargetDataHandle TargetDataHandle;
-    FGameplayAbilityTargetData_SingleTargetHit* TargetData =
-        new FGameplayAbilityTargetData_SingleTargetHit(HitInfo);
-    TargetDataHandle.Add(TargetData);
+    TargetDataHandle.Add(new FGameplayAbilityTargetData_SingleTargetHit(HitInfo));
     EventData.TargetData = TargetDataHandle;
 
+    // GAS 이벤트 발생
     OwnerASC->HandleGameplayEvent(SFGameplayTags::GameplayEvent_TraceHit, &EventData);
 }

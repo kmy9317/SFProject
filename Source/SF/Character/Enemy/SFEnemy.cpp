@@ -14,6 +14,7 @@
 #include "Character/SFPawnData.h"
 #include "Character/SFPawnExtensionComponent.h"
 #include "Component/SFEnemyMovementComponent.h"
+#include "Component/SFEnemyWidgetComponent.h"
 #include "Component/SFStateReactionComponent.h"
 #include "System/SFGameInstance.h"
 
@@ -34,11 +35,17 @@ ASFEnemy::ASFEnemy(const FObjectInitializer& ObjectInitializer)
 	PrimarySet = CreateDefaultSubobject<USFPrimarySet_Enemy>(TEXT("PrimarySet"));
 	CombatSet = CreateDefaultSubobject<USFCombatSet_Enemy>(TEXT("CombatSet"));
 	
-	SetNetUpdateFrequency(100.f);
-	//사실 PlayerState에서 Ability세팅할때랑 똑같이 세팅을 라이라에서는 하는것 같다
+
 
 	StateReactionComponent = ObjectInitializer.CreateDefaultSubobject<USFStateReactionComponent>(this, TEXT("StateReactionComponent"));
 	StateReactionComponent->SetIsReplicated(true);
+
+	EnemyWidgetComponent = ObjectInitializer.CreateDefaultSubobject<USFEnemyWidgetComponent>(this, TEXT("EnemyWidgetComponent"));
+	EnemyWidgetComponent->SetupAttachment(RootComponent);
+	EnemyWidgetComponent->SetIsReplicated(true);
+
+	SetNetUpdateFrequency(100.f);
+	//사실 PlayerState에서 Ability세팅할때랑 똑같이 세팅을 라이라에서는 하는것 같다
 	
 	
 }
@@ -176,7 +183,6 @@ void ASFEnemy::InitializeMovementComponent()
 	}
 	
 }
-
 
 #pragma endregion
 

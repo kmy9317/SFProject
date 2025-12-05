@@ -69,9 +69,10 @@ public:
 
     virtual float CalcAIScore(const FEnemyAbilitySelectContext& Context) const override;
 
+
 protected:
     UFUNCTION(BlueprintCallable, Category = "Attack")
-    void ApplyDamageToTarget(   AActor* Target, const FVector& AttackDirection = FVector::ZeroVector,   const FVector& AttackLocation = FVector::ZeroVector );
+    void ApplyDamageToTarget(AActor* Target, const FGameplayEffectContextHandle& ContextHandle);
 
 
     UFUNCTION(BlueprintCallable, Category = "Attack")

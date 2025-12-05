@@ -6,6 +6,7 @@
 #include "AbilitySystem/SFAbilitySystemComponent.h"
 #include "AbilitySystem/Attributes/SFCombatSet.h"
 #include "AbilitySystem/Attributes/SFPrimarySet.h"
+#include "AbilitySystem/GameplayEffect/SFGameplayEffectContext.h"
 #include "AbilitySystem/GameplayEvent/SFGameplayEventTags.h"
 #include "AI/SFAIGameplayTags.h"
 
@@ -93,13 +94,11 @@ void USFDamageEffectExecCalculation::Execute_Implementation(
         FinalDamage *= CriticalDamage;
         
         // 크리티컬일 경우  태그 추가 이거 Ui 표시 위해 
-        FGameplayEffectSpec* MutableSpec = ExecutionParams.GetOwningSpecForPreExecuteMod();//(ExecutionCalculation) 직전에 수정 가능한 Spec을 가져옴
-        if (MutableSpec)
-        {
-            MutableSpec->AddDynamicAssetTag(
-                SFGameplayTags::GameplayEvent_Damage_Critical
-            );
-        }
+    	FGameplayEffectContextHandle ContextHandle = Spec.GetEffectContext();
+    	if (FSFGameplayEffectContext* SFContext = static_cast<FSFGameplayEffectContext*>(ContextHandle.Get()))
+    	{
+    		SFContext->SetIsCriticalHit(true);
+    	}
     }
     
     // 방어력  이거 방어력 100이면 최종데미지 50%로 만든다 

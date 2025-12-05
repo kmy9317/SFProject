@@ -15,8 +15,6 @@
 #include "GameFramework/CharacterMovementComponent.h"
 #include "Interface/SFTraceActorInterface.h"
 
-// <-- 추가된 include: 커스텀 EffectContext
-#include "AbilitySystem/GameplayEffect/Enemy/EffectContext/FSFHitEffectContext.h"
 
 class USFEquipmentComponent;
 
@@ -128,55 +126,14 @@ void USFGA_Enemy_Melee::OnTraceHit(FGameplayEventData Payload)
 	if (!GetAvatarActorFromActorInfo()->HasAuthority())
 		return;
 
-	const FGameplayAbilityTargetData* RawData = Payload.TargetData.Get(0);
-	const FGameplayAbilityTargetData_SingleTargetHit* HitData =
-		static_cast<const FGameplayAbilityTargetData_SingleTargetHit*>(RawData);
-
-	if (!HitData)
-		return;
-
-	const FHitResult& Hit = HitData->HitResult;
-
-	// 기본값 (폴백)
-	FVector AttackDirection = FVector::ZeroVector;
-	FVector AttackLocation  = FVector::ZeroVector;
-
-	// ========== 1) 먼저 Payload의 Context에서 FSFHitEffectContext 읽기 ==========
-	if (const FSFHitEffectContext* SFContext = static_cast<const FSFHitEffectContext*>(Payload.ContextHandle.Get()))
-	{
-		AttackDirection = SFContext->GetAttackDirection();
-		AttackLocation  = SFContext->GetHitLocation();
-	}
-
-	// ========== 2) Context에 정보가 없으면 HitResult 기반 폴백 ==========
-	if (AttackLocation.IsNearlyZero())
-	{
-		AttackLocation = Hit.ImpactPoint;
-	}
-
-	if (AttackDirection.IsNearlyZero())
-	{
-		// Hit.ImpactNormal에 값이 들어있을 수 있음 
-		if (!Hit.ImpactNormal.IsNearlyZero())
-		{
-			AttackDirection = Hit.ImpactNormal.GetSafeNormal();
-		}
-		else
-		{
-			// Instigator(공격자) 위치 기준으로 계산 (마지막 수단)
-			if (AActor* Instigator = const_cast<AActor*>(Payload.Instigator.Get()))
-			{
-				AttackDirection = (Hit.ImpactPoint - Instigator->GetActorLocation()).GetSafeNormal();
-			}
-		}
-	}
-
 	AActor* HitActor = const_cast<AActor*>(Payload.Target.Get());
 	if (!IsValid(HitActor)) return;
 
 	ASFCharacterBase* HitCharacter = Cast<ASFCharacterBase>(HitActor);
 	if (!HitCharacter) return;
 
+
+	FGameplayEffectContextHandle Context = Payload.ContextHandle;
 	// 패링 체크
 	if (HitCharacter->HasMatchingGameplayTag(SFGameplayTags::Character_State_Parrying))
 	{
@@ -184,11 +141,10 @@ void USFGA_Enemy_Melee::OnTraceHit(FGameplayEventData Payload)
 		EndAbility(CurrentSpecHandle, CurrentActorInfo, CurrentActivationInfo, true, true);
 		return;
 	}
-
 	// 관통 처리
 	if (CurrentPenetration > 0)
 	{
-		ApplyDamageToTarget(HitActor, AttackDirection, AttackLocation);
+		ApplyDamageToTarget(HitActor,Context);
 		CurrentPenetration--;
 	}
 }

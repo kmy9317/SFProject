@@ -112,7 +112,7 @@ void USFEnemyComponent::HandleChangeInitState(UGameFrameworkComponentManager* Ma
 		{
 			Enemy->InitializeAbilitySystem();
 			Enemy->InitializeStateReactionComponent();
-			Enemy->InitializeMovementComponent(); 
+			Enemy->InitializeMovementComponent();
 		}
 	}
 	else if (CurrentState == SFGameplayTags::InitState_DataInitialized && DesiredState == SFGameplayTags::InitState_GameplayReady)
