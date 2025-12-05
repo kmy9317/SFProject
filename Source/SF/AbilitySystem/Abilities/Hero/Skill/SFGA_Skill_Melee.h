@@ -21,8 +21,10 @@ public:
 protected:
 	virtual void ActivateAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, const FGameplayEventData* TriggerEventData) override;
 
+	UFUNCTION(BlueprintCallable, Category = "SF|Ability")
 	void ParseTargetData(const FGameplayAbilityTargetDataHandle& InTargetDataHandle, TArray<int32>& OutActorsHitIndexes);
 	
+	UFUNCTION(BlueprintCallable, Category = "SF|Ability")
 	void ProcessHitResult(FHitResult HitResult, float Damage, ASFEquipmentBase* WeaponActor);
 	
 	void ResetHitActors();
