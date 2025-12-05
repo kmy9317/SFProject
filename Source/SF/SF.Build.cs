@@ -41,6 +41,7 @@ public class SF : ModuleRules
             "PlayFabCommon",
             "Json",
 			"JsonUtilities",
+			"Niagara",
 		});
 
 		PrivateDependencyModuleNames.AddRange(new string[] { });
