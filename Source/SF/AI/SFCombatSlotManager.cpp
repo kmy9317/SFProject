@@ -29,7 +29,6 @@ bool USFCombatSlotManager::RequestSlot(ASFEnemyController* Requester, AActor* Ta
 	// 3. 이미 보유 중인 경우 (유지 or 방출 판단)
 	if (SlotInfo.SlotHolders.Contains(Requester))
 	{
-		// [핵심 추가] "원복" 로직 (Revert)
 		// 강제 공격권(bForce)이 없는데, 현재 인원이 최대치를 초과했다면? -> 슬롯 반납하고 쫓겨남
 		if (!bForce && CurrentValidSlots > MaxAllowedSlots)
 		{
@@ -57,7 +56,6 @@ bool USFCombatSlotManager::RequestSlot(ASFEnemyController* Requester, AActor* Ta
 	return false;
 }
 
-// ... (아래 ReleaseSlot, ReleaseAllSlots 등 나머지 함수는 기존과 100% 동일하므로 그대로 두시면 됩니다) ...
 
 void USFCombatSlotManager::ReleaseSlot(ASFEnemyController* Releaser, AActor* Target)
 {
@@ -132,7 +130,7 @@ bool USFCombatSlotManager::GetSlotInfo(AActor* Target, int32& OutCurrentSlots, i
 
 int32 USFCombatSlotManager::CalculateMaxSlotsForTarget(AActor* Target, const FSFCombatSlotInfo& SlotInfo) const
 {
-	// [변경] 5마리 제한 유지
+	
 	if (!Target) return 5;
 
 	UWorld* World = GetWorld();

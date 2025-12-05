@@ -11,6 +11,7 @@
 #include "Perception/AIPerceptionComponent.h"
 #include "Perception/AISenseConfig_Sight.h"
 #include "AI/SFAIGameplayTags.h"
+
 USFEnemyCombatComponent::USFEnemyCombatComponent(const FObjectInitializer& ObjectInitializer)
     : Super(ObjectInitializer)
 {
@@ -58,6 +59,9 @@ void USFEnemyCombatComponent::InitializeCombatComponent()
 	UpdatePerceptionConfig();
 }
 
+// [수정] 가중치 랜덤 선택(Weighted Random) 적용
+// 기존: 가장 높은 점수(BestScore) 1개만 무조건 선택
+// 변경: 점수에 비례한 확률로 스킬 선택 (다양한 패턴 유도)
 bool USFEnemyCombatComponent::SelectAbility(
     const FEnemyAbilitySelectContext& Context,
     const FGameplayTagContainer& SearchTags,
@@ -73,8 +77,10 @@ bool USFEnemyCombatComponent::SelectAbility(
         return false;
     }
 
-    float BestScore = -FLT_MAX;
-    FGameplayTag BestTag;
+    // [수정] 후보군과 가중치를 저장할 배열 선언
+    TArray<FGameplayTag> Candidates;
+    TArray<float> Weights;
+    float TotalWeight = 0.f;
 
     for (const FGameplayAbilitySpec& Spec : ASC->GetActivatableAbilities())
     {
@@ -120,10 +126,10 @@ bool USFEnemyCombatComponent::SelectAbility(
 
         float Score = AIInterface->CalcAIScore(ContextWithSpec);
 
-        if (Score > BestScore)
+        // [수정] 점수가 0보다 클 때만 후보에 등록
+        // 0점 이하는 사거리 밖이거나 부적절한 스킬임
+        if (Score > 0.f)
         {
-            BestScore = Score;
-
             // SearchTags 와 정확히 매칭되는 태그만 추출
             FGameplayTag UniqueTag;
             for (const FGameplayTag& Tag : AllTags)
@@ -148,16 +154,41 @@ bool USFEnemyCombatComponent::SelectAbility(
                 }
             }
 
-            BestTag = UniqueTag;
+            // [추가] 후보 등록
+            if (UniqueTag.IsValid())
+            {
+                Candidates.Add(UniqueTag);
+                Weights.Add(Score);
+                TotalWeight += Score;
+            }
         }
     }
 
-    if (!BestTag.IsValid())
+    if (Candidates.Num() == 0)
     {
         return false;
     }
 
-    OutSelectedTag = BestTag;
+    // [추가] 가중치 랜덤 선택 (Weighted Random)
+    float RandomValue = FMath::FRandRange(0.f, TotalWeight);
+    
+    for (int32 i = 0; i < Candidates.Num(); ++i)
+    {
+        if (RandomValue <= Weights[i])
+        {
+            OutSelectedTag = Candidates[i];
+            
+            // 디버그 로그 (필요시 주석 해제)
+            // UE_LOG(LogTemp, Log, TEXT("Selected Ability: %s (Score: %.1f, Prob: %.1f%%)"), 
+            //     *OutSelectedTag.ToString(), Weights[i], (Weights[i] / TotalWeight) * 100.f);
+            
+            return true;
+        }
+        RandomValue -= Weights[i];
+    }
+
+    // 혹시라도 루프를 빠져나오면 마지막 후보 선택
+    OutSelectedTag = Candidates.Last();
     return true;
 }
 

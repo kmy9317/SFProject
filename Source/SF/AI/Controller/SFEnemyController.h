@@ -3,12 +3,12 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "AIController.h"
+#include "DetourCrowdAIController.h" // [수정] 헤더 변경 (AIController.h -> DetourCrowdAIController.h)
 #include "GameplayTagContainer.h"
 #include "Character/Enemy/SFEnemyData.h"
 #include "Perception/AIPerceptionComponent.h"
 #include "Perception/AISenseConfig_Sight.h"
-#include "Net/UnrealNetwork.h" // [추가] 네트워크 관련 헤더
+#include "Net/UnrealNetwork.h"
 #include "SFEnemyController.generated.h"
 
 
@@ -18,8 +18,9 @@ class UBlackboardComponent;
 class UBehaviorTree;
 
 
+// [수정] 부모 클래스 변경: AAIController -> ADetourCrowdAIController
 UCLASS()
-class SF_API ASFEnemyController : public AAIController
+class SF_API ASFEnemyController : public ADetourCrowdAIController
 {
 	GENERATED_BODY()
 

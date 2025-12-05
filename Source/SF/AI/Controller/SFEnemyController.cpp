@@ -15,6 +15,7 @@
 #include "AI/Controller/SFEnemyCombatComponent.h"
 #include "Character/SFCharacterGameplayTags.h"
 #include "Character/Enemy/Component/SFStateReactionComponent.h"
+#include "Navigation/CrowdFollowingComponent.h"
 
 #include UE_INLINE_GENERATED_CPP_BY_NAME(SFEnemyController)
 
@@ -61,6 +62,23 @@ ASFEnemyController::ASFEnemyController(const FObjectInitializer& ObjectInitializ
     bIsInCombat = false;
     TargetActor = nullptr;
 
+    if (UCrowdFollowingComponent* CrowdComp = Cast<UCrowdFollowingComponent>(GetPathFollowingComponent()))
+    {
+        // 1. 회피 품질 설정 (높을수록 좋음, 성능 고려하여 Good~High 추천)
+        CrowdComp->SetCrowdAvoidanceQuality(ECrowdAvoidanceQuality::Good);
+
+        // 2. 충돌 감지 범위 (이 범위 내의 다른 AI를 피함)
+        // 캐릭터 캡슐 크기에 따라 조절 (보통 500~700 적당)
+        CrowdComp->SetCrowdCollisionQueryRange(600.f);
+
+        // 3. 그룹 설정 (기본값 유지해도 무방하지만 명시적으로 설정)
+        CrowdComp->SetAvoidanceGroup(1);
+        CrowdComp->SetGroupsToAvoid(1);
+        
+        // 4. 서로 너무 강하게 밀치지 않도록 분리 가중치 조절
+        //CrowdComp->SetCrowdSeparationWeight(50.f); 
+    }
+    
     // CombatComponent 생성
     CombatComponent = ObjectInitializer.CreateDefaultSubobject<USFEnemyCombatComponent>(this, TEXT("CombatComponent")); 
 }
@@ -106,6 +124,7 @@ void ASFEnemyController::InitializeController()
         {
             CombatComponent->InitializeCombatComponent();
         }
+
         
         UE_LOG(LogTemp, Log, TEXT("[SFEnemyAI] InitializeController 완료"));
     }

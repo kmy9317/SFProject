@@ -62,7 +62,7 @@ EBTNodeResult::Type USFBTTask_RunEQSQuery::ExecuteTask(UBehaviorTreeComponent& O
 
 	FEnvQueryRequest QueryRequest(QueryTemplate, AIController);
 
-    // 파라미터 전달 (기존 로직 유지)
+    // 파라미터 전달
 	const float MaxMultiple = 1.5f;
 	const float MinMultiple = 0.7f;
 	QueryRequest.SetFloatParam(FName("CurrentDistance"), CurrentDistance);
@@ -87,7 +87,7 @@ EBTNodeResult::Type USFBTTask_RunEQSQuery::ExecuteTask(UBehaviorTreeComponent& O
 	return EBTNodeResult::InProgress;
 }
 
-// [추가] AbortTask: 다른 태스크로 전환될 때 실행 중인 쿼리 취소
+//AbortTask: 다른 태스크로 전환될 때 실행 중인 쿼리 취소
 EBTNodeResult::Type USFBTTask_RunEQSQuery::AbortTask(UBehaviorTreeComponent& OwnerComp, uint8* NodeMemory)
 {
 	if (QueryID != INDEX_NONE)
