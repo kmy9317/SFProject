@@ -21,6 +21,9 @@ public:
 
 	virtual UAbilitySystemComponent* GetAbilitySystemComponent() const override;
 
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "SF|Combat")
+	float WeaponBaseDamage = 10.0f;
+
 	USkeletalMeshComponent* GetMeshComponent() const { return MeshComponent; }
 
 protected:
