@@ -48,6 +48,10 @@ public:
 	 virtual void CheckDefaultInitialization() override;
 	//~ End IGameFrameworkInitStateInterface interface
 
+	// 마지막 입력 방향(월드 공간)을 반환하는 함수
+	UFUNCTION(BlueprintPure, Category = "SF|Input")
+	FVector GetLastInputDirection() const { return LastInputDirection; }
+
 protected:
 	virtual void OnRegister() override;
 	virtual void BeginPlay() override;
@@ -68,6 +72,11 @@ protected:
 	TSubclassOf<USFCameraMode> DetermineCameraMode();
 
 protected:
+
+	// 입력 방향 의도 저장용 변수 추가
+	UPROPERTY(Transient)
+	FVector LastInputDirection;
+	
 	/** Camera mode set by an ability. */
 	// UPROPERTY()
 	// TSubclassOf<ULCCameraMode> AbilityCameraMode;

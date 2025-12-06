@@ -13,6 +13,7 @@
 #include "GameFramework/GameplayMessageSubsystem.h"
 #include "Messages/SFMessageGameplayTags.h"
 #include "Messages/SFSkillInfoMessages.h"
+#include "Player/SFPlayerController.h"
 #include "Weapons/Actor/SFEquipmentBase.h"
 
 USFGA_Thrust_HeartBreaker::USFGA_Thrust_HeartBreaker(FObjectInitializer const& ObjectInitializer)
@@ -48,6 +49,11 @@ void USFGA_Thrust_HeartBreaker::ActivateAbility(const FGameplayAbilitySpecHandle
 			this, TEXT("Charging"), ChargingMontage, 1.f, TEXT("Start"), false
 		);
 		ChargingMontageTask->ReadyForActivation();
+	}
+	
+	if (ASFPlayerController* SFPlayerController = GetSFPlayerControllerFromActorInfo())
+	{
+		SFPlayerController->SetIgnoreMoveInput(true);
 	}
 
 	// 로컬 클라이언트 일때만 입력 릴리즈 대기
@@ -144,8 +150,9 @@ void USFGA_Thrust_HeartBreaker::OnKeyReleased(float TimeHeld)
 	// TimeHeld를 기준으로 페이즈 재확정 (UI 타이머와 미세한 오차가 있을 수 있으므로)
 	CurrentPhaseIndex = CalculatePhase(TimeHeld);
 
-	// Motion Warping 타겟 위치 계산
+	// Motion Warping 타겟 위치/회전 계산
 	FVector TargetLocation = CalculateRushTargetLocation();
+	FRotator TargetRotation = CalculateRushTargetRotation();
 
 	// 서버로 보낼 TargetData 패키징 
 	FScopedPredictionWindow ScopedPrediction(GetAbilitySystemComponentFromActorInfo());
@@ -153,6 +160,7 @@ void USFGA_Thrust_HeartBreaker::OnKeyReleased(float TimeHeld)
 	FSFGameplayAbilityTargetData_ChargePhase* NewData = new FSFGameplayAbilityTargetData_ChargePhase();
 	NewData->PhaseIndex = CurrentPhaseIndex;
 	NewData->RushTargetLocation = TargetLocation;
+	NewData->RushTargetRotation = TargetRotation;
 	FGameplayAbilityTargetDataHandle DataHandle(NewData);
 
 	// 서버로 전송
@@ -167,6 +175,12 @@ void USFGA_Thrust_HeartBreaker::OnKeyReleased(float TimeHeld)
 	if (!GetAvatarActorFromActorInfo()->HasAuthority())
 	{
 		SetupMotionWarpingTarget(TargetLocation);
+
+		if (ASFCharacterBase* Character = GetSFCharacterFromActorInfo())
+		{
+			Character->SetActorRotation(TargetRotation);
+		}
+		
 		ExecuteRushAttack();
 	}
 }
@@ -202,18 +216,24 @@ void USFGA_Thrust_HeartBreaker::OnServerTargetDataReceivedCallback(const FGamepl
 	}
 
 	SetupMotionWarpingTarget(ReceivedData->RushTargetLocation);
+
+	if (ASFCharacterBase* Character = GetSFCharacterFromActorInfo())
+	{
+		Character->SetActorRotation(ReceivedData->RushTargetRotation);
+	}
+	
 	ExecuteRushAttack();
 }
 
 void USFGA_Thrust_HeartBreaker::SetupMotionWarpingTarget(const FVector& TargetLocation)
 {
 	if (ASFCharacterBase* SFCharacter = GetSFCharacterFromActorInfo())
-	{
-		if (UMotionWarpingComponent* MW = SFCharacter->GetMotionWarpingComponent())
-		{
-			MW->AddOrUpdateWarpTargetFromLocation(WarpTargetName, TargetLocation);
-		}
-	}
+    {
+        if (UMotionWarpingComponent* MW = SFCharacter->GetMotionWarpingComponent())
+        {
+        	MW->AddOrUpdateWarpTargetFromLocation(WarpTargetName, TargetLocation);
+        }
+    }
 }
 
 void USFGA_Thrust_HeartBreaker::ExecuteRushAttack()
@@ -261,8 +281,35 @@ FVector USFGA_Thrust_HeartBreaker::CalculateRushTargetLocation() const
 	}
 
 	float Dist = GetPhaseRushDistance();
+    
+	// 로컬 플레이어의 마지막 입력 의도 방향 가져오기
+	FVector AttackDirection = SFCharacter->GetLastInputDirection();
+
+	// 입력이 없다면 캐릭터의 전방 사용
+	if (AttackDirection.IsNearlyZero())
+	{
+		AttackDirection = SFCharacter->GetActorForwardVector();
+	}
+
+	return SFCharacter->GetActorLocation() + (AttackDirection * Dist);
+}
+
+FRotator USFGA_Thrust_HeartBreaker::CalculateRushTargetRotation() const
+{
+	ASFCharacterBase* SFCharacter = GetSFCharacterFromActorInfo();
+	if (!SFCharacter)
+	{
+		return FRotator::ZeroRotator;
+	}
+
+	FVector AttackDirection = SFCharacter->GetLastInputDirection();
 	
-	return SFCharacter->GetActorLocation() + (SFCharacter->GetActorForwardVector() * Dist);
+	if (AttackDirection.IsNearlyZero())
+	{
+		AttackDirection = SFCharacter->GetActorForwardVector();
+	}
+
+	return AttackDirection.Rotation();
 }
 
 void USFGA_Thrust_HeartBreaker::OnTrace(FGameplayEventData Payload)
@@ -408,6 +455,11 @@ void USFGA_Thrust_HeartBreaker::EndAbility(const FGameplayAbilitySpecHandle Hand
 			TargetDataDelegate.Remove(ServerTargetDataDelegateHandle);
 		}
 		ServerTargetDataDelegateHandle.Reset();
+	}
+
+	if (ASFPlayerController* SFPlayerController = GetSFPlayerControllerFromActorInfo())
+	{
+		SFPlayerController->SetIgnoreMoveInput(false);
 	}
 	
 	Super::EndAbility(Handle, ActorInfo, ActivationInfo, bReplicateEndAbility, bWasCancelled);

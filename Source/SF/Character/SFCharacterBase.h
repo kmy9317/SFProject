@@ -46,6 +46,10 @@ public:
 
 	UFUNCTION(BlueprintPure, Category = "SF|Character")
 	bool IsFalling() const;
+
+	// 플레이어의 마지막 입력 의도 방향을 반환
+	UFUNCTION(BlueprintPure, Category = "SF|Character")
+	FVector GetLastInputDirection() const;
 	
 protected:
 	// Called when the game starts or when spawned

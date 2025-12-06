@@ -3,6 +3,7 @@
 #include "AbilitySystemComponent.h"
 #include "AbilitySystem/SFAbilitySystemComponent.h"
 #include "Character/SFCharacterBase.h"
+#include "Player/SFPlayerController.h"
 
 USFGameplayAbility::USFGameplayAbility(const FObjectInitializer& ObjectInitializer)
 {
@@ -13,6 +14,11 @@ USFGameplayAbility::USFGameplayAbility(const FObjectInitializer& ObjectInitializ
 USFAbilitySystemComponent* USFGameplayAbility::GetSFAbilitySystemComponentFromActorInfo() const
 {
 	return (CurrentActorInfo ? Cast<USFAbilitySystemComponent>(CurrentActorInfo->AbilitySystemComponent.Get()) : nullptr);
+}
+
+ASFPlayerController* USFGameplayAbility::GetSFPlayerControllerFromActorInfo() const
+{
+	return (CurrentActorInfo ? Cast<ASFPlayerController>(CurrentActorInfo->PlayerController.Get()) : nullptr);
 }
 
 ASFCharacterBase* USFGameplayAbility::GetSFCharacterFromActorInfo() const

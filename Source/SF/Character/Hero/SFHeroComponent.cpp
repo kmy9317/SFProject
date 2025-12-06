@@ -312,6 +312,31 @@ void USFHeroComponent::Input_Move(const FInputActionValue& InputActionValue)
 	{
 		return;
 	}
+
+	AController* Controller = Pawn->GetController();
+	FVector WorldDirection = FVector::ZeroVector;
+
+	
+	if (Controller)
+	{
+		const FVector2D Value = InputActionValue.Get<FVector2D>();
+		const FRotator MovementRotation(0.0f, Controller->GetControlRotation().Yaw, 0.0f);
+
+		if (Value.X != 0.0f)
+		{
+			const FVector RightDir = MovementRotation.RotateVector(FVector::RightVector);
+			WorldDirection += RightDir * Value.X;
+		}
+
+		if (Value.Y != 0.0f)
+		{
+			const FVector ForwardDir = MovementRotation.RotateVector(FVector::ForwardVector);
+			WorldDirection += ForwardDir * Value.Y;
+		}
+	}
+
+	// 로컬 플레이어의 입력 의도 방향 계산
+	LastInputDirection = WorldDirection.GetSafeNormal();
 	
 	if (const USFPawnExtensionComponent* PawnExtComp = USFPawnExtensionComponent::FindPawnExtensionComponent(Pawn))
 	{
@@ -325,25 +350,10 @@ void USFHeroComponent::Input_Move(const FInputActionValue& InputActionValue)
 			}
 		}
 	}
-	
-	AController* Controller = Pawn ? Pawn->GetController() : nullptr;
-	
-	if (Controller)
+
+	if (WorldDirection.IsNearlyZero() == false)
 	{
-		const FVector2D Value = InputActionValue.Get<FVector2D>();
-		const FRotator MovementRotation(0.0f, Controller->GetControlRotation().Yaw, 0.0f);
-
-		if (Value.X != 0.0f)
-		{
-			const FVector MovementDirection = MovementRotation.RotateVector(FVector::RightVector);
-			Pawn->AddMovementInput(MovementDirection, Value.X);
-		}
-
-		if (Value.Y != 0.0f)
-		{
-			const FVector MovementDirection = MovementRotation.RotateVector(FVector::ForwardVector);
-			Pawn->AddMovementInput(MovementDirection, Value.Y);
-		}
+		Pawn->AddMovementInput(WorldDirection, 1.0f);
 	}
 }
 

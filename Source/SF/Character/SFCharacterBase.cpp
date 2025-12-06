@@ -3,6 +3,7 @@
 #include "GameFramework/CharacterMovementComponent.h"
 #include "AbilitySystem/SFAbilitySystemComponent.h"
 #include "SFPawnExtensionComponent.h"
+#include "Hero/SFHeroComponent.h"
 #include "Player/SFPlayerState.h"
 
 ASFCharacterBase::ASFCharacterBase(const FObjectInitializer& ObjectInitializer)
@@ -166,6 +167,17 @@ bool ASFCharacterBase::IsFalling() const
 	}
 
 	return false;
+}
+
+FVector ASFCharacterBase::GetLastInputDirection() const
+{
+	if (const USFHeroComponent* HeroComp = USFHeroComponent::FindHeroComponent(this))
+	{
+		return HeroComp->GetLastInputDirection();
+	}
+
+	// AI나 HeroComponent가 없는 경우 Zero 반환
+	return FVector::ZeroVector;
 }
 
 void ASFCharacterBase::UpdateAnimValue()

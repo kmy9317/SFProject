@@ -13,12 +13,14 @@ public:
 	FSFGameplayAbilityTargetData_ChargePhase()
 		: PhaseIndex(0)
 		, RushTargetLocation(FVector::ZeroVector)
+		, RushTargetRotation(FRotator::ZeroRotator)
 	{
 	}
 
-	FSFGameplayAbilityTargetData_ChargePhase(const int32 InPhaseIndex, const FVector& InRushTargetLocation)
+	FSFGameplayAbilityTargetData_ChargePhase(const int32 InPhaseIndex, const FVector& InRushTargetLocation, const FRotator& InRushTargetRotation)
 		: PhaseIndex(InPhaseIndex)
 		, RushTargetLocation(InRushTargetLocation)
+		, RushTargetRotation(InRushTargetRotation)
 	{
 	}
 
@@ -27,6 +29,9 @@ public:
 
 	UPROPERTY()
 	FVector RushTargetLocation;
+
+	UPROPERTY()
+	FRotator RushTargetRotation;
 
 	virtual UScriptStruct* GetScriptStruct() const override
 	{
@@ -37,6 +42,7 @@ public:
 	{
 		Ar << PhaseIndex;
 		RushTargetLocation.NetSerialize(Ar, Map, bOutSuccess);
+		RushTargetRotation.NetSerialize(Ar, Map, bOutSuccess);
 		bOutSuccess = true;
 		return true;
 	}

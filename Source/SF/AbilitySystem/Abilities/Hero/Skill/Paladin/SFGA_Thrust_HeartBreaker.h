@@ -36,6 +36,7 @@ protected:
 
 	int32 CalculatePhase(float TimeHeld) const;
 	FVector CalculateRushTargetLocation() const;
+	FRotator CalculateRushTargetRotation() const;
 	
 	UFUNCTION()
 	void OnRushMontageFinished();
