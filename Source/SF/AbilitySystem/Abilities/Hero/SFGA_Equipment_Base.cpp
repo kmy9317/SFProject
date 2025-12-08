@@ -66,6 +66,30 @@ bool USFGA_Equipment_Base::CanActivateAbility(const FGameplayAbilitySpecHandle H
 	return true;
 }
 
+AActor* USFGA_Equipment_Base::GetEquippedActorBySlot(const FGameplayTag& SlotTag) const
+{
+	if (USFEquipmentComponent* EquipComp = GetEquipmentComponent())
+	{
+		return EquipComp->GetFirstEquippedActorBySlot(SlotTag);
+	}
+	return nullptr;
+}
+
+AActor* USFGA_Equipment_Base::GetMainHandWeaponActor() const
+{
+	return GetEquippedActorBySlot(SFGameplayTags::EquipmentSlot_MainHand);
+}
+
+USFEquipmentComponent* USFGA_Equipment_Base::GetEquipmentComponent() const
+{
+	if (AActor* AvatarActor = GetAvatarActorFromActorInfo())
+	{
+		return USFEquipmentComponent::FindEquipmentComponent(AvatarActor);
+	}
+	return nullptr;
+}
+
+
 void USFGA_Equipment_Base::ActivateAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, const FGameplayEventData* TriggerEventData)
 {
 	Super::ActivateAbility(Handle, ActorInfo, ActivationInfo, TriggerEventData);
@@ -77,5 +101,4 @@ void USFGA_Equipment_Base::EndAbility(const FGameplayAbilitySpecHandle Handle, c
 	Super::EndAbility(Handle, ActorInfo, ActivationInfo, bReplicateEndAbility, bWasCancelled);
 	
 }
-
 

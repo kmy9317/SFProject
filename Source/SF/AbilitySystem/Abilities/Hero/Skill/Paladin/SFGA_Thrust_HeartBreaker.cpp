@@ -73,9 +73,10 @@ void USFGA_Thrust_HeartBreaker::ActivateAbility(const FGameplayAbilitySpecHandle
 		
 		// UI 표시
 		BroadcastUIConstruct(true);
-		// UI 갱신을 위한 Phase 타이머 시작
-		StartPhaseTimer();
 	}
+
+	StartChargingCue();
+	StartPhaseTimer();
 
 	// 서버인 경우 클라이언트로부터 TargetData(차지 페이즈, 위치) 수신 대기
 	if (ActorInfo->IsNetAuthority())
@@ -132,8 +133,12 @@ void USFGA_Thrust_HeartBreaker::OnPhaseTimePassed()
 		CurrentPhaseIndex = MaxPhaseIndex;
 	}
 
-	BroadcastUIRefresh(CurrentPhaseIndex);
-	
+	if (IsLocallyControlled())
+	{
+		BroadcastUIRefresh(CurrentPhaseIndex);
+	}
+
+	UpdateChargingCuePhase();
 	StartPhaseTimer();
 }
 
@@ -215,6 +220,7 @@ void USFGA_Thrust_HeartBreaker::OnServerTargetDataReceivedCallback(const FGamepl
 		CurrentPhaseIndex = ReceivedData->PhaseIndex;
 	}
 
+	StopChargingCue();
 	SetupMotionWarpingTarget(ReceivedData->RushTargetLocation);
 
 	if (ASFCharacterBase* Character = GetSFCharacterFromActorInfo())
@@ -238,6 +244,13 @@ void USFGA_Thrust_HeartBreaker::SetupMotionWarpingTarget(const FVector& TargetLo
 
 void USFGA_Thrust_HeartBreaker::ExecuteRushAttack()
 {
+	UAnimMontage* RushAttackMontage = nullptr;
+
+	if (RushAttackMontages.IsValidIndex(CurrentPhaseIndex))
+	{
+		RushAttackMontage = RushAttackMontages[CurrentPhaseIndex];
+	}
+	
 	// 돌진 몽타주 재생
 	if (RushAttackMontage)
 	{
@@ -390,6 +403,69 @@ void USFGA_Thrust_HeartBreaker::BroadcastUIRefresh(int32 NewPhaseIndex)
 	}
 }
 
+void USFGA_Thrust_HeartBreaker::StartChargingCue()
+{
+	if (!ChargingCueTag.IsValid())
+	{
+		return;
+	}
+
+	USFAbilitySystemComponent* ASC = GetSFAbilitySystemComponentFromActorInfo();
+	if (!ASC)
+	{
+		return;
+	}
+
+	AActor* WeaponActor = GetMainHandWeaponActor();
+
+	FGameplayCueParameters CueParams;
+	CueParams.RawMagnitude = static_cast<float>(CurrentPhaseIndex);
+	CueParams.EffectCauser = WeaponActor;
+	
+	// Looping Cue 시작 (OnActive -> WhileActive 호출)
+	ASC->AddGameplayCue(ChargingCueTag, CueParams);
+}
+
+void USFGA_Thrust_HeartBreaker::UpdateChargingCuePhase()
+{
+	if (!ChargingCueTag.IsValid())
+	{
+		return;
+	}
+
+	USFAbilitySystemComponent* ASC = GetSFAbilitySystemComponentFromActorInfo();
+	if (!ASC)
+	{
+		return;
+	}
+
+	AActor* WeaponActor = GetMainHandWeaponActor();
+
+	FGameplayCueParameters CueParams;
+	CueParams.RawMagnitude = static_cast<float>(CurrentPhaseIndex);
+	CueParams.EffectCauser = WeaponActor;
+	
+	// Looping Cue 갱신 (OnRecurring 호출)
+	ASC->ExecuteGameplayCue(ChargingCueTag, CueParams);
+}
+
+void USFGA_Thrust_HeartBreaker::StopChargingCue()
+{
+	if (!ChargingCueTag.IsValid())
+	{
+		return;
+	}
+
+	USFAbilitySystemComponent* ASC = GetSFAbilitySystemComponentFromActorInfo();
+	if (!ASC)
+	{
+		return;
+	}
+
+	// Looping Cue 종료 (OnRemove 호출)
+	ASC->RemoveGameplayCue(ChargingCueTag);
+}
+
 float USFGA_Thrust_HeartBreaker::GetPhaseDamage() const
 {
 	if (PhaseDamageMultipliers.IsValidIndex(CurrentPhaseIndex))
@@ -421,6 +497,8 @@ void USFGA_Thrust_HeartBreaker::EndAbility(const FGameplayAbilitySpecHandle Hand
 	{
 		BroadcastUIConstruct(false);
 	}
+
+	StopChargingCue();
 
 	// 슈퍼아머 제거
 	if (SuperArmorEffectHandle.IsValid())

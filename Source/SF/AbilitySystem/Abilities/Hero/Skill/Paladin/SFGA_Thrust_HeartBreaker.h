@@ -50,15 +50,24 @@ protected:
 	// 페이즈 변경 시 색상 업데이트 메시지 전송
 	void BroadcastUIRefresh(int32 NewPhaseIndex);
 
+	// 차징 Cue 시작
+	void StartChargingCue();
+	
+	// 차징 Cue Phase 갱신
+	void UpdateChargingCuePhase();
+	
+	// 차징 Cue 종료 
+	void StopChargingCue();
+
 protected:
 
 	// 차징 몽타주 (Start → Loop)
 	UPROPERTY(EditDefaultsOnly, Category="SF|Animation")
 	TObjectPtr<UAnimMontage> ChargingMontage;
-
-	// 돌진 공격 몽타주 (Root Motion)
-	UPROPERTY(EditDefaultsOnly, Category="SF|Animation")
-	TObjectPtr<UAnimMontage> RushAttackMontage;
+	
+	// Phase별 Rush 몽타주 (Index = Phase)
+	UPROPERTY(EditDefaultsOnly, Category = "SF|Animation")
+	TArray<TObjectPtr<UAnimMontage>> RushAttackMontages;
 
 	// Phase 전환 시간 배열 ([0] Phase 1 → Phase 2 전환 시간 [1] Phase 2 → Phase 3 전환 시간)
 	UPROPERTY(EditDefaultsOnly, Category="SF|PhaseInfo", EditFixedSize)
@@ -85,6 +94,9 @@ protected:
 	// 슈퍼아머 GE
 	UPROPERTY(EditDefaultsOnly, Category="Buff")
 	TSubclassOf<UGameplayEffect> SuperArmorEffectClass;
+
+	UPROPERTY(EditDefaultsOnly, Category="SF|GameplayCue")
+	FGameplayTag ChargingCueTag;
 	
 private:
 

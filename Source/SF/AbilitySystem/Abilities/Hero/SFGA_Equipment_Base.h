@@ -4,6 +4,7 @@
 #include "AbilitySystem/Abilities/SFGameplayAbility.h"
 #include "SFGA_Equipment_Base.generated.h"
 
+class USFEquipmentComponent;
 class USFCameraMode;
 class USFEquipmentInstance;
 class ASFEquipmentBase;
@@ -39,6 +40,18 @@ public:
 	virtual void ActivateAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, const FGameplayEventData* TriggerEventData) override;
 	virtual void EndAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, bool bReplicateEndAbility, bool bWasCancelled) override;
 
+protected:
+	// 장착된 무기 액터 가져오기 (특정 슬롯)
+	UFUNCTION(BlueprintCallable, Category = "SF|Equipment")
+	AActor* GetEquippedActorBySlot(const FGameplayTag& SlotTag) const;
+
+	// 주무기 액터 가져오기
+	UFUNCTION(BlueprintCallable, Category = "SF|Equipment")
+	AActor* GetMainHandWeaponActor() const;
+
+	// EquipmentComponent 가져오기
+	USFEquipmentComponent* GetEquipmentComponent() const;
+	
 protected:
 
 	// 어빌리티 활성화를 위한 필요한 장비 요구사항 목록

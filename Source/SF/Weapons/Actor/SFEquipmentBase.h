@@ -21,6 +21,8 @@ public:
 
 	virtual UAbilitySystemComponent* GetAbilitySystemComponent() const override;
 
+	USkeletalMeshComponent* GetMeshComponent() const { return MeshComponent; }
+
 protected:
 	virtual void BeginPlay() override;
 
