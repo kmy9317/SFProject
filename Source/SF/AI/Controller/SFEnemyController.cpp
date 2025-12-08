@@ -2,6 +2,8 @@
 
 #include "SFEnemyController.h"
 
+#include "AbilitySystemComponent.h"
+#include "AbilitySystemGlobals.h"
 #include "AI/StateMachine/SFStateMachine.h"
 #include "BehaviorTree/BehaviorTree.h"
 #include "BehaviorTree/BehaviorTreeComponent.h"
@@ -16,6 +18,7 @@
 #include "Character/SFCharacterGameplayTags.h"
 #include "Character/Enemy/Component/SFStateReactionComponent.h"
 #include "Navigation/CrowdFollowingComponent.h"
+#include "Team/SFTeamTypes.h"
 
 #include UE_INLINE_GENERATED_CPP_BY_NAME(SFEnemyController)
 
@@ -90,6 +93,7 @@ void ASFEnemyController::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& O
 
     DOREPLIFETIME(ASFEnemyController, bIsInCombat);
     DOREPLIFETIME(ASFEnemyController, bHasGuardSlot);
+    DOREPLIFETIME(ASFEnemyController, TeamId);
 }
 
 // 컨트롤러 초기화 통합 함수 (StateMachine, Combat, StateReaction 모두 처리)
@@ -97,9 +101,23 @@ void ASFEnemyController::InitializeController()
 {
     if (HasAuthority())
     {
+        //AIPerception 바인딩 
+        if (AIPerception)
+        {
+            AIPerception->OnTargetPerceptionUpdated.AddDynamic(
+                this, &ASFEnemyController::OnTargetPerceptionUpdated
+            );
+        
+            AIPerception->OnTargetPerceptionForgotten.AddDynamic(
+                this, &ASFEnemyController::OnTargetPerceptionForgotten
+            );
+
+            UE_LOG(LogTemp, Log, TEXT("[SFEnemyAI] Perception 이벤트 바인딩 완료"));
+        }
+        
         if (APawn* InPawn = GetPawn())
         {
-            // 1. StateMachine 바인딩
+            //  StateMachine 바인딩
             BindingStateMachine(InPawn);    
         
             // 2. StateReactionComponent 바인딩 (CC기/사망 시 BT 제어를 위해 필수 [복구됨])
@@ -127,6 +145,8 @@ void ASFEnemyController::InitializeController()
 
         
         UE_LOG(LogTemp, Log, TEXT("[SFEnemyAI] InitializeController 완료"));
+
+        SetGenericTeamId((FGenericTeamId(SFTeamID::Enemy)));
     }
 }
 
@@ -141,19 +161,6 @@ void ASFEnemyController::BeginPlay()
 {
     UGameFrameworkComponentManager::SendGameFrameworkComponentExtensionEvent(this, UGameFrameworkComponentManager::NAME_GameActorReady);
     Super::BeginPlay();
-
-    if (AIPerception)
-    {
-        AIPerception->OnTargetPerceptionUpdated.AddDynamic(
-            this, &ASFEnemyController::OnTargetPerceptionUpdated
-        );
-        
-        AIPerception->OnTargetPerceptionForgotten.AddDynamic(
-            this, &ASFEnemyController::OnTargetPerceptionForgotten
-        );
-
-        UE_LOG(LogTemp, Log, TEXT("[SFEnemyAI] Perception 이벤트 바인딩 완료"));
-    }
 }
 
 void ASFEnemyController::EndPlay(const EEndPlayReason::Type EndPlayReason)
@@ -204,11 +211,21 @@ void ASFEnemyController::ReceiveStateStart(FGameplayTag StateTag)
         StateTag == SFGameplayTags::Character_State_Knockdown ||
         StateTag == SFGameplayTags::Character_State_Dead)
     {
+        SetActorTickEnabled(false);
         if (UBehaviorTreeComponent* BTComp = Cast<UBehaviorTreeComponent>(BrainComponent))
         {
             FString Reason = FString::Printf(TEXT("State Start: %s"), *StateTag.ToString());
             BTComp->PauseLogic(Reason); // BT 일시정지
             StopMovement(); // 이동도 즉시 정지
+        }
+        ClearFocus(EAIFocusPriority::Gameplay);
+        TargetActor = nullptr;
+
+        if (CachedBlackboardComponent)
+        {
+            CachedBlackboardComponent->ClearValue("TargetActor");
+            CachedBlackboardComponent->SetValueAsBool("bHasTarget",false);
+            
         }
     }
 }
@@ -216,17 +233,50 @@ void ASFEnemyController::ReceiveStateStart(FGameplayTag StateTag)
 // [복구] 상태 이상 해제 시 BT 재개
 void ASFEnemyController::ReceiveStateEnd(FGameplayTag StateTag)
 {
+    // Death 상태는 재개하지 않음
+    if (StateTag == SFGameplayTags::Character_State_Dead)
+    {
+        return;
+    }
+    
     if (StateTag == SFGameplayTags::Character_State_Stunned ||
         StateTag == SFGameplayTags::Character_State_Groggy ||
         StateTag == SFGameplayTags::Character_State_Parried ||
         StateTag == SFGameplayTags::Character_State_Knockback ||
-        StateTag == SFGameplayTags::Character_State_Knockdown ||
-        StateTag == SFGameplayTags::Character_State_Dead)
+        StateTag == SFGameplayTags::Character_State_Knockdown)
     {
+        APawn* ControlledPawn = GetPawn();
+        if (!ControlledPawn)
+        {
+            return;
+        }
+        
+        UAbilitySystemComponent* ASC = UAbilitySystemGlobals::GetAbilitySystemComponentFromActor(ControlledPawn);
+        if (!ASC)
+        {
+            return;
+        }
+        
+        FGameplayTagContainer CCStateTags;
+        CCStateTags.AddTag(SFGameplayTags::Character_State_Stunned);
+        CCStateTags.AddTag(SFGameplayTags::Character_State_Groggy);
+        CCStateTags.AddTag(SFGameplayTags::Character_State_Parried);
+        CCStateTags.AddTag(SFGameplayTags::Character_State_Knockback);
+        CCStateTags.AddTag(SFGameplayTags::Character_State_Knockdown);
+        CCStateTags.AddTag(SFGameplayTags::Character_State_Dead);
+        
+        if (ASC->HasAnyMatchingGameplayTags(CCStateTags))
+        {
+            return;
+        }
+        
+        SetActorTickEnabled(true);
+        
         if (UBehaviorTreeComponent* BTComp = Cast<UBehaviorTreeComponent>(BrainComponent))
         {
-            FString Reason = FString::Printf(TEXT("State End: %s"), *StateTag.ToString());
-            BTComp->ResumeLogic(Reason); // BT 재개
+            FString Reason = FString::Printf(TEXT("State End"), *StateTag.ToString());
+            BTComp->ResumeLogic(Reason);
+            
         }
     }
 }
@@ -490,4 +540,17 @@ void ASFEnemyController::DrawDebugPerception()
         }
     }
 #endif
+}
+
+void ASFEnemyController::SetGenericTeamId(const FGenericTeamId& InTeamID)
+{
+    if (HasAuthority())
+    {
+        TeamId = InTeamID;
+    }
+}
+
+FGenericTeamId ASFEnemyController::GetGenericTeamId() const
+{
+    return TeamId;
 }

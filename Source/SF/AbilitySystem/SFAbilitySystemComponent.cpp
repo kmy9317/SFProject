@@ -7,6 +7,8 @@
 #include "Abilities/SFGameplayAbility.h"
 #include "Animation/Enemy/SFEnemyAnimInstance.h"
 #include "Animation/Hero/SFHeroAnimInstance.h"
+#include "Attributes/SFPrimarySet.h"
+#include "Character/SFCharacterGameplayTags.h"
 #include "Character/Enemy/SFEnemy.h"
 #include "Character/Hero/SFHero.h"
 #include "GameplayEvent/SFGameplayEventTags.h"
@@ -577,13 +579,28 @@ void USFAbilitySystemComponent::HandleGameplayEffectAppliedToSelf(
 	ProcessHitReactionEvent(Spec);
 }
 
-void USFAbilitySystemComponent::ProcessHitReactionEvent( const FGameplayEffectSpec& Spec)
+void USFAbilitySystemComponent::ProcessHitReactionEvent(const FGameplayEffectSpec& Spec)
 {
+	
+	if (HasMatchingGameplayTag(SFGameplayTags::Character_State_Dead))
+		return;
+
 	const float Damage = Spec.GetSetByCallerMagnitude(
 		SFGameplayTags::Data_Damage_BaseDamage, false, 0.f);
 
 	if (Damage <= 1.f)
 		return;
+
+	
+	const USFPrimarySet* PrimarySet = GetSet<USFPrimarySet>();
+	if (PrimarySet)
+	{
+		const float CurrentHealth = PrimarySet->GetHealth();
+		const float HealthAfterDamage = CurrentHealth - Damage;
+		
+		if (HealthAfterDamage <= 0.0f)
+			return;
+	}
 
 	FGameplayEventData Payload;
 	Payload.EventTag = SFGameplayTags::GameplayEvent_HitReaction;

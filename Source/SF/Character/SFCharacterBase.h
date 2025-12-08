@@ -3,6 +3,7 @@
 #include "CoreMinimal.h"
 #include "AbilitySystemInterface.h"
 #include "GameplayTagAssetInterface.h"
+#include "GenericTeamAgentInterface.h"
 #include "GameFramework/Character.h"
 #include "MotionWarpingComponent.h"
 #include "SFCharacterBase.generated.h"
@@ -11,7 +12,7 @@ class USFPawnExtensionComponent;
 class USFAbilitySystemComponent;
 
 UCLASS()
-class SF_API ASFCharacterBase : public ACharacter, public IAbilitySystemInterface, public IGameplayTagAssetInterface
+class SF_API ASFCharacterBase : public ACharacter, public IAbilitySystemInterface, public IGameplayTagAssetInterface,public IGenericTeamAgentInterface
 {
 	GENERATED_BODY()
 
@@ -78,4 +79,10 @@ private:
 
 private:
 	void UpdateAnimValue();
+
+
+	//teamAgent
+public:
+	virtual FGenericTeamId GetGenericTeamId() const override;
+	
 };

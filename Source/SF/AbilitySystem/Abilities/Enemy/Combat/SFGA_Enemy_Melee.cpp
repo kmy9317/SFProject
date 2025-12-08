@@ -129,10 +129,15 @@ void USFGA_Enemy_Melee::OnTraceHit(FGameplayEventData Payload)
 
 	AActor* HitActor = const_cast<AActor*>(Payload.Target.Get());
 	if (!IsValid(HitActor)) return;
-
+	
 	ASFCharacterBase* HitCharacter = Cast<ASFCharacterBase>(HitActor);
 	if (!HitCharacter) return;
 
+	if (GetAttitudeTowards(HitActor) != ETeamAttitude::Hostile)
+	{
+		return;
+	}
+	
 	FGameplayEffectContextHandle Context = Payload.ContextHandle;
 	
 	if (CurrentPenetration > 0)

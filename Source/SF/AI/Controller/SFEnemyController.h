@@ -20,7 +20,7 @@ class UBehaviorTree;
 
 // [수정] 부모 클래스 변경: AAIController -> ADetourCrowdAIController
 UCLASS()
-class SF_API ASFEnemyController : public ADetourCrowdAIController
+class SF_API ASFEnemyController : public ADetourCrowdAIController, public IGenericTeamAgentInterface
 {
 	GENERATED_BODY()
 
@@ -147,5 +147,15 @@ public:
 	// 시야/범위 디버그 시각화 (콘솔: AI.ShowDebug 1)
 	void DrawDebugPerception();
 #pragma endregion
-	
+
+#pragma region Team
+	//TeamAgent
+public:
+	virtual void SetGenericTeamId(const FGenericTeamId& InTeamID) override;
+	virtual FGenericTeamId GetGenericTeamId() const override;
+
+protected:
+	UPROPERTY(Replicated)
+	FGenericTeamId TeamId;
+#pragma endregion 
 };

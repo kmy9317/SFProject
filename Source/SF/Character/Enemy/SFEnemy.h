@@ -40,6 +40,8 @@ public:
 
 	virtual void InitializeMovementComponent();
 
+	virtual FGenericTeamId GetGenericTeamId() const override;
+
 protected:
 
 	//PawnData에 있는 AbilitySet GIVE
@@ -83,6 +85,7 @@ protected:
 	void OnRep_LastAttacker();
 
 public:
-
 	void SetLastAttacker(AActor* Attacker);
+
+	
 };

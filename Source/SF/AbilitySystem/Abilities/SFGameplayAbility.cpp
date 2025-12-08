@@ -20,6 +20,30 @@ ASFCharacterBase* USFGameplayAbility::GetSFCharacterFromActorInfo() const
 	return (CurrentActorInfo ? Cast<ASFCharacterBase>(CurrentActorInfo->AvatarActor.Get()) : nullptr);
 }
 
+ETeamAttitude::Type USFGameplayAbility::GetAttitudeTowards(AActor* Target) const
+{
+	if (!Target)
+		return ETeamAttitude::Neutral;
+	AActor* SourceActor = GetAvatarActorFromActorInfo();
+	if (!SourceActor)
+		return ETeamAttitude::Neutral;
+
+	// Source의 TeamAgent 가져오기
+	IGenericTeamAgentInterface* SourceTeamAgent = Cast<IGenericTeamAgentInterface>(SourceActor);
+	if (!SourceTeamAgent)
+		return ETeamAttitude::Neutral;
+	// Target의 TeamAgent 가져오기
+	IGenericTeamAgentInterface* TargetTeamAgent = Cast<IGenericTeamAgentInterface>(Target);
+	if (!TargetTeamAgent)
+		return ETeamAttitude::Neutral;
+	// 적대 관계 확인
+	ETeamAttitude::Type Attitude = FGenericTeamId::GetAttitude(
+		SourceTeamAgent->GetGenericTeamId(),
+		TargetTeamAgent->GetGenericTeamId()
+	);
+	return Attitude;
+}
+
 void USFGameplayAbility::OnGiveAbility(const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilitySpec& Spec)
 {
 	Super::OnGiveAbility(ActorInfo, Spec);

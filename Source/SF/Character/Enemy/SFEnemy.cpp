@@ -10,6 +10,7 @@
 #include "AbilitySystem/Attributes/Enemy/SFCombatSet_Enemy.h"
 #include "AbilitySystem/Attributes/Enemy/SFPrimarySet_Enemy.h"
 #include "AbilitySystem/GameplayEvent/SFGameplayEventTags.h"
+#include "AI/Controller/SFEnemyController.h"
 #include "Character/SFPawnData.h"
 #include "Character/SFPawnExtensionComponent.h"
 #include "Component/SFEnemyMovementComponent.h"
@@ -172,6 +173,19 @@ void ASFEnemy::InitializeMovementComponent()
 		{
 			MoveComp ->MaxWalkSpeed = PrimarySet->GetMoveSpeed();
 		}
+	}
+	
+}
+
+FGenericTeamId ASFEnemy::GetGenericTeamId() const
+{
+	if (ASFEnemyController* Controller = Cast<ASFEnemyController>(GetController()))
+	{
+		return Controller->GetGenericTeamId();
+	}
+	else
+	{
+		return Super::GetGenericTeamId();	
 	}
 	
 }

@@ -59,7 +59,7 @@ void USFPrimarySet::PostGameplayEffectExecute(const FGameplayEffectModCallbackDa
 				// 6. 사망 태그가 없는 경우에만 부여 (중복방지)
 				if (!SFASC->HasMatchingGameplayTag(SFGameplayTags::Character_State_Dead))
 				{
-					SFASC->AddLooseGameplayTag(SFGameplayTags::Character_State_Dead);
+					SFASC->AddReplicatedLooseGameplayTag(SFGameplayTags::Character_State_Dead);
 
 					// TODO: 후에 GA_Death와 같은 사망 전용 어빌리티 활성화
 					 FGameplayEventData Payload;
@@ -96,6 +96,24 @@ void USFPrimarySet::PostAttributeChange(const FGameplayAttribute& Attribute, flo
 			check(SFASC);
 
 			SFASC->ApplyModToAttribute(GetHealthAttribute(), EGameplayModOp::Override, NewValue);
+		}
+	}
+	if (Attribute == GetHealthAttribute())
+	{
+		if (GetHealth() <= 0.1f)
+		{
+			if (USFAbilitySystemComponent* SFASC = GetSFAbilitySystemComponent())
+			{
+				// 6. 사망 태그가 없는 경우에만 부여 (중복방지)
+				if (!SFASC->HasMatchingGameplayTag(SFGameplayTags::Character_State_Dead))
+				{
+					SFASC->AddLooseGameplayTag(SFGameplayTags::Character_State_Dead);
+
+					// TODO: 후에 GA_Death와 같은 사망 전용 어빌리티 활성화
+					FGameplayEventData Payload;
+					SFASC->HandleGameplayEvent(SFGameplayTags::GameplayEvent_Death, &Payload);
+				}
+			}
 		}
 	}
 }

@@ -1,6 +1,7 @@
 #pragma once
 
 #include "CoreMinimal.h"
+#include "GenericTeamAgentInterface.h"
 #include "Abilities/GameplayAbility.h"
 #include "SFGameplayAbility.generated.h"
 
@@ -41,6 +42,9 @@ public:
 	void TryActivateAbilityOnSpawn(const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilitySpec& Spec) const;
 
 	FName GetAbilityID() const { return AbilityID; }
+
+	UFUNCTION(BlueprintCallable, Category = "SF|Ability|Team")
+	ETeamAttitude::Type GetAttitudeTowards(AActor* Target) const;
 protected:
 	//~UGameplayAbility interface
 	virtual void OnGiveAbility(const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilitySpec& Spec) override;

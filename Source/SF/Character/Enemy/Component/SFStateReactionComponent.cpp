@@ -211,7 +211,6 @@ void USFStateReactionComponent::StartKnockdown()
 void USFStateReactionComponent::EndKnockdown()
 {
 	OnStateEnd.Broadcast(SFGameplayTags::Character_State_Knockdown);
-	// - 기상 애니메이션 (여러 방향)
 	// - 충돌 설정 복구
 	// - 기상 후 짧은 무적 시간
 	// - 체력/스태미나 약간 회복 (게임 디자인에 따라)

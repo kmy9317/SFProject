@@ -3,7 +3,9 @@
 #include "GameFramework/CharacterMovementComponent.h"
 #include "AbilitySystem/SFAbilitySystemComponent.h"
 #include "SFPawnExtensionComponent.h"
+#include "Net/UnrealNetwork.h"
 #include "Player/SFPlayerState.h"
+#include "Team/SFTeamTypes.h"
 
 ASFCharacterBase::ASFCharacterBase(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
@@ -177,5 +179,12 @@ void ASFCharacterBase::UpdateAnimValue()
 
 	const FVector RelativeVelocity = Rotation.UnrotateVector(Velocity);
 	Direction = FMath::Atan2(RelativeVelocity.Y, RelativeVelocity.X) * (180.0f / PI);
+}
+
+FGenericTeamId ASFCharacterBase::GetGenericTeamId() const
+{
+	// todo 이거 서브 클래스에서 getter를 무조건 다시 해야하는데
+	//Player는 PlayerState의 TeamID를 return 해야하고 Enemy는 Controller의 값을 return 해야함.
+	return FGenericTeamId(SFTeamID::NoTeam);
 }
 
