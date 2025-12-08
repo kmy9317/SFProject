@@ -22,21 +22,6 @@ void USFStateReactionComponent::Initialize(UAbilitySystemComponent* InASC)
 		return;
 	}
 	ASC = InASC;
-	USFPawnExtensionComponent* PawnExtensionComponent  = USFPawnExtensionComponent::FindPawnExtensionComponent(GetOwner());
-	if (PawnExtensionComponent)
-	{
-		if (const USFEnemyData* EnemyData = PawnExtensionComponent->GetPawnData<USFEnemyData>())
-		{
-			MontageContainer = EnemyData->MontageContainer;
-		}
-	}
-	if (AActor* OwnerActor = GetOwner())
-	{
-		if (USkeletalMeshComponent* MeshComp = OwnerActor->FindComponentByClass<USkeletalMeshComponent>())
-		{
-			AnimInstance = MeshComp->GetAnimInstance();
-		}
-	}
 	MappingStateReaction();
 	BindingTagsDelegate();
 }
@@ -146,15 +131,6 @@ void USFStateReactionComponent::MappingStateReaction()
 void USFStateReactionComponent::StartParried()
 {
 	OnStateStart.Broadcast(SFGameplayTags::Character_State_Parried);
-	// 패리당했을 때
-	if (UAnimMontage* ParriedMontage = MontageContainer.GetMontage(SFGameplayTags::Character_State_Parried))
-	{
-		if (IsValid(AnimInstance))
-		{
-			AnimInstance->Montage_Stop(0.1f); 
-			AnimInstance->Montage_Play(ParriedMontage, 1.f, EMontagePlayReturnType::MontageLength, 0.f, true);
-		}
-	}
 
 	// - 이동 제한 (Root Motion 또는 CharacterMovement 비활성화)
 	// - 무적 프레임 부여 (연속 타격 방지)
@@ -271,16 +247,7 @@ void USFStateReactionComponent::EndGroggy()
 void USFStateReactionComponent::StartHitReact()
 {
 	OnStateStart.Broadcast(SFGameplayTags::Character_State_Hit);
-
-	if (UAnimMontage* ParriedMontage = MontageContainer.GetMontage(SFGameplayTags::Character_State_Hit))
-	{
-		if (IsValid(AnimInstance))
-		{
-			AnimInstance->Montage_Stop(0.1f); 
-			AnimInstance->Montage_Play(ParriedMontage, 1.f, EMontagePlayReturnType::MontageLength, 0.f, true);
-		}
-	}
-
+	
 	// - 파티클/사운드 (피, 스파크 등)
 	// - 데미지 숫자 표시
 	// - 콤보 카운터 증가

@@ -27,6 +27,8 @@ USFGA_Enemy_BaseAttack::USFGA_Enemy_BaseAttack(const FObjectInitializer& ObjectI
 	ActivationBlockedTags.AddTag(SFGameplayTags::Character_State_Hit);
 	ActivationBlockedTags.AddTag(SFGameplayTags::Ability_Cooldown_Enemy_Attack);
 	ActivationBlockedTags.AddTag(SFGameplayTags::Character_State_Blocking);
+	ActivationBlockedTags.AddTag(SFGameplayTags::Character_State_Parried);
+	
 }
 
 float USFGA_Enemy_BaseAttack::GetSetByCallerValue(const FGameplayTag& Tag, float DefaultValue) const

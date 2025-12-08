@@ -40,10 +40,17 @@ protected:
 protected:
 	UPROPERTY(EditDefaultsOnly)
 	uint8 Penetration; // 관통 숫자
-	
+
 	uint8 CurrentPenetration;
 
 	UPROPERTY(EditDefaultsOnly)
 	TSubclassOf<UGameplayEffect> ParriedGameplayEffectClass;
-	
+
+	// Ability Tasks
+	UPROPERTY()
+	class UAbilityTask_PlayMontageAndWait* MontageTask;
+
+	UPROPERTY()
+	class UAbilityTask_WaitGameplayEvent* EventTask;
+
 };

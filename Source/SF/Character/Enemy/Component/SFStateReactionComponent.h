@@ -53,8 +53,6 @@ protected:
 	UPROPERTY()
 	TMap<FGameplayTag, FStateReaction> StateReactionMap;
 
-	FSTTaggedMontageContainer MontageContainer;
-
 	UPROPERTY()
 	UAnimInstance* AnimInstance;
 
