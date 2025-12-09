@@ -385,8 +385,9 @@ void USFOSSGameInstance::LoadWaitingLevel_AsHost()
 {
 	if (UWorld* World = GetWorld())
 	{
+		// TODO : 하드 코딩 되어있는 LobbyMapName 리팩토링
 		//listen 옵션으로 열어 리슨 서버 시작
-		UGameplayStatics::OpenLevel(World, FName(TEXT("L_TestLobby_KMY")), true, TEXT("listen"));
+		UGameplayStatics::OpenLevel(World, FName(TEXT("L_Lobby_LJG")), true, TEXT("listen"));
 	}
 }
 
