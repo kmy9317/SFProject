@@ -1,7 +1,10 @@
 #include "UI/Common/CommonBarBase.h"
 
+#include <Programs/UnrealBuildAccelerator/Core/Public/UbaBase.h>
+
 #include "ShaderPrintParameters.h"
 #include "Components/ProgressBar.h"
+#include "Components/SizeBox.h"
 #include "Kismet/KismetMathLibrary.h" // NearlyEqual 사용
 
 void UCommonBarBase::NativePreConstruct()
@@ -51,6 +54,29 @@ void UCommonBarBase::SetBarColor(FLinearColor NewColor)
 	{
 		PB_Current->SetFillColorAndOpacity(BarFillColor);
 	}
+}
+
+void UCommonBarBase::UpdateBarWidth(float MaxStat)
+{
+	// SizeBox가 없을 경우 (몬스터용 CommonBar) 즉시 리턴
+	if (!DynamicSizeBox)
+	{
+		return;
+	}
+
+	// 비율 설정이 잘못되어 있으면(0 이하) 계산 중단
+	if (WidthPerStat <= 0.f)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("WidthPerStat is zero or negative!"));
+		return;
+	}
+
+	float NewWidth = MaxStat * WidthPerStat;
+
+	// 계산된 길이가 지정한 최소길이(Min)보다 작으면 최소길이로, 지정한 최대길이(Max)보다 크면 최대길이로 고정
+	NewWidth = FMath::Clamp(NewWidth, MinBarWidth, MaxBarWidth);
+
+	DynamicSizeBox->SetWidthOverride(NewWidth);
 }
 
 void UCommonBarBase::NativeTick(const FGeometry& MyGeometry, float InDeltaTime)
