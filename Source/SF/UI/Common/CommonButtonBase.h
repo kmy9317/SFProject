@@ -41,6 +41,7 @@ protected:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "UI|Sound")
 	TObjectPtr<USoundBase> ClickSound;
 
+public:
 	UFUNCTION()
 	void OnButtonClicked(); // 버튼 클릭시 이벤트
 

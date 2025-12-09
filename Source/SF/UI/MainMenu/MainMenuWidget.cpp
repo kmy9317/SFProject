@@ -3,6 +3,9 @@
 #include "Kismet/GameplayStatics.h"
 #include "Kismet/KismetSystemLibrary.h"
 
+#include "UI/SearchLobby/SFCreateRoomWidget.h"
+#include "UI/SearchLobby/SFSearchLobbyWidget.h"
+
 void UMainMenuWidget::NativeConstruct()
 {
 	Super::NativeConstruct();
@@ -41,48 +44,31 @@ void UMainMenuWidget::OnNewGameClicked()
 		return;
 	}
 
-	if (UWorld* World = GetWorld())
+	USFCreateRoomWidget* CreateRoomWidgetClass = CreateWidget<USFCreateRoomWidget>(this, CreateGameWidgetClass);
+
+	if (CreateRoomWidgetClass)
 	{
-		UUserWidget* CreateGameWidget = CreateWidget<UUserWidget>(World, CreateGameWidgetClass);
+		CreateRoomWidgetClass->AddToViewport(100);
 
-		if (CreateGameWidget)
-		{
-			CreateGameWidget->AddToViewport(100);   // 맨 위에서 생성되도록
-			UE_LOG(LogTemp, Warning, TEXT("CreateGame 위젯 생성 및 출력 완료"));
-		}
-		else
-		{
-			UE_LOG(LogTemp, Error, TEXT("CreateGameWidget 생성 실패"));
-		}
+		UE_LOG(LogTemp,Warning, TEXT("CreateRoomWidgetClass 생성 완료."));
 	}
-
-	UE_LOG(LogTemp, Warning, TEXT("세션 생성 창 출력 요청"));
 }
 
 void UMainMenuWidget::OnSearchMatchClicked()
 {
-	/*if (!LobbyMapAsset.IsValid())
+	if (!SearchLobbyWidgetClass) 
 	{
-		UE_LOG(LogTemp, Error, TEXT("LobbyMapAsset 이 UMainMenuWidget BP에서 설정되지 않았습니다."));
+		UE_LOG(LogTemp, Error, TEXT("SearchLobbyWidgetClass가 UMainMenuWidget BP에서 설정되지 않았습니다."));
 		return;
-	}*/
-
-	// 1. 맵 이름 가져오기
-	FString MapName = LobbyMapAsset.GetLongPackageName();
-	
-	// 2. 맵 이동 (openlevel)
-	if (UWorld* World = GetWorld())
-	{
-		if (!MapName.IsEmpty())
-		{
-			// 절대 경로로 맵 이동
-			UGameplayStatics::OpenLevel(World, FName(*MapName));
-
-			UE_LOG(LogTemp, Warning, TEXT("맵 이동 요청 : %s"), *MapName);
-		}
 	}
-	
-	UE_LOG(LogTemp, Warning, TEXT("SearchMatch 버튼 클릭: 세션 찾기 맵으로 이동 시도"));
+	USFSearchLobbyWidget* LobbyWidget = CreateWidget<USFSearchLobbyWidget>(this, SearchLobbyWidgetClass);
+
+	if (LobbyWidget)
+	{
+		LobbyWidget->AddToViewport(100);
+
+		UE_LOG(LogTemp,Warning, TEXT("SearchLobbyWidget 생성 완료."));
+	}
 }
 
 void UMainMenuWidget::OnOptionsClicked()

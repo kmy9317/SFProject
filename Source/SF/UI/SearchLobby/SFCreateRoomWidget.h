@@ -7,7 +7,7 @@
 class USFOSSGameInstance;
 class UCheckBox;
 class USpinBox;
-class UButton;
+class UCommonButtonBase;
 class UEditableTextBox;
 class UTextBlock;
 
@@ -18,6 +18,9 @@ class SF_API USFCreateRoomWidget : public UUserWidget
 
 public:
     virtual void NativeConstruct() override;
+
+protected:
+    virtual FReply NativeOnKeyDown(const FGeometry& InGeometry, const FKeyEvent& InKeyEvent) override;
 
 protected:
     //====================================UI 위젯======================================
@@ -31,10 +34,10 @@ protected:
     USpinBox* MaxPlayersSpinBox; //최대 플레이어 설정
 
     UPROPERTY(meta = (BindWidget))
-    UButton* CreateButton; //생성 버튼
+    UCommonButtonBase* CreateButton; //생성 버튼
 
     UPROPERTY(meta = (BindWidget))
-    UButton* CancelButton; //취소 버튼
+    UCommonButtonBase* CancelButton; //취소 버튼
 
     UPROPERTY(meta = (BindWidget))
     UTextBlock* ErrorMessageText; //오류 메시지 표시

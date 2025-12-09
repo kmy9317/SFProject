@@ -6,8 +6,9 @@
 #include "SFRoomListEntryWidget.generated.h"
 
 class USFPasswordInputWidget;
-class UButton;
+class UCommonButtonBase;
 class UTextBlock;
+class UWidgetSwitcher;
 
 UCLASS()
 class SF_API USFRoomListEntryWidget : public UUserWidget, public IUserObjectListEntry
@@ -32,7 +33,10 @@ public:
     UTextBlock* ProtectedIndicator; //비밀방 여부 표시
 
     UPROPERTY(meta=(BindWidget))
-    UButton* JoinButton; //참가 버튼
+    UCommonButtonBase* JoinButton; //참가 버튼
+
+    UPROPERTY(meta=(BindWidget))
+    UWidgetSwitcher* MainSwitcher;
 
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="UI")
     TSubclassOf<USFPasswordInputWidget> PasswordInputWidgetClass; //비밀번호 입력창 위젯 클래스

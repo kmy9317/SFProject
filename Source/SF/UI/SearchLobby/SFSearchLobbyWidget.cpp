@@ -4,9 +4,10 @@
 #include "SFCreateRoomWidget.h"
 #include "Components/ListView.h"
 #include "Components/TextBlock.h"
-#include "Components/Button.h"
 #include "Components/CheckBox.h"
 #include "Kismet/GameplayStatics.h"
+
+#include "UI/Common/CommonButtonBase.h"
 
 void USFSearchLobbyWidget::NativeConstruct()
 {
@@ -18,8 +19,9 @@ void USFSearchLobbyWidget::NativeConstruct()
     //======================================================================
 
     //==============================이벤트 바인딩==============================
-    if (RefreshButton) RefreshButton->OnClicked.AddDynamic(this, &USFSearchLobbyWidget::OnRefreshButtonClicked);
-    if (CreateRoomButton) CreateRoomButton->OnClicked.AddDynamic(this, &USFSearchLobbyWidget::OnCreateRoomButtonClicked);
+    if (RefreshButton) RefreshButton->OnButtonClickedDelegate.AddDynamic(this, &USFSearchLobbyWidget::OnRefreshButtonClicked);
+    if (CreateRoomButton) CreateRoomButton->OnButtonClickedDelegate.AddDynamic(this, &USFSearchLobbyWidget::OnCreateRoomButtonClicked);
+    if (CancelButton)   CancelButton->OnButtonClickedDelegate.AddDynamic(this,&USFSearchLobbyWidget::OnCancelButtonClicked);
     if (PasswordProtectedCheckBox) PasswordProtectedCheckBox->OnCheckStateChanged.AddDynamic(this, &USFSearchLobbyWidget::OnPasswordFilterChanged);
     //=======================================================================
 
@@ -53,6 +55,11 @@ void USFSearchLobbyWidget::OnCreateRoomButtonClicked()
     CreateRoomUI(); //방 생성 UI 호출
 }
 
+void USFSearchLobbyWidget::OnCancelButtonClicked()
+{
+    RemoveFromParent();
+}
+
 void USFSearchLobbyWidget::OnPasswordFilterChanged(bool bIsChecked)
 {
     RefreshSessionList(); //비밀방 표시 여부 변경 시 바로 리스트 업데이트
@@ -66,9 +73,23 @@ void USFSearchLobbyWidget::OnSessionsUpdated(const TArray<FSessionInfo>& Session
 
     SessionListView->ClearListItems(); //기존 리스트 비우기
 
+    // 1. 진짜 방 데이터 목록 추가
     for (int32 i = 0; i < Sessions.Num(); ++i) //Index 포함하여 전달
     {
         SessionListView->AddItem(USFSessionListItem::Make(this, Sessions[i], i)); //리스트 아이템 추가
+    }
+
+    // 2. 모자란 만큼 빈칸(Dummy) 데이터 추가
+    int32 CurrentCount = Sessions.Num();
+    if (CurrentCount < MinSlots)
+    {
+        for (int32 i = 0; i < (MinSlots - CurrentCount); ++i)
+        {
+            FSessionInfo EmptyInfo; // 빈 정보
+
+            // 빈방(가짜 방 목록) 데이터 시-> -1 인덱스 전달 
+            SessionListView->AddItem(USFSessionListItem::Make(this, EmptyInfo, -1));
+        }
     }
 
     if (StatusText)
@@ -101,7 +122,24 @@ void USFSearchLobbyWidget::CreateRoomUI()
     USFCreateRoomWidget* Widget = CreateWidget<USFCreateRoomWidget>(this, CreateRoomWidgetClass);
     if (Widget)
     {
-        Widget->AddToViewport(10);
+        Widget->AddToViewport(100);
     }
+}
+//===========================================================================
+
+//================================인풋 이벤트(ESC 창 닫기 기능)==================
+FReply USFSearchLobbyWidget::NativeOnKeyDown(const FGeometry& InGeometry, const FKeyEvent& InKeyEvent)
+{
+    if (InKeyEvent.GetKey() == EKeys::Escape)
+    {
+        if (CancelButton)
+        {
+            CancelButton->OnButtonClicked();
+        }
+        
+        return FReply::Handled();
+    }
+    
+    return Super::NativeOnKeyDown(InGeometry, InKeyEvent);
 }
 //===========================================================================

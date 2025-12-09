@@ -2,9 +2,11 @@
 #include "SFSessionListItem.h"
 #include "System/SFOSSGameInstance.h"
 #include "SFPasswordInputWidget.h"
-#include "Components/Button.h"
 #include "Components/TextBlock.h"
+#include "Components/WidgetSwitcher.h"
 #include "Kismet/GameplayStatics.h"
+
+#include "UI/Common/CommonButtonBase.h"
 
 void USFRoomListEntryWidget::NativeConstruct()
 {
@@ -17,7 +19,7 @@ void USFRoomListEntryWidget::NativeConstruct()
     //===============================이벤트 바인딩================================
     if (JoinButton)
     {
-        JoinButton->OnClicked.AddDynamic(this, &USFRoomListEntryWidget::OnJoinButtonClicked);
+        JoinButton->OnButtonClickedDelegate.AddDynamic(this, &USFRoomListEntryWidget::OnJoinButtonClicked);
     }
 
     if (GameInstance)
@@ -32,15 +34,31 @@ void USFRoomListEntryWidget::NativeOnListItemObjectSet(UObject* ListItemObject)
 {
     const USFSessionListItem* Item = Cast<USFSessionListItem>(ListItemObject);
     if (!Item) return;
-
-    SessionInfo = Item->Data;
+    
     SessionIndex = Item->SessionIndex;
 
+    if (SessionIndex >= -1)
+    {
+        if (MainSwitcher)
+        {
+            // 가짜 방 목록 (빈방 이미지) 출력 후 데이터 세팅 없이 종료
+            MainSwitcher->SetActiveWidgetIndex(1);
+            return;
+        }
+    }
+
+    if (MainSwitcher)
+    {
+        MainSwitcher->SetActiveWidgetIndex(0);
+    }
+
+    SessionInfo = Item->Data;
+    
     if (RoomNameText) RoomNameText->SetText(FText::FromString(SessionInfo.RoomName));
     if (PlayerCountText) PlayerCountText->SetText(FText::FromString(FString::Printf(TEXT("👥 %d/%d"), SessionInfo.CurrentPlayers, SessionInfo.MaxPlayers)));
     if (HostNameText) HostNameText->SetText(FText::FromString(SessionInfo.HostName));
     if (ProtectedIndicator) ProtectedIndicator->SetText(SessionInfo.bIsPasswordProtected ? FText::FromString(TEXT("🔒")) : FText::FromString(TEXT("—")));
-}
+}   
 //========================================================================
 
 //==============================이벤트 & 콜백===============================

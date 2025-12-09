@@ -2,9 +2,10 @@
 
 #include "System/SFOSSGameInstance.h"
 #include "Components/EditableTextBox.h"
-#include "Components/Button.h"
 #include "Components/TextBlock.h"
 #include "Kismet/GameplayStatics.h"
+
+#include "UI/Common/CommonButtonBase.h"
 
 void USFPasswordInputWidget::NativeConstruct()
 {
@@ -17,12 +18,12 @@ void USFPasswordInputWidget::NativeConstruct()
     //================================이벤트 바인딩=================================
     if (ConfirmButton)
     {
-        ConfirmButton->OnClicked.AddDynamic(this, &USFPasswordInputWidget::OnConfirmButtonClicked);
+        ConfirmButton->OnButtonClickedDelegate.AddDynamic(this, &USFPasswordInputWidget::OnConfirmButtonClicked);
     }
 
     if (CancelButton)
     {
-        CancelButton->OnClicked.AddDynamic(this, &USFPasswordInputWidget::OnCancelButtonClicked);
+        CancelButton->OnButtonClickedDelegate.AddDynamic(this, &USFPasswordInputWidget::OnCancelButtonClicked);
     }
     //============================================================================
 
@@ -118,5 +119,22 @@ void USFPasswordInputWidget::OnJoinSessionComplete(bool bWasSuccessful, const FS
 void USFPasswordInputWidget::SetSessionIndex(int32 InSessionIndex)
 {
     SessionIndex = InSessionIndex;
+}
+//=========================================================================
+
+//================================인풋 이벤트(ESC 창 닫기 기능)================================
+FReply USFPasswordInputWidget::NativeOnKeyDown(const FGeometry& InGeometry, const FKeyEvent& InKeyEvent)
+{
+    if (InKeyEvent.GetKey() == EKeys::Escape)
+    {
+        if (CancelButton)
+        {
+            CancelButton->OnButtonClicked();
+        }
+        
+        return FReply::Handled();
+    }
+    
+    return Super::NativeOnKeyDown(InGeometry, InKeyEvent);
 }
 //=========================================================================

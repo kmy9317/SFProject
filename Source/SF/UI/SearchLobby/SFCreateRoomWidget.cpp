@@ -1,17 +1,22 @@
 #include "SFCreateRoomWidget.h"
 
 #include "System/SFOSSGameInstance.h"
+#include "UI/Common/CommonButtonBase.h"
+
 #include "Components/EditableTextBox.h"
-#include "Components/Button.h"
 #include "Components/TextBlock.h"
 #include "Components/SpinBox.h"
 #include "Components/CheckBox.h"
 #include "Kismet/GameplayStatics.h"
+#include "Input/Events.h"
+#include "InputCoreTypes.h"
 
 void USFCreateRoomWidget::NativeConstruct()
 {
     Super::NativeConstruct();
 
+    bIsFocusable = true;
+    
     //===========================GameInstance 캐스팅==========================
     GameInstance = Cast<USFOSSGameInstance>(UGameplayStatics::GetGameInstance(GetWorld()));
     //=======================================================================
@@ -19,12 +24,12 @@ void USFCreateRoomWidget::NativeConstruct()
     //==============================이벤트 바인딩==============================
     if (CreateButton)
     {
-        CreateButton->OnClicked.AddDynamic(this, &USFCreateRoomWidget::OnCreateButtonClicked);
+        CreateButton->OnButtonClickedDelegate.AddDynamic(this, &USFCreateRoomWidget::OnCreateButtonClicked);
     }
 
     if (CancelButton)
     {
-        CancelButton->OnClicked.AddDynamic(this, &USFCreateRoomWidget::OnCancelButtonClicked);
+        CancelButton->OnButtonClickedDelegate.AddDynamic(this, &USFCreateRoomWidget::OnCancelButtonClicked);
     }
 
     if (GameInstance)
@@ -57,10 +62,12 @@ void USFCreateRoomWidget::NativeConstruct()
 
     if (MaxPlayersSpinBox)
     {
-        MaxPlayersSpinBox->SetValue(1.0f);
-        MaxPlayersSpinBox->SetMinValue(1.0f);
-        MaxPlayersSpinBox->SetMaxValue(4.0f);
+        MaxPlayersSpinBox->SetValue(1);
+        MaxPlayersSpinBox->SetMinValue(1);
+        MaxPlayersSpinBox->SetMaxValue(4);
     }
+
+    SetKeyboardFocus();
     //=======================================================================
 }
 
@@ -132,3 +139,19 @@ void USFCreateRoomWidget::OnSecretRoomCheckboxChanged(bool bIsChecked)
     }
 }
 //===================================================================================
+
+//================================인풋 이벤트(ESC 창 닫기 기능)================================
+FReply USFCreateRoomWidget::NativeOnKeyDown(const FGeometry& InGeometry, const FKeyEvent& InKeyEvent)
+{
+    if (InKeyEvent.GetKey() == EKeys::Escape)
+    {
+        if (CancelButton)
+        {
+            CancelButton->OnButtonClicked();
+        }
+        
+        return FReply::Handled();
+    }
+    
+    return Super::NativeOnKeyDown(InGeometry, InKeyEvent);
+}
