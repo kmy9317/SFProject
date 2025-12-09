@@ -71,9 +71,6 @@ protected:
 
 	//스킬 설정
 	UPROPERTY(EditDefaultsOnly, Category="SF|Damage")
-	float BaseDamage = 40.f;
-
-	UPROPERTY(EditDefaultsOnly, Category="SF|Damage")
 	float StrikeDistance = 300.f;
 
 	UPROPERTY(EditDefaultsOnly, Category="SF|Damage")

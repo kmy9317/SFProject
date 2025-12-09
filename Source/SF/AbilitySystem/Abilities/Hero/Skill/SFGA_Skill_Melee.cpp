@@ -119,6 +119,40 @@ void USFGA_Skill_Melee::DrawDebugHitPoint(const FHitResult& HitResult)
 	}
 }
 
+void USFGA_Skill_Melee::OnTrace(FGameplayEventData Payload)
+{
+	USFAbilitySystemComponent* SourceASC = GetSFAbilitySystemComponentFromActorInfo();
+	if (SourceASC == nullptr)
+	{
+		return;
+	}
+
+	if (!Payload.Instigator)
+	{
+		return;
+	}
+
+	ASFEquipmentBase* WeaponActor = const_cast<ASFEquipmentBase*>(Cast<ASFEquipmentBase>(Payload.Instigator));
+	if (!WeaponActor)
+	{
+		return;
+	}
+	
+	if (SourceASC->FindAbilitySpecFromHandle(CurrentSpecHandle))
+	{
+		FGameplayAbilityTargetDataHandle LocalTargetDataHandle(MoveTemp(Payload.TargetData));
+
+		TArray<int32> ActorHitIndexes;
+		ParseTargetData(LocalTargetDataHandle, ActorHitIndexes);
+
+		for (int32 ActorHitIndex : ActorHitIndexes)
+		{
+			FHitResult HitResult = *LocalTargetDataHandle.Data[ActorHitIndex]->GetHitResult();
+			ProcessHitResult(HitResult, BaseDamage, WeaponActor);
+		}
+	}
+}
+
 void USFGA_Skill_Melee::ResetHitActors()
 {
 	CachedHitActors.Reset();

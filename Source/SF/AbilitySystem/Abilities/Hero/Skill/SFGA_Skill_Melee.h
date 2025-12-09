@@ -28,8 +28,13 @@ protected:
 	void ResetHitActors();
 
 	void DrawDebugHitPoint(const FHitResult& HitResult);
+
+	UFUNCTION()
+	virtual void OnTrace(FGameplayEventData Payload);
 	
 protected:
+	UPROPERTY(EditDefaultsOnly, Category="SF|Damage")
+	float BaseDamage = 10.f;
 
 	UPROPERTY(EditDefaultsOnly, Category = "SF|Debug")
 	bool bShowDebug = false;

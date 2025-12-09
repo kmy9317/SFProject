@@ -7,7 +7,6 @@
 #include "AbilitySystem/GameplayEvent/SFGameplayEventTags.h"
 #include "Character/SFCharacterBase.h"
 #include "GameFramework/CharacterMovementComponent.h"
-#include "Weapons/Actor/SFEquipmentBase.h"
 
 USFGA_Thrust_Base::USFGA_Thrust_Base(FObjectInitializer const& ObjectInitializer)
 	: Super(ObjectInitializer)
@@ -65,41 +64,6 @@ void USFGA_Thrust_Base::ActivateAbility(const FGameplayAbilitySpecHandle Handle,
 void USFGA_Thrust_Base::EndAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, bool bReplicateEndAbility, bool bWasCancelled)
 {
 	Super::EndAbility(Handle, ActorInfo, ActivationInfo, bReplicateEndAbility, bWasCancelled);
-}
-
-void USFGA_Thrust_Base::OnTrace(FGameplayEventData Payload)
-{
-	USFAbilitySystemComponent* SourceASC = GetSFAbilitySystemComponentFromActorInfo();
-	if (SourceASC == nullptr)
-	{
-		return;
-	}
-
-	if (!Payload.Instigator)
-	{
-		return;
-	}
-
-	ASFEquipmentBase* WeaponActor = const_cast<ASFEquipmentBase*>(Cast<ASFEquipmentBase>(Payload.Instigator));
-	if (!WeaponActor)
-	{
-		return;
-	}
-	
-	if (SourceASC->FindAbilitySpecFromHandle(CurrentSpecHandle))
-	{
-		FGameplayAbilityTargetDataHandle LocalTargetDataHandle(MoveTemp(Payload.TargetData));
-
-		TArray<int32> ActorHitIndexes;
-		ParseTargetData(LocalTargetDataHandle, ActorHitIndexes);
-
-		for (int32 ActorHitIndex : ActorHitIndexes)
-		{
-			FHitResult HitResult = *LocalTargetDataHandle.Data[ActorHitIndex]->GetHitResult();
-			ProcessHitResult(HitResult, BaseDamage, WeaponActor);
-		}
-	}
-	
 }
 
 void USFGA_Thrust_Base::OnThrustBegin(FGameplayEventData Payload)

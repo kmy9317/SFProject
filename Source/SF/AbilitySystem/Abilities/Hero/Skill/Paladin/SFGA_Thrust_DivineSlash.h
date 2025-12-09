@@ -1,28 +1,38 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "SFGA_Thrust_Base.h"
+#include "AbilitySystem/Abilities/Hero/Skill/SFGA_ChainedSkill_Melee.h"
 #include "SFGA_Thrust_DivineSlash.generated.h"
 
 /**
  * 
  */
 UCLASS()
-class SF_API USFGA_Thrust_DivineSlash : public USFGA_Thrust_Base
+class SF_API USFGA_Thrust_DivineSlash : public USFGA_ChainedSkill_Melee
 {
 	GENERATED_BODY()
 
+public:
+	USFGA_Thrust_DivineSlash(const FObjectInitializer& ObjectInitializer = FObjectInitializer::Get());
+
 protected:
-	virtual void ActivateAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, const FGameplayEventData* TriggerEventData) override;
+	virtual void ExecuteChainStep(int32 ChainIndex) override;
+	virtual void OnChainMontageCompleted() override;
+	virtual void OnChainMontageInterrupted() override;
+	
+	UFUNCTION()
+	void OnInvincibilityStart(FGameplayEventData Payload);
 
-	// 콤보 입력 대기 태스크 활용
-	void WaitForNextComboInput();
+	UFUNCTION()
+	void OnInvincibilityEnd(FGameplayEventData Payload);
 
+	void ApplyInvincibility();
+	void RemoveInvincibility();
 protected:
 	// 무적 효과 GE
-	UPROPERTY(EditDefaultsOnly, Category="Buff")
+	UPROPERTY(EditDefaultsOnly, Category="SF|Effect")
 	TSubclassOf<UGameplayEffect> InvincibilityEffectClass;
 
-	// 콤보 카운트
-	int32 CurrentComboCount = 0;
+private:
+	FActiveGameplayEffectHandle InvincibilityEffectHandle;
 };
