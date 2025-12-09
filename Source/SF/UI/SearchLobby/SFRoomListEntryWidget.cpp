@@ -37,7 +37,7 @@ void USFRoomListEntryWidget::NativeOnListItemObjectSet(UObject* ListItemObject)
     
     SessionIndex = Item->SessionIndex;
 
-    if (SessionIndex >= -1)
+    if (SessionIndex == -1)
     {
         if (MainSwitcher)
         {
