@@ -7,6 +7,7 @@
 #include "AbilitySystem/Attributes/Enemy/SFPrimarySet_Enemy.h"
 #include "GameFramework/PlayerController.h"
 #include "Camera/PlayerCameraManager.h"
+#include "Components/CapsuleComponent.h"
 #include "UI/Common/CommonBarBase.h"
 
 
@@ -79,8 +80,21 @@ void USFEnemyWidgetComponent::InitializeWidget()
         }
     }
 
+    // 이 컴포넌트의 주인(몬스터)이 캐릭터인지 확인
+    ACharacter* OwnerCharacter = Cast<ACharacter>(GetOwner());
+    if (OwnerCharacter && OwnerCharacter->GetCapsuleComponent())
+    {
+        // 캡슐의 절반 높이 (중심에서 머리끝까지)를 가져옴
+        float CapsuleHalfHeight = OwnerCharacter->GetCapsuleComponent()->GetScaledCapsuleHalfHeight();
+
+        // 위젯의 새로운 위치 설정
+        // X, Y는 0 (중앙), Z는 캡슐 높이 + 우리가 설정한 여유 공간(Offset)
+        SetRelativeLocation(FVector(0.f, 0.f, CapsuleHalfHeight + WidgetVerticalOffset));
+    }
+    
     if (EnemyWidget)
     {
+        EnemyWidget->SetBarColor(HealthBarColor);
         EnemyWidget->SetPercentVisuals(1.f);
     }
 }

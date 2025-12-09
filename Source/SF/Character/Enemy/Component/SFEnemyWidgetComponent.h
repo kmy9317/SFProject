@@ -61,6 +61,15 @@ private:
 	TObjectPtr<UCommonBarBase> EnemyWidget;
 
 	// 표시 관련
+
+	// 캡슐 상단에서 얼마나 더 위로 띄울지 (기본값 50)
+	UPROPERTY(EditAnywhere, Category = "SF|Widget")
+	float WidgetVerticalOffset = 50.0f;
+
+	// 향후 에디터에서 몬스터마다 색상을 다르게 지정할 수 있게 변수 추가
+	UPROPERTY(EditAnywhere, Category = "SF|Widget")
+	FLinearColor HealthBarColor = FLinearColor::Red; // 기본값 빨강
+	
 	UPROPERTY(EditAnywhere, Category = "SF|Widget")
 	float VisibleDurationAfterHit = 3.f;
 

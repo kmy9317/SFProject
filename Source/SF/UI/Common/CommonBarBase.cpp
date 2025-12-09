@@ -43,6 +43,16 @@ void UCommonBarBase::SetPercentVisuals(float InPercent)
 	}
 }
 
+void UCommonBarBase::SetBarColor(FLinearColor NewColor)
+{
+	BarFillColor = NewColor;
+
+	if (PB_Current)
+	{
+		PB_Current->SetFillColorAndOpacity(BarFillColor);
+	}
+}
+
 void UCommonBarBase::NativeTick(const FGeometry& MyGeometry, float InDeltaTime)
 {
 	Super::NativeTick(MyGeometry, InDeltaTime);

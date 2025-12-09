@@ -45,4 +45,7 @@ public:
 	// InGameHUD 호출용 함수 (0.0 ~ 1.0 사이의 수치로 UI 프로그래스바 수치 조절)
 	UFUNCTION(BlueprintCallable, Category="UI|Function")
 	void SetPercentVisuals(float InPercent);
+
+	// 외부(Component)에서 색상을 바꿀 수 있게 해주는 함수
+	void SetBarColor(FLinearColor NewColor);
 };
