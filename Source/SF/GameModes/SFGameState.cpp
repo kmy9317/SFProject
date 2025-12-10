@@ -1,9 +1,12 @@
 #include "SFGameState.h"
+
+#include "SFEnemyManagerComponent.h"
 #include "SFPortalManagerComponent.h"
 
 ASFGameState::ASFGameState()
 {
 	PortalManager = CreateDefaultSubobject<USFPortalManagerComponent>(TEXT("PortalManager"));
+	EnemyManager = CreateDefaultSubobject<USFEnemyManagerComponent>(TEXT("EnemyManager"));
 }
 
 void ASFGameState::AddPlayerState(APlayerState* PlayerState)

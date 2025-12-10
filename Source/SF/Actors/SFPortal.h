@@ -8,7 +8,7 @@
 class USFPortalManagerComponent;
 class UBoxComponent;
 class UStaticMeshComponent;
-class UParticleSystemComponent;
+class UNiagaraComponent;
 
 /**
  * 물리적 포탈 트리거
@@ -60,7 +60,16 @@ private:
 	/** PortalManager 찾기 및 등록 */
 	void FindAndRegisterWithManager();
 
+	UFUNCTION(NetMulticast, Unreliable)
+	void MulticastPlayActivateSound();
+
+	void UpdatePortalEffects();
+
 private:
+
+	UPROPERTY(VisibleAnywhere, Category = "Components")
+	TObjectPtr<USceneComponent> Root;
+	
 	/** 충돌 감지 컴포넌트 */
 	UPROPERTY(VisibleAnywhere, Category = "Components")
 	TObjectPtr<UBoxComponent> TriggerBox;
@@ -71,15 +80,24 @@ private:
 
 	/** 포탈 이펙트 */
 	UPROPERTY(VisibleAnywhere, Category = "Components")
-	TObjectPtr<UParticleSystemComponent> PortalEffect;
+	TObjectPtr<UNiagaraComponent> PortalEffect;
 
 	/** 다음 스테이지 레벨 */
 	UPROPERTY(EditInstanceOnly, Category = "SF|Portal", meta = (AllowedClasses = "/Script/Engine.World"))
 	TSoftObjectPtr<UWorld> NextStageLevel;
 
+	UPROPERTY(EditAnywhere, Category = "SF|Portal|Sound")
+	TObjectPtr<USoundBase> PortalActivateSound;
+
+	UPROPERTY(EditAnywhere, Category = "SF|Portal|Sound")
+	TObjectPtr<USoundBase> PortalLoopSound;
+
+	UPROPERTY(Transient)
+	TObjectPtr<UAudioComponent> LoopAudioComponent;
+
 	/** Portal 활성화 여부 */
 	UPROPERTY(ReplicatedUsing = OnRep_bIsEnabled)
-	bool bIsEnabled;
+	uint8  bIsEnabled : 1;
 
 	/** 캐시된 PortalManager */
 	UPROPERTY()

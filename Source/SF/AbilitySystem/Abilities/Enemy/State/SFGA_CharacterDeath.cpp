@@ -4,10 +4,10 @@
 #include "SFGA_CharacterDeath.h"
 
 #include "AbilitySystem/GameplayEvent/SFGameplayEventTags.h"
-#include "Components/CapsuleComponent.h"
-#include "GameFramework/Character.h"
-#include "GameFramework/CharacterMovementComponent.h"
 #include "Character/SFCharacterGameplayTags.h"
+#include "Character/Enemy/SFEnemy.h"
+#include "GameModes/SFEnemyManagerComponent.h"
+#include "GameModes/SFGameState.h"
 
 USFGA_CharacterDeath::USFGA_CharacterDeath()
 {
@@ -42,6 +42,18 @@ void USFGA_CharacterDeath::ActivateAbility(const FGameplayAbilitySpecHandle Hand
 		FTimerDelegate TimerDel;
 		TimerDel.BindUObject(this, &ThisClass::DeathEventAfterDelay);
 		Avatar->GetWorldTimerManager().SetTimer(EventTimerHandle, TimerDel, EventTime, false);
+
+		// TODO : 추후 적 전용 Death 어빌리티에서 구현할 필요 있어보임
+		if (ASFEnemy* Enemy = Cast<ASFEnemy>(Avatar))
+		{
+			if (ASFGameState* SFGameState = GetWorld()->GetGameState<ASFGameState>())
+			{
+				if (USFEnemyManagerComponent* EnemyManager = SFGameState->GetEnemyManager())
+				{
+					EnemyManager->UnregisterEnemy(Enemy);
+				}
+			}
+		}
 	}
 }
 

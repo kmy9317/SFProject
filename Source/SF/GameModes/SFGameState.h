@@ -7,6 +7,7 @@
 #include "SFGameState.generated.h"
 
 class USFPortalManagerComponent;
+class USFEnemyManagerComponent;
 class ASFPortal;
 
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnPlayerStateChangedDelegate, APlayerState*, PlayerState);
@@ -25,6 +26,10 @@ public:
 	/** Portal Manager 가져오기 */
 	UFUNCTION(BlueprintPure, Category = "SF|GameState")
 	USFPortalManagerComponent* GetPortalManager() const { return PortalManager; }
+
+	/** Enemy Manager 가져오기 */
+	UFUNCTION(BlueprintPure, Category = "SF|GameState")
+	USFEnemyManagerComponent* GetEnemyManager() const { return EnemyManager; }
 
 protected:
 
@@ -46,4 +51,7 @@ private:
 	/** Portal 관리 컴포넌트 */
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "SF|Components", meta = (AllowPrivateAccess = "true"))
 	TObjectPtr<USFPortalManagerComponent> PortalManager;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "SF|Components", meta = (AllowPrivateAccess = "true"))
+	TObjectPtr<USFEnemyManagerComponent> EnemyManager;
 };

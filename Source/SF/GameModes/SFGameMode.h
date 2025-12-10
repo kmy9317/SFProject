@@ -41,9 +41,8 @@ public:
 	void RequestTravelToNextStage(TSoftObjectPtr<UWorld> NextStageLevel);
 
 protected:
-	/** TODO : 게임 시작 후 자동으로 포탈 활성화 (삭제 예정) */
 	UFUNCTION()
-	void AutoActivatePortalForTest();
+	void OnAllEnemiesDefeated();
 
 private:
 	void SetupPlayerPawnDataLoading(APlayerController* PC);

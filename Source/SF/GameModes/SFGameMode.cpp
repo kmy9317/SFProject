@@ -1,5 +1,6 @@
 #include "SFGameMode.h"
 
+#include "SFEnemyManagerComponent.h"
 #include "SFGameState.h"
 #include "SFLogChannels.h"
 #include "SFPortalManagerComponent.h"
@@ -19,24 +20,33 @@ void ASFGameMode::InitGameState()
 {
 	Super::InitGameState();
 	// TODO : SFGameState 캐싱
+
+	// EnemyManager 델리게이트 바인딩
+	if (ASFGameState* SFGameState = GetGameState<ASFGameState>())
+	{
+		if (USFEnemyManagerComponent* EnemyManager = SFGameState->GetEnemyManager())
+		{
+			EnemyManager->OnAllEnemiesDefeated.AddDynamic(this, &ThisClass::OnAllEnemiesDefeated);
+		}
+	}
 }
 
 void ASFGameMode::StartPlay()
 {
 	Super::StartPlay();
 
-	// TODO : 테스트용 자동 포탈 활성화(삭제 예정)
-	if (bAutoActivatePortal)
+	if (GetWorld())
 	{
-		GetWorld()->GetTimerManager().SetTimer(
-			PortalActivationTimerHandle,
-			this,
-			&ASFGameMode::AutoActivatePortalForTest,
-			PortalActivationDelay,
-			false
-		);
-
-		UE_LOG(LogSF, Warning, TEXT("[GameMode] Portal will activate in %.1f seconds"), PortalActivationDelay);
+		GetWorld()->GetTimerManager().SetTimerForNextTick([this]()
+		{
+			if (ASFGameState* SFGameState = GetGameState<ASFGameState>())
+			{
+				if (USFEnemyManagerComponent* EnemyManager = SFGameState->GetEnemyManager())
+				{
+					EnemyManager->NotifyAllEnemiesSpawned();
+				}
+			}
+		});
 	}
 }
 
@@ -262,11 +272,6 @@ void ASFGameMode::ActivatePortal()
 	}
 }
 
-void ASFGameMode::AutoActivatePortalForTest()
-{
-	ActivatePortal();
-}
-
 void ASFGameMode::RequestTravelToNextStage(TSoftObjectPtr<UWorld> NextStageLevel)
 {
 	if (!HasAuthority())
@@ -298,4 +303,11 @@ void ASFGameMode::RequestTravelToNextStage(TSoftObjectPtr<UWorld> NextStageLevel
 	{
 		SFGameInstance->LoadLevelAndListen(NextStageLevel);
 	}
+}
+
+void ASFGameMode::OnAllEnemiesDefeated()
+{
+	UE_LOG(LogSF, Warning, TEXT("[GameMode] Stage cleared! Activating portal..."));
+
+	ActivatePortal();
 }

@@ -18,6 +18,8 @@
 #include "Component/SFEnemyWidgetComponent.h"
 #include "Component/SFStateReactionComponent.h"
 #include "Components/CapsuleComponent.h"
+#include "GameModes/SFEnemyManagerComponent.h"
+#include "GameModes/SFGameState.h"
 #include "System/SFGameInstance.h"
 #include "Net/UnrealNetwork.h"
 
@@ -49,6 +51,23 @@ ASFEnemy::ASFEnemy(const FObjectInitializer& ObjectInitializer)
 	//사실 PlayerState에서 Ability세팅할때랑 똑같이 세팅을 라이라에서는 하는것 같다
 	
 	
+}
+
+void ASFEnemy::BeginPlay()
+{
+	Super::BeginPlay();
+
+	// 서버에서만 EnemyManager에 등록
+	if (HasAuthority())
+	{
+		if (ASFGameState* SFGameState = GetWorld()->GetGameState<ASFGameState>())
+		{
+			if (USFEnemyManagerComponent* EnemyManager = SFGameState->GetEnemyManager())
+			{
+				EnemyManager->RegisterEnemy(this);
+			}
+		}
+	}
 }
 
 void ASFEnemy::PossessedBy(AController* NewController)
