@@ -3,7 +3,9 @@
 #include "AbilitySystemComponent.h"
 #include "Abilities/Tasks/AbilityTask_PlayMontageAndWait.h"
 #include "Abilities/Tasks/AbilityTask_WaitGameplayEvent.h"
+#include "AbilitySystem/SFAbilitySystemComponent.h"
 #include "AbilitySystem/GameplayEvent/SFGameplayEventTags.h"
+#include "Weapons/Actor/SFEquipmentBase.h"
 
 USFGA_ChainedSkill_Melee::USFGA_ChainedSkill_Melee(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
@@ -57,7 +59,6 @@ void USFGA_ChainedSkill_Melee::ActivateAbility(const FGameplayAbilitySpecHandle 
 
 void USFGA_ChainedSkill_Melee::OnTrace(FGameplayEventData Payload)
 {
-	// TODO : Chain별 CurrentDamageMultiplier를 부모의 OnTrace에 적용되도록 해야 됨
 	Super::OnTrace(Payload);
 }
 

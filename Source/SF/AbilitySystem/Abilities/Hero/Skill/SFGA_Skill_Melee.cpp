@@ -148,7 +148,7 @@ void USFGA_Skill_Melee::OnTrace(FGameplayEventData Payload)
 		for (int32 ActorHitIndex : ActorHitIndexes)
 		{
 			FHitResult HitResult = *LocalTargetDataHandle.Data[ActorHitIndex]->GetHitResult();
-			ProcessHitResult(HitResult, BaseDamage, WeaponActor);
+			ProcessHitResult(HitResult, BaseDamage * CurrentDamageMultiplier, WeaponActor);
 		}
 	}
 }

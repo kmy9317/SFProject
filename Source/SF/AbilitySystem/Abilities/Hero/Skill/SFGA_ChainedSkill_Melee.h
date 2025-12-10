@@ -66,7 +66,6 @@ protected:
 	FGameplayTagContainer CooldownTags;
 
 	int32 ExecutingChainIndex = 0;
-	float CurrentDamageMultiplier = 1.0f;
 
 private:
 	TArray<FActiveGameplayEffectHandle> AppliedChainEffectHandles;

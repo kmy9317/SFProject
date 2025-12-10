@@ -44,4 +44,6 @@ protected:
 	
 	UPROPERTY()
 	TSet<TWeakObjectPtr<AActor>> CachedHitActors;
+
+	float CurrentDamageMultiplier = 1.0f;
 };

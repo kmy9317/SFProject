@@ -82,11 +82,6 @@ UFXSystemComponent* USFAnimNotifyState_WeaponTrailNiagaraEffect::SpawnEffect(USk
 
 void USFAnimNotifyState_WeaponTrailNiagaraEffect::UpdateNiagaraParameters(USkeletalMeshComponent* WeaponMeshComponent)
 {
-	if (WeaponMeshComponent->DoesSocketExist(SocketName))
-	{
-		int32 Test = 1;
-	}
-	
 	if (WeaponMeshComponent == nullptr)
 	{
 		return;

@@ -67,6 +67,7 @@ void ISFChainedSkill::RemoveComboState(UGameplayAbility* SourceAbility)
 
 	if (SourceAbility)
 	{
+		// 클라이언트의 즉각적인 UI 반응을 위해 존재
 		BroadcastChainStateChanged(SourceAbility, 0);
 	}
 }

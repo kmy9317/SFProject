@@ -42,13 +42,14 @@ void USFOverlayWidgetController::BindCallbacksToDependencies()
 		SFASC->AbilityChangedDelegate.AddUObject(this, &ThisClass::HandleAbilityChanged);
 	}
 
-	// GE 제거 감지 (타임아웃용)
+	// GE 제거 감지 
 	if (TargetAbilitySystemComponent)
 	{
 		TargetAbilitySystemComponent->OnAnyGameplayEffectRemovedDelegate().AddUObject(
 			this, &ThisClass::HandleGameplayEffectRemoved);
 	}
 
+	// GE 스택 추가 감지
 	if (UWorld* World = TargetAbilitySystemComponent ? TargetAbilitySystemComponent->GetWorld() : nullptr)
 	{
 		UGameplayMessageSubsystem& MessageSubsystem = UGameplayMessageSubsystem::Get(World);
