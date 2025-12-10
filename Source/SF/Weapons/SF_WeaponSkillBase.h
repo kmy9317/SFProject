@@ -17,6 +17,9 @@ public:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Animation")
 	TObjectPtr<UAnimMontage> MontageToPlay;
 
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "SF|Combat")
+	float WeaponBaseDamage = 10.0f;
+
 protected:
 	
 	 
