@@ -32,3 +32,15 @@ struct FSFSkillProgressRefreshMessage
 	UPROPERTY(BlueprintReadWrite)
 	FLinearColor PhaseColor = FLinearColor::White;
 };
+
+USTRUCT(BlueprintType)
+struct FSFChainStateChangedMessage
+{
+	GENERATED_BODY()
+
+	UPROPERTY()
+	FGameplayAbilitySpecHandle AbilitySpecHandle;
+
+	UPROPERTY()
+	int32 ChainIndex = 0;
+};

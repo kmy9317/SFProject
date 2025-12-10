@@ -2,11 +2,13 @@
 
 #include "AbilitySystemComponent.h"
 #include "Abilities/Tasks/AbilityTask_WaitGameplayEvent.h"
+#include "AbilitySystem/Abilities/Hero/Skill/SFHeroSkillTags.h"
 
 
 USFGA_Thrust_DivineSlash::USFGA_Thrust_DivineSlash(const FObjectInitializer& ObjectInitializer)
+	: Super(ObjectInitializer)
 {
-	
+	AbilityTags.AddTag(SFGameplayTags::Ability_Skill_Primary_Hero);
 }
 
 void USFGA_Thrust_DivineSlash::ExecuteChainStep(int32 ChainIndex)
@@ -39,9 +41,7 @@ void USFGA_Thrust_DivineSlash::ExecuteChainStep(int32 ChainIndex)
 	// 	InvincEndTask->EventReceived.AddDynamic(this, &ThisClass::OnInvincibilityEnd);
 	// 	InvincEndTask->ReadyForActivation();
 	// }
-	
-	
-	// 부모의 공격 실행
+
 	Super::ExecuteChainStep(ChainIndex);
 }
 

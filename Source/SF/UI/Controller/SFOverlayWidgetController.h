@@ -2,12 +2,17 @@
 
 #include "CoreMinimal.h"
 #include "GameplayAbilitySpecHandle.h"
+#include "GameplayEffect.h"
 #include "SFWidgetController.h"
+#include "GameFramework/GameplayMessageSubsystem.h"
 #include "SFOverlayWidgetController.generated.h"
 
+struct FSFChainStateChangedMessage;
 struct FSFPlayerSelectionInfo;
 
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FOnAbilityChangedSignature, FGameplayAbilitySpecHandle, AbilitySpecHandle, bool, bGiven);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FOnChainStateChangedSignature, FGameplayAbilitySpecHandle, AbilitySpecHandle, int32, ChainIndex);
+
 /**
  * 
  */
@@ -28,6 +33,10 @@ protected:
 
 	void HandleAbilityChanged(FGameplayAbilitySpecHandle AbilitySpecHandle, bool bGiven);
 
+	void HandleChainStateChangedMessage(FGameplayTag Channel, const FSFChainStateChangedMessage& Message);
+	void HandleGameplayEffectRemoved(const FActiveGameplayEffect& RemovedEffect);
+
+	void BroadcastChainStateForAbility(const UGameplayEffect* EffectDef, int32 StackCount);
 private:
 	void BindPrimaryAttributeCallbacks();
 
@@ -58,4 +67,10 @@ public:
 
 	UPROPERTY(BlueprintAssignable, Category="SF|Abilities")
 	FOnAbilityChangedSignature OnAbilityChanged;
+
+	UPROPERTY(BlueprintAssignable, Category="SF|Abilities")
+	FOnChainStateChangedSignature OnChainStateChanged;
+
+private:
+	FGameplayMessageListenerHandle ChainStateListenerHandle;
 };

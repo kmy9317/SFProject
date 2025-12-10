@@ -6,6 +6,7 @@
 #include "Components/Image.h"
 #include "Components/ProgressBar.h"
 #include "Components/TextBlock.h"
+#include "Interface/SFChainedSkill.h"
 #include "UI/Controller/SFOverlayWidgetController.h"
 
 void USkillSlotBase::NativeOnWidgetControllerSet()
@@ -31,6 +32,7 @@ void USkillSlotBase::NativeOnWidgetControllerSet()
 
 	// 어빌리티 변경 델리게이트 바인딩
 	OverlayController->OnAbilityChanged.AddDynamic(this, &ThisClass::OnAbilityChanged);
+	OverlayController->OnChainStateChanged.AddDynamic(this, &ThisClass::OnChainStateChanged);
 
 	// 현재 보유한 어빌리티에서 매칭되는 것 찾기
 	UAbilitySystemComponent* ASC = OverlayController->GetWidgetControllerParams().AbilitySystemComponent;
@@ -76,6 +78,32 @@ void USkillSlotBase::InitializeSlot()
 
 	if (const USFGameplayAbility* SFAbility = Cast<USFGameplayAbility>(Spec->Ability))
 	{
+		// 연계 스킬 체크 (CDO에서 정보만 가져옴)
+		if (const ISFChainedSkill* ChainedSkill = Cast<ISFChainedSkill>(Spec->Ability))
+		{
+			// CDO에서 ComboStateEffectClass 가져오기
+			TSubclassOf<UGameplayEffect> ComboStateClass = ChainedSkill->GetComboStateEffectClass();
+            
+			// UI가 가진 ASC로 직접 카운트 조회
+			int32 CurrentChain = 0;
+			if (ComboStateClass)
+			{
+				CurrentChain = ASC->GetGameplayEffectCount(ComboStateClass, nullptr);
+			}
+
+			CachedChainIndex = CurrentChain;
+            
+			if (UTexture2D* ChainIcon = ChainedSkill->GetChainIcon(CurrentChain))
+			{
+				if (Img_SkillIcon)
+				{
+					Img_SkillIcon->SetBrushFromTexture(ChainIcon);
+				}
+				return;
+			}
+		}
+        
+		// 일반 스킬
 		if (Img_SkillIcon && SFAbility->Icon)
 		{
 			Img_SkillIcon->SetBrushFromTexture(SFAbility->Icon);
@@ -103,11 +131,7 @@ void USkillSlotBase::RefreshCooldown()
 	
 	if (CooldownRemaining > 0.f)
 	{
-		float TotalDuration = 0.f;
-		if (const UGameplayEffect* CooldownGE = Spec->Ability->GetCooldownGameplayEffect())
-		{
-			CooldownGE->DurationMagnitude.GetStaticMagnitudeIfPossible(Spec->Level, TotalDuration);
-		}
+		float TotalDuration = GetActiveCooldownDuration(ASC, Spec->Ability);
 		if (Text_CooldownCount)
 		{
 			Text_CooldownCount->SetText(FText::AsNumber(FMath::CeilToInt(CooldownRemaining)));
@@ -133,6 +157,33 @@ void USkillSlotBase::RefreshCooldown()
 	}
 }
 
+float USkillSlotBase::GetActiveCooldownDuration(UAbilitySystemComponent* ASC, UGameplayAbility* Ability)
+{
+	const FGameplayTagContainer* CooldownTags = Ability->GetCooldownTags();
+	if (!CooldownTags || CooldownTags->Num() == 0)
+	{
+		return 0.f;
+	}
+
+	FGameplayEffectQuery Query;
+	Query.MakeQuery_MatchAnyOwningTags(*CooldownTags);
+    
+	TArray<FActiveGameplayEffectHandle> ActiveHandles = ASC->GetActiveEffects(Query);
+	if (ActiveHandles.Num() > 0)
+	{
+		if (const FActiveGameplayEffect* ActiveGE = ASC->GetActiveGameplayEffect(ActiveHandles[0]))
+		{
+			if (const UGameplayEffect* GEDef = ActiveGE->Spec.Def)
+			{
+				float Duration = 0.f;
+				GEDef->DurationMagnitude.GetStaticMagnitudeIfPossible(ActiveGE->Spec.GetLevel(), Duration);
+				return Duration;
+			}
+		}
+	}
+	return 0.f;
+}
+
 void USkillSlotBase::OnAbilityChanged(FGameplayAbilitySpecHandle AbilitySpecHandle, bool bGiven)
 {
 	USFOverlayWidgetController* OverlayController = GetWidgetControllerTyped<USFOverlayWidgetController>();
@@ -152,42 +203,63 @@ void USkillSlotBase::OnAbilityChanged(FGameplayAbilitySpecHandle AbilitySpecHand
 	if (bGiven && Spec && Spec->GetDynamicSpecSourceTags().HasTagExact(SlotInputTag))
 	{
 		CachedAbilitySpecHandle = AbilitySpecHandle;
+		CachedChainIndex = INDEX_NONE; 
 		InitializeSlot();
 	}
 	else if (!bGiven && AbilitySpecHandle == CachedAbilitySpecHandle)
 	{
 		CachedAbilitySpecHandle = FGameplayAbilitySpecHandle();
+		CachedChainIndex = INDEX_NONE;
 	}
 }
 
-// void USkillSlotBase::SetSlotVisuals(UTexture2D* InIcon, const FText& InKeyText)
-// {
-// 	if (Img_SkillIcon) Img_SkillIcon->SetBrushFromTexture(InIcon);
-// 	if (Text_KeyPrompt) Text_KeyPrompt->SetText(InKeyText);
-//
-// 	if (PB_Cooldown) PB_Cooldown->SetVisibility(ESlateVisibility::Hidden);
-// 	if (Text_CooldownCount) Text_CooldownCount->SetVisibility(ESlateVisibility::Hidden);
-//
-// 	bIsOnCooldown = false;
-// }
-//
-// void USkillSlotBase::StartCooldown(float InDuration)
-// {
-// 	// 이미 쿨타임 중이라면 즉시 종료
-// 	if (bIsOnCooldown)
-// 	{
-// 		
-// 		return;
-// 	}
-// 	
-// 	if (InDuration <= 0.0f) return;
-//
-// 	CooldownTotalDuration = InDuration;
-// 	CooldownEndTime = GetWorld()->GetTimeSeconds() + InDuration; // 목표 시간 설정 -> 쿨타임
-// 	bIsOnCooldown = true;
-//
-// 	if (PB_Cooldown) PB_Cooldown->SetVisibility(ESlateVisibility::Visible);
-// 	if (Text_CooldownCount) Text_CooldownCount->SetVisibility(ESlateVisibility::Visible);
-// }
+void USkillSlotBase::OnChainStateChanged(FGameplayAbilitySpecHandle AbilitySpecHandle, int32 ChainIndex)
+{
+	// 이 슬롯의 어빌리티인지 확인
+	if (AbilitySpecHandle != CachedAbilitySpecHandle)
+	{
+		return;
+	}
+
+	// 동일한 ChainIndex면 무시 (중복 방지)
+	if (CachedChainIndex == ChainIndex)
+	{
+		return;
+	}
+
+	CachedChainIndex = ChainIndex;
+	UpdateChainIcon(ChainIndex);
+}
+
+void USkillSlotBase::UpdateChainIcon(int32 ChainIndex)
+{
+	USFOverlayWidgetController* OverlayController = GetWidgetControllerTyped<USFOverlayWidgetController>();
+	if (!OverlayController)
+	{
+		return;
+	}
+
+	UAbilitySystemComponent* ASC = OverlayController->GetWidgetControllerParams().AbilitySystemComponent;
+	FGameplayAbilitySpec* Spec = ASC ? ASC->FindAbilitySpecFromHandle(CachedAbilitySpecHandle) : nullptr;
+    
+	if (!Spec || !Spec->Ability)
+	{
+		return;
+	}
+
+	ISFChainedSkill* ChainedSkill = Cast<ISFChainedSkill>(Spec->Ability);
+	if (!ChainedSkill)
+	{
+		return;
+	}
+
+	if (UTexture2D* ChainIcon = ChainedSkill->GetChainIcon(ChainIndex))
+	{
+		if (Img_SkillIcon)
+		{
+			Img_SkillIcon->SetBrushFromTexture(ChainIcon);
+		}
+	}
+}
 
 

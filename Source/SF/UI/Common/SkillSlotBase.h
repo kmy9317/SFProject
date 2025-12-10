@@ -1,6 +1,7 @@
 #pragma once
 
 #include "CoreMinimal.h"
+#include "AbilitySystemComponent.h"
 #include "GameplayAbilitySpecHandle.h"
 #include "GameplayTagContainer.h"
 #include "UI/SFUserWidget.h"
@@ -23,8 +24,16 @@ protected:
 	void InitializeSlot();
 	void RefreshCooldown();
 
+	float GetActiveCooldownDuration(UAbilitySystemComponent* ASC, UGameplayAbility* Ability);
+
 	UFUNCTION()
 	void OnAbilityChanged(FGameplayAbilitySpecHandle AbilitySpecHandle, bool bGiven);
+
+	UFUNCTION()
+	void OnChainStateChanged(FGameplayAbilitySpecHandle AbilitySpecHandle, int32 ChainIndex);
+
+private:
+	void UpdateChainIcon(int32 ChainIndex);
 	
 protected:
 	UPROPERTY(meta = (BindWidget))
@@ -60,10 +69,5 @@ private:
 	FGameplayAbilitySpecHandle CachedAbilitySpecHandle;
 	float CachedCooldownDuration = 0.f;
 
-public:
-	//UFUNCTION(BlueprintCallable, Category = "UI|Function")
-	//void SetSlotVisuals(UTexture2D* InIcon, const FText& InKeyText);
-	
-	//UFUNCTION(BlueprintCallable, Category = "UI|Function")
-	//void StartCooldown(float InDuration);
+	int32 CachedChainIndex = INDEX_NONE;
 };

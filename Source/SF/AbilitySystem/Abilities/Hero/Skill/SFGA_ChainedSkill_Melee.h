@@ -24,10 +24,14 @@ public:
 	virtual UAbilitySystemComponent* GetChainASC() const override;
 	virtual TSubclassOf<UGameplayEffect> GetComboStateEffectClass() const override { return ComboStateEffectClass; }
 	virtual const TArray<FSFChainConfig>& GetChainConfigs() const override { return ChainConfigs; }
-	virtual TSubclassOf<UGameplayEffect> GetCooldownEffectClass() const override { return ComboCooldownEffectClass; }
+	virtual TSubclassOf<UGameplayEffect> GetTimeoutCooldownEffectClass() const override { return TimeoutCooldownEffectClass; }
+	virtual TSubclassOf<UGameplayEffect> GetCompleteCooldownEffectClass() const override { return CompleteCooldownEffectClass; }
 	virtual TArray<FActiveGameplayEffectHandle>& GetAppliedChainEffectHandles() override { return AppliedChainEffectHandles; }
+	virtual FGameplayTagContainer GetChainedSkillCooldownTags() const override { return CooldownTags; }
 	// ~ End ISFChainedSkill
 
+	virtual UGameplayEffect* GetCooldownGameplayEffect() const override;
+	
 protected:
 	virtual void ActivateAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, const FGameplayEventData* TriggerEventData) override;
 	virtual void EndAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, bool bReplicateEndAbility, bool bWasCancelled) override;
@@ -42,14 +46,24 @@ protected:
 	virtual void OnChainMontageInterrupted();
 
 protected:
+	// 연계 스택 추적용 Effect
 	UPROPERTY(EditDefaultsOnly, Category = "SF|Combo")
 	TSubclassOf<UGameplayEffect> ComboStateEffectClass;
 
 	UPROPERTY(EditDefaultsOnly, Category = "SF|Combo")
 	TArray<FSFChainConfig> ChainConfigs;
 
-	UPROPERTY(EditDefaultsOnly, Category = "SF|Combo")
-	TSubclassOf<UGameplayEffect> ComboCooldownEffectClass;
+	// ComboState의 OnCompleteNormal에서 사용 (Timeout 쿨다운 Tag==Complete 쿨다운 Tag 필수)
+	UPROPERTY(EditDefaultsOnly, Category = "SF|Cooldown")
+	TSubclassOf<UGameplayEffect> TimeoutCooldownEffectClass;
+
+	// CompleteCombo에서 사용 (Timeout 쿨다운 Tag==Complete 쿨다운 Tag 필수)
+	UPROPERTY(EditDefaultsOnly, Category = "SF|Cooldown")
+	TSubclassOf<UGameplayEffect> CompleteCooldownEffectClass;
+
+	// 쿨다운 체크용 태그 
+	UPROPERTY(EditDefaultsOnly, Category = "SF|Cooldown")
+	FGameplayTagContainer CooldownTags;
 
 	int32 ExecutingChainIndex = 0;
 	float CurrentDamageMultiplier = 1.0f;

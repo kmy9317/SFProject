@@ -1,6 +1,9 @@
 #include "SFChainedSkill.h"
 
 #include "AbilitySystemComponent.h"
+#include "GameFramework/GameplayMessageSubsystem.h"
+#include "Messages/SFMessageGameplayTags.h"
+#include "Messages/SFSkillInfoMessages.h"
 
 int32 ISFChainedSkill::GetCurrentChain() const
 {
@@ -24,7 +27,7 @@ bool ISFChainedSkill::IsLastChain(int32 ChainIndex) const
 	return ChainIndex >= (GetChainConfigs().Num() - 1);
 }
 
-FActiveGameplayEffectHandle ISFChainedSkill::ApplyComboState(UGameplayAbility* SourceAbility)
+FActiveGameplayEffectHandle ISFChainedSkill::ApplyComboState(UGameplayAbility* SourceAbility, int32 NextChainIndex)
 {
 	UAbilitySystemComponent* ASC = GetChainASC();
 	TSubclassOf<UGameplayEffect> ComboStateClass = GetComboStateEffectClass();
@@ -34,15 +37,21 @@ FActiveGameplayEffectHandle ISFChainedSkill::ApplyComboState(UGameplayAbility* S
 		return FActiveGameplayEffectHandle();
 	}
 
+	FActiveGameplayEffectHandle Handle;
+    
 	FGameplayEffectSpecHandle SpecHandle = SourceAbility->MakeOutgoingGameplayEffectSpec(ComboStateClass);
 	if (SpecHandle.IsValid())
 	{
-		return ASC->ApplyGameplayEffectSpecToSelf(*SpecHandle.Data.Get());
+		Handle = ASC->ApplyGameplayEffectSpecToSelf(*SpecHandle.Data.Get());
 	}
-	return FActiveGameplayEffectHandle();
+    
+	// Handle 유효성과 상관없이 브로드캐스트 (클라이언트 UI 갱신용)
+	BroadcastChainStateChanged(SourceAbility, NextChainIndex);
+    
+	return Handle;
 }
 
-void ISFChainedSkill::RemoveComboState()
+void ISFChainedSkill::RemoveComboState(UGameplayAbility* SourceAbility)
 {
 	UAbilitySystemComponent* ASC = GetChainASC();
 	TSubclassOf<UGameplayEffect> ComboStateClass = GetComboStateEffectClass();
@@ -55,6 +64,11 @@ void ISFChainedSkill::RemoveComboState()
 	FGameplayEffectQuery Query;
 	Query.EffectDefinition = ComboStateClass;
 	ASC->RemoveActiveEffects(Query);
+
+	if (SourceAbility)
+	{
+		BroadcastChainStateChanged(SourceAbility, 0);
+	}
 }
 
 bool ISFChainedSkill::ApplyChainCost(int32 ChainIndex, UGameplayAbility* SourceAbility)
@@ -140,10 +154,10 @@ void ISFChainedSkill::RemoveChainEffects()
 
 void ISFChainedSkill::CompleteCombo(UGameplayAbility* SourceAbility)
 {
-	RemoveComboState();
+	RemoveComboState(SourceAbility);
 
 	UAbilitySystemComponent* ASC = GetChainASC();
-	TSubclassOf<UGameplayEffect> CooldownClass = GetCooldownEffectClass();
+	TSubclassOf<UGameplayEffect> CooldownClass = GetCompleteCooldownEffectClass();
         
 	if (ASC && SourceAbility && CooldownClass)
 	{
@@ -153,6 +167,43 @@ void ISFChainedSkill::CompleteCombo(UGameplayAbility* SourceAbility)
 			ASC->ApplyGameplayEffectSpecToSelf(*CooldownSpec.Data.Get());
 		}
 	}
+}
+
+void ISFChainedSkill::BroadcastChainStateChanged(UGameplayAbility* SourceAbility, int32 ChainIndex)
+{
+	if (!SourceAbility)
+	{
+		return;
+	}
+
+	UAbilitySystemComponent* ASC = GetChainASC();
+	if (!ASC)
+	{
+		return;
+	}
+
+	UWorld* World = ASC->GetWorld();
+	if (!World)
+	{
+		return;
+	}
+
+	FSFChainStateChangedMessage Message;
+	Message.AbilitySpecHandle = SourceAbility->GetCurrentAbilitySpecHandle();
+	Message.ChainIndex = ChainIndex;
+
+	UGameplayMessageSubsystem& MessageSubsystem = UGameplayMessageSubsystem::Get(World);
+	MessageSubsystem.BroadcastMessage(SFGameplayTags::Message_Skill_ChainStateChanged, Message);
+}
+
+UTexture2D* ISFChainedSkill::GetChainIcon(int32 ChainIndex) const
+{
+	const TArray<FSFChainConfig>& Configs = GetChainConfigs();
+	if (Configs.IsValidIndex(ChainIndex))
+	{
+		return Configs[ChainIndex].Icon;
+	}
+	return nullptr;
 }
 
 

@@ -1,5 +1,6 @@
 #include "SFGA_ChainedSkill_Melee.h"
 
+#include "AbilitySystemComponent.h"
 #include "Abilities/Tasks/AbilityTask_PlayMontageAndWait.h"
 #include "Abilities/Tasks/AbilityTask_WaitGameplayEvent.h"
 #include "AbilitySystem/GameplayEvent/SFGameplayEventTags.h"
@@ -29,6 +30,15 @@ UAbilitySystemComponent* USFGA_ChainedSkill_Melee::GetChainASC() const
 	return GetAbilitySystemComponentFromActorInfo();
 }
 
+UGameplayEffect* USFGA_ChainedSkill_Melee::GetCooldownGameplayEffect() const
+{
+	if (TimeoutCooldownEffectClass)
+	{
+		return TimeoutCooldownEffectClass->GetDefaultObject<UGameplayEffect>();
+	}
+	return nullptr;
+}
+
 void USFGA_ChainedSkill_Melee::ActivateAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, const FGameplayEventData* TriggerEventData)
 {
 	Super::ActivateAbility(Handle, ActorInfo, ActivationInfo, TriggerEventData);
@@ -40,10 +50,14 @@ void USFGA_ChainedSkill_Melee::ActivateAbility(const FGameplayAbilitySpecHandle 
 	}
 
 	ExecutingChainIndex = GetCurrentChain();
+	ExecuteChainStep(ExecutingChainIndex);
+	
+	ApplyComboState(this, ExecutingChainIndex + 1);
 }
 
 void USFGA_ChainedSkill_Melee::OnTrace(FGameplayEventData Payload)
 {
+	// TODO : Chain별 CurrentDamageMultiplier를 부모의 OnTrace에 적용되도록 해야 됨
 	Super::OnTrace(Payload);
 }
 
@@ -115,6 +129,9 @@ void USFGA_ChainedSkill_Melee::OnChainMontageCompleted()
 void USFGA_ChainedSkill_Melee::OnChainMontageInterrupted()
 {
 	RemoveChainEffects();
+
+	// TODO : 몽타주 재생(스킬 발동 완료)이전에 방해를 받아서 멈추는 경우 게임 디자인에 따라서 스킬 연계 불가능 하도록 고려 
+	//RemoveComboState();
 	EndAbility(CurrentSpecHandle, CurrentActorInfo, CurrentActivationInfo, true, true);
 }
 

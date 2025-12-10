@@ -5,7 +5,10 @@
 
 #include "AbilitySystem/SFAbilitySystemComponent.h"
 #include "AbilitySystem/Attributes/Hero/SFPrimarySet_Hero.h"
+#include "Interface/SFChainedSkill.h"
+#include "Messages/SFMessageGameplayTags.h"
 #include "Player/SFPlayerState.h"
+#include "Messages/SFSkillInfoMessages.h"
 
 void USFOverlayWidgetController::BroadcastInitialSets()
 {
@@ -38,6 +41,23 @@ void USFOverlayWidgetController::BindCallbacksToDependencies()
 	{
 		SFASC->AbilityChangedDelegate.AddUObject(this, &ThisClass::HandleAbilityChanged);
 	}
+
+	// GE 제거 감지 (타임아웃용)
+	if (TargetAbilitySystemComponent)
+	{
+		TargetAbilitySystemComponent->OnAnyGameplayEffectRemovedDelegate().AddUObject(
+			this, &ThisClass::HandleGameplayEffectRemoved);
+	}
+
+	if (UWorld* World = TargetAbilitySystemComponent ? TargetAbilitySystemComponent->GetWorld() : nullptr)
+	{
+		UGameplayMessageSubsystem& MessageSubsystem = UGameplayMessageSubsystem::Get(World);
+		ChainStateListenerHandle = MessageSubsystem.RegisterListener(
+			SFGameplayTags::Message_Skill_ChainStateChanged,
+			this,
+			&ThisClass::HandleChainStateChangedMessage);
+	}
+	
 	// TODO : 다른 Model들에 대한 Callbacks도 추가할 것
 }
 
@@ -106,5 +126,41 @@ void USFOverlayWidgetController::HandleAbilityChanged(FGameplayAbilitySpecHandle
 {
 	OnAbilityChanged.Broadcast(AbilitySpecHandle, bGiven);
 }
+
+void USFOverlayWidgetController::HandleChainStateChangedMessage(FGameplayTag Channel, const FSFChainStateChangedMessage& Message)
+{
+	OnChainStateChanged.Broadcast(Message.AbilitySpecHandle, Message.ChainIndex);
+}
+
+void USFOverlayWidgetController::HandleGameplayEffectRemoved(const FActiveGameplayEffect& RemovedEffect)
+{
+	BroadcastChainStateForAbility(RemovedEffect.Spec.Def, 0);
+}
+
+void USFOverlayWidgetController::BroadcastChainStateForAbility(const UGameplayEffect* EffectDef, int32 StackCount)
+{
+	if (!TargetAbilitySystemComponent || !EffectDef)
+	{
+		return;
+	}
+
+	for (const FGameplayAbilitySpec& Spec : TargetAbilitySystemComponent->GetActivatableAbilities())
+	{
+		const ISFChainedSkill* ChainedSkill = Cast<ISFChainedSkill>(Spec.Ability);
+		if (!ChainedSkill)
+		{
+			continue;
+		}
+
+		TSubclassOf<UGameplayEffect> ComboStateClass = ChainedSkill->GetComboStateEffectClass();
+        
+		if (ComboStateClass && ComboStateClass == EffectDef->GetClass())
+		{
+			OnChainStateChanged.Broadcast(Spec.Handle, StackCount);
+			break;
+		}
+	}
+}
+
 
 
