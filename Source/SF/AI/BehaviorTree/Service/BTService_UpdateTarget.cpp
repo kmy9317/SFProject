@@ -1,4 +1,4 @@
-// Fill out your copyright notice in the Description page of Project Settings.
+// BTService_UpdateTarget.cpp
 
 #include "BTService_UpdateTarget.h"
 
@@ -7,12 +7,13 @@
 #include "BehaviorTree/BlackboardComponent.h"
 #include "Perception/AIPerceptionComponent.h"
 #include "Perception/AISense_Sight.h"
-#include "AI/SFCombatSlotManager.h" // [복구] 슬롯 매니저 헤더 필수
+#include "AI/SFCombatSlotManager.h"
 
 UBTService_UpdateTarget::UBTService_UpdateTarget()
 {
-	NodeName = "Update Target & Slot (Integrated)";
-	Interval = 0.2f; // [복구] 반응성을 위해 0.2초로 설정
+	NodeName = "Update Target & Slot (No Focus)";
+	// 타겟 탐색은 조금 천천히 해도 됨 (Focus 서비스와 분리되었으므로 최적화 가능)
+	Interval = 0.2f; 
 	RandomDeviation = 0.05f;
 
 	TargetActorKey.AddObjectFilter(this, GET_MEMBER_NAME_CHECKED(UBTService_UpdateTarget, TargetActorKey), AActor::StaticClass());
@@ -41,7 +42,7 @@ void UBTService_UpdateTarget::OnCeaseRelevant(UBehaviorTreeComponent& OwnerComp,
 {
 	Super::OnCeaseRelevant(OwnerComp, NodeMemory);
 	
-	// [복구] 서비스 종료 시 슬롯 해제 로직
+	// 서비스 종료 시 슬롯 해제 로직
 	// 단, 타겟이 블랙보드에 남아있다면(잠깐 다른 노드 다녀오는 거라면) 유지함
 	UBlackboardComponent* BlackboardComp = OwnerComp.GetBlackboardComponent();
 	if (BlackboardComp && BlackboardComp->GetValueAsObject(TargetActorKey.SelectedKeyName) != nullptr)
@@ -149,7 +150,7 @@ void UBTService_UpdateTarget::TickNode(UBehaviorTreeComponent& OwnerComp, uint8*
 	// 5. 타겟 정보 업데이트
 	if (bShouldSwitch)
 	{
-		// 기존 타겟 슬롯 반납 (중요)
+		// 기존 타겟 슬롯 반납
 		if (CurrentTarget) 
 		{
 			if (auto* Manager = AIController->GetWorld()->GetSubsystem<USFCombatSlotManager>())
@@ -160,20 +161,20 @@ void UBTService_UpdateTarget::TickNode(UBehaviorTreeComponent& OwnerComp, uint8*
 		BlackboardComp->SetValueAsBool(HasTargetKey.SelectedKeyName, true);
 		
 		AIController->TargetActor = BestTarget;
-		AIController->SetFocus(BestTarget, EAIFocusPriority::Gameplay);
+		
+		// [변경됨] 직접 SetFocus 하던 코드를 제거함. 
+		// 이제 SFBTS_UpdateFocus 서비스가 이 역할을 전담합니다.
+		// AIController->SetFocus(BestTarget, EAIFocusPriority::Gameplay); <--- 삭제됨
 		
 		CurrentTarget = BestTarget;
 	}
 
-	// ========================================================================
-	// [기능 복구 및 통합] 6. 슬롯 요청 및 유지 (Request/Maintain)
-	// 이 부분이 있어야 AI가 슬롯을 얻어서 공격을 할 수 있습니다.
-	// ========================================================================
+	// 6. 슬롯 요청 및 유지 (Request/Maintain)
 	if (CurrentTarget)
 	{
 		if (auto* Manager = AIController->GetWorld()->GetSubsystem<USFCombatSlotManager>())
 		{
-			// [신규] 거리 체크: 너무 가까우면 강제 공격 (bForce = true)
+			// 거리 체크: 너무 가까우면 강제 공격 (bForce = true)
 			bool bForce = false;
 			if (APawn* MyPawn = AIController->GetPawn())
 			{

@@ -34,19 +34,19 @@ USFGA_Enemy_BaseAttack::USFGA_Enemy_BaseAttack(const FObjectInitializer& ObjectI
 float USFGA_Enemy_BaseAttack::GetSetByCallerValue(const FGameplayTag& Tag, float DefaultValue) const
 {
 	const FGameplayAbilitySpec* Spec = GetCurrentAbilitySpec();
-    
+
 	if (!Spec)
 	{
 		return DefaultValue;
 	}
-    
+
 	const float* ValuePtr = Spec->SetByCallerTagMagnitudes.Find(Tag);
-	
+
 	if (ValuePtr)
 	{
-		return *ValuePtr;  
+		return *ValuePtr;
 	}
-    
+
 	return DefaultValue;
 }
 float USFGA_Enemy_BaseAttack::GetBaseDamage() const
