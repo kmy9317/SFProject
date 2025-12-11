@@ -59,8 +59,6 @@ void USFAbilitySystemComponent::InitAbilityActorInfo(AActor* InOwnerActor, AActo
 				}
 			}
 		}
-		// Effect 처리 
-		OnGameplayEffectAppliedDelegateToSelf.AddUObject(this, &ThisClass::HandleGameplayEffectAppliedToSelf);
 		// 스폰 시 자동으로 활성화되어야 하는 어빌리티들 처리
 		TryActivateAbilitiesOnSpawn();
 	}
@@ -564,43 +562,14 @@ void USFAbilitySystemComponent::RestoreGameplayEffectsFromData(const FSFSavedAbi
 		RestoredCount, InData.SavedGameplayEffects.Num());
 }
 
-void USFAbilitySystemComponent::HandleGameplayEffectAppliedToSelf(
-	UAbilitySystemComponent* SourceASC,
-	const FGameplayEffectSpec& Spec,
-	FActiveGameplayEffectHandle Handle)
+void USFAbilitySystemComponent::ProcessHitReactionEvent(float Damage, const FGameplayEffectSpec& Spec)
 {
-	if (!Spec.Def)
-		return;
-
-	if (!Spec.Def)
-		return;
-
-	ProcessHitReactionEvent(Spec);
-}
-
-void USFAbilitySystemComponent::ProcessHitReactionEvent(const FGameplayEffectSpec& Spec)
-{
-	
 	if (HasMatchingGameplayTag(SFGameplayTags::Character_State_Dead))
 		return;
-
-	const float Damage = Spec.GetSetByCallerMagnitude(
-		SFGameplayTags::Data_Damage_BaseDamage, false, 0.f);
-
+	
 	if (Damage <= 1.f)
 		return;
-
 	
-	const USFPrimarySet* PrimarySet = GetSet<USFPrimarySet>();
-	if (PrimarySet)
-	{
-		const float CurrentHealth = PrimarySet->GetHealth();
-		const float HealthAfterDamage = CurrentHealth - Damage;
-		
-		if (HealthAfterDamage <= 0.0f)
-			return;
-	}
-
 	FGameplayEventData Payload;
 	Payload.EventTag = SFGameplayTags::GameplayEvent_HitReaction;
 	Payload.Target = GetAvatarActor();
@@ -609,4 +578,27 @@ void USFAbilitySystemComponent::ProcessHitReactionEvent(const FGameplayEffectSpe
 	Payload.EventMagnitude = Damage;
 
 	HandleGameplayEvent(SFGameplayTags::GameplayEvent_HitReaction, &Payload);
+}
+
+void USFAbilitySystemComponent::ProcessParryEvent(float Damage, const FGameplayEffectSpec& Spec)
+{
+	FGameplayEventData PayLoad;
+	PayLoad.EventTag = SFGameplayTags::GameplayEvent_Parry;
+	PayLoad.Target = GetAvatarActor();
+	PayLoad.Instigator = Spec.GetContext().GetOriginalInstigator();
+	PayLoad.ContextHandle = Spec.GetContext();
+	PayLoad.EventMagnitude = Damage;
+	HandleGameplayEvent(SFGameplayTags::GameplayEvent_Parry, &PayLoad);
+}
+
+void USFAbilitySystemComponent::ProcessDeathEvent(const FGameplayEffectSpec& Spec)
+{
+	if (HasMatchingGameplayTag(SFGameplayTags::Character_State_Dead))
+		return;
+	FGameplayEventData PayLoad;
+	PayLoad.EventTag = SFGameplayTags::GameplayEvent_Death;
+	PayLoad.Target = GetAvatarActor();
+	PayLoad.Instigator = Spec.GetContext().GetOriginalInstigator();
+	PayLoad.ContextHandle = Spec.GetContext();
+	HandleGameplayEvent(SFGameplayTags::GameplayEvent_Death, &PayLoad);
 }
