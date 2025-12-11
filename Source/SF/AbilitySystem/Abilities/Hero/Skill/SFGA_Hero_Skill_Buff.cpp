@@ -22,14 +22,15 @@ void USFGA_Hero_Skill_Buff::ActivateAbility(
 	const FGameplayAbilityActivationInfo ActivationInfo,
 	const FGameplayEventData* TriggerEventData)
 {
-	Super::ActivateAbility(Handle,ActorInfo,ActivationInfo,TriggerEventData);
+	Super::ActivateAbility(Handle, ActorInfo, ActivationInfo, TriggerEventData);
 
 	if (!CommitAbility(Handle, ActorInfo, ActivationInfo))
 	{
-		EndAbility(Handle,ActorInfo,ActivationInfo,true,true);
+		EndAbility(Handle, ActorInfo, ActivationInfo, true, true);
 		return;
 	}
 
+	//모션 실행
 	if (BuffMontage && ActorInfo && ActorInfo->AbilitySystemComponent.IsValid())
 	{
 		auto* Task = UAbilityTask_PlayMontageAndWait::CreatePlayMontageAndWaitProxy(
@@ -45,7 +46,8 @@ void USFGA_Hero_Skill_Buff::ActivateAbility(
 		}
 	}
 
-	if (StartEventTag.IsValid())
+	//Gameplay Event 수신 (서버에서만 처리)
+	if (HasAuthority(&ActivationInfo) && StartEventTag.IsValid())
 	{
 		auto* Wait = UAbilityTask_WaitGameplayEvent::WaitGameplayEvent(this, StartEventTag);
 		Wait->EventReceived.AddDynamic(this, &USFGA_Hero_Skill_Buff::OnReceivedSkillEvent);
@@ -62,12 +64,16 @@ void USFGA_Hero_Skill_Buff::OnReceivedSkillEvent(FGameplayEventData Payload)
 	auto* ASC = CurrentActorInfo ? CurrentActorInfo->AbilitySystemComponent.Get() : nullptr;
 	if(!ASC) return;
 
+	//장판 Cue
 	if (GroundCueTag.IsValid())
 		ASC->AddGameplayCue(GroundCueTag);
 
-	//이때 스킬 사용 확정
-	bSkillActivatedByEvent = true; 
-	OnSkillEventTriggered(); 
+	//스킬 발동 확정 처리
+	if (SkillActivatedTag.IsValid())
+		ASC->AddLooseGameplayTag(SkillActivatedTag);
+
+	//자식 Ability 커스텀 처리
+	OnSkillEventTriggered();
 }
 //====================================================================
 
@@ -76,33 +82,45 @@ void USFGA_Hero_Skill_Buff::OnReceivedSkillEvent(FGameplayEventData Payload)
 //====================BlueprintNativeEvent 기본 구현===================
 void USFGA_Hero_Skill_Buff::OnSkillEventTriggered_Implementation()
 {
-	//자식 Ability에서 Override해서 사용
+	//자식 클래스가 Override
 }
 //====================================================================
 
-//====================Montage Interruption============================
+
+
+//===========================Montage Interruption=======================
 void USFGA_Hero_Skill_Buff::OnMontageInterrupted()
 {
-	if(bSkillActivatedByEvent)
-		return; //스킬 사용이 확정되었으면 모션 캔슬되어도 스킬 유지
+	auto* ASC = CurrentActorInfo ? CurrentActorInfo->AbilitySystemComponent.Get() : nullptr;
 
-	EndAbility(CurrentSpecHandle, CurrentActorInfo, CurrentActivationInfo, true, true);
+	//발동 태그가 없으면 스킬 실패 처리
+	if (!ASC || !ASC->HasMatchingGameplayTag(SkillActivatedTag))
+	{
+		EndAbility(CurrentSpecHandle, CurrentActorInfo, CurrentActivationInfo, true, true);
+	}
 }
 //====================================================================
 
-//=========================Montage BlendOut===========================
+
+
+//=========================Montage BlendOut============================
 void USFGA_Hero_Skill_Buff::OnMontageBlendOut()
 {
 	if(!IsActive()) return;
 
-	if(bSkillActivatedByEvent)
-		return;	//스킬 사용이 확정되었으면 취소 금지
+	auto* ASC = CurrentActorInfo ? CurrentActorInfo->AbilitySystemComponent.Get() : nullptr;
 
-	EndAbility(CurrentSpecHandle, CurrentActorInfo, CurrentActivationInfo, true, false);
+	//발동 태그가 없으면 스킬 실패 처리
+	if (!ASC || !ASC->HasMatchingGameplayTag(SkillActivatedTag))
+	{
+		EndAbility(CurrentSpecHandle, CurrentActorInfo, CurrentActivationInfo, true, false);
+	}
 }
 //====================================================================
 
-//============================Buff Handling===========================
+
+
+//=========================Buff Handling===============================
 void USFGA_Hero_Skill_Buff::ApplyAura(AActor* Target)
 {
 	if(!AuraCueTag.IsValid()) return;
@@ -144,7 +162,9 @@ void USFGA_Hero_Skill_Buff::RemoveAura(AActor* Target)
 
 	ActiveAuraEffects.Remove(Target);
 }
-//=====================================================================
+//====================================================================
+
+
 
 //=============================EndAbility==============================
 void USFGA_Hero_Skill_Buff::EndAbility(
@@ -154,13 +174,13 @@ void USFGA_Hero_Skill_Buff::EndAbility(
 	bool bReplicateEndAbility,
 	bool bWasCancelled)
 {
-	bSkillActivatedByEvent = false;
-	
 	auto* ASC = ActorInfo ? ActorInfo->AbilitySystemComponent.Get() : nullptr;
 
+	//장판 Cue 제거
 	if(ASC && GroundCueTag.IsValid())
 		ASC->RemoveGameplayCue(GroundCueTag);
 
+	//Aura 제거
 	TArray<AActor*> Keys;
 	ActiveAuraEffects.GetKeys(Keys);
 	for(auto* T : Keys)
@@ -168,6 +188,12 @@ void USFGA_Hero_Skill_Buff::EndAbility(
 
 	ActiveAuraEffects.Empty();
 
-	Super::EndAbility(Handle,ActorInfo,ActivationInfo,bReplicateEndAbility,bWasCancelled);
+	//스킬 발동 태그 제거
+	if (ASC && SkillActivatedTag.IsValid())
+	{
+		ASC->RemoveLooseGameplayTag(SkillActivatedTag);
+	}
+
+	Super::EndAbility(Handle, ActorInfo, ActivationInfo, bReplicateEndAbility, bWasCancelled);
 }
 //=======================================================================
