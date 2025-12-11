@@ -27,10 +27,10 @@ protected:
 
 	UPROPERTY(EditDefaultsOnly, Category="SF|BuffEffect")
 	int32 BuffLevel = 1;
-//================================================================
+//==============================================================
 
 
-//======================GameplayCue Tags==========================
+//===================GameplayCue & Event Tags===================
 	UPROPERTY(EditDefaultsOnly, Category="SF|Cue")
 	FGameplayTag StartEventTag;
 
@@ -39,46 +39,45 @@ protected:
 
 	UPROPERTY(EditDefaultsOnly, Category="SF|Cue")
 	FGameplayTag AuraCueTag;
-//================================================================
+	
+	UPROPERTY(EditDefaultsOnly, Category="SF|Cue")
+	FGameplayTag SkillActivatedTag;
+//==============================================================
 
 
-//======================Aura Tracking(임시)========================
+//======================Aura Tracking===========================
 	UPROPERTY()
 	TMap<AActor*, FActiveGameplayEffectHandle> ActiveAuraEffects;
-//================================================================
+//==============================================================
 
 
-//====================모션 캔슬 버그 방지 플래그=====================
-	UPROPERTY()
-	bool bSkillActivatedByEvent = false; // Notify 이후 TRUE
-//================================================================
-	
-//========================Event Handler===========================
+//========================Event Handler=========================
 	UFUNCTION()
 	void OnReceivedSkillEvent(FGameplayEventData Payload);
 
 	UFUNCTION(BlueprintNativeEvent)
 	void OnSkillEventTriggered();
 	virtual void OnSkillEventTriggered_Implementation();
-//================================================================
-	
-//========================Montage Delegate========================
+//==============================================================
+
+
+//========================Montage Delegate======================
 	UFUNCTION()
 	void OnMontageInterrupted();
 
 	UFUNCTION()
 	void OnMontageBlendOut();
-//================================================================
-	
-//========================Buff Handling===========================
+//==============================================================
+
+
+//========================Buff Handling=========================
 	virtual void ApplyAura(AActor* Target);
 	virtual void RemoveAura(AActor* Target);
-//================================================================
+//==============================================================
 
-	
 public:
 
-//========================Ability Lifecycle=======================
+//========================Ability Lifecycle======================
 	virtual void ActivateAbility(
 		const FGameplayAbilitySpecHandle Handle,
 		const FGameplayAbilityActorInfo* ActorInfo,
@@ -91,5 +90,5 @@ public:
 		const FGameplayAbilityActivationInfo ActivationInfo,
 		bool bReplicateEndAbility,
 		bool bWasCancelled) override;
-//================================================================
+//=============================================================
 };
