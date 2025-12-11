@@ -53,6 +53,9 @@ protected:
 	UPROPERTY(EditDefaultsOnly, Category = "SF|Combo")
 	TArray<FSFChainConfig> ChainConfigs;
 
+	UPROPERTY(EditDefaultsOnly, Category = "SF|Combo")
+	bool bAutoApplyComboState = true;
+	
 	// ComboState의 OnCompleteNormal에서 사용 (Timeout 쿨다운 Tag==Complete 쿨다운 Tag 필수)
 	UPROPERTY(EditDefaultsOnly, Category = "SF|Cooldown")
 	TSubclassOf<UGameplayEffect> TimeoutCooldownEffectClass;
