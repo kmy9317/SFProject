@@ -53,8 +53,11 @@ void USFGA_ChainedSkill_Melee::ActivateAbility(const FGameplayAbilitySpecHandle 
 
 	ExecutingChainIndex = GetCurrentChain();
 	ExecuteChainStep(ExecutingChainIndex);
-	
-	ApplyComboState(this, ExecutingChainIndex + 1);
+
+	if (bAutoApplyComboState)
+	{
+		ApplyComboState(this, ExecutingChainIndex + 1);
+	}
 }
 
 void USFGA_ChainedSkill_Melee::OnTrace(FGameplayEventData Payload)
