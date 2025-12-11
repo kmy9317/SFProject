@@ -25,4 +25,9 @@ namespace SFGameplayTags
 
 	SF_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(Character_State_Parried);
 	SF_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(Character_State_Groggy);
+	SF_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(Character_State_Invulnerable);
+
+	SF_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(Character_State_Health);
+	SF_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(Character_State_Mana);
+	SF_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(Character_State_Stamina);
 }

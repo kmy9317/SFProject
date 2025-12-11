@@ -64,6 +64,7 @@ namespace SFGameplayTags
 	UE_DEFINE_GAMEPLAY_TAG(Data_Enemy_GuardRange, "Data.Attribute.Enemy.GuardRange");
 	UE_DEFINE_GAMEPLAY_TAG(Data_Enemy_SightRadius, "Data.Attribute.Enemy.SightRadius");
 	UE_DEFINE_GAMEPLAY_TAG(Data_Enemy_LoseSightRadius, "Data.Attribute.Enemy.LoseSightRadius");
-	
-	
+
+	// Cost
+	UE_DEFINE_GAMEPLAY_TAG(Data_Cost_DodgeStamina, "Data.Cost.DodgeStamina");
 }

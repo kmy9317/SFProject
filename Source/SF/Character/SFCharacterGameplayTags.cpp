@@ -27,4 +27,11 @@ namespace SFGameplayTags
 	// ========== 패링/그로기 ==========
 	UE_DEFINE_GAMEPLAY_TAG_COMMENT(Character_State_Parried, "Character.State.Parried", "Character is parried (staggered due to parry)");
 	UE_DEFINE_GAMEPLAY_TAG_COMMENT(Character_State_Groggy, "Character.State.Groggy", "Character is in groggy state");
+
+	// ========== 무적 ==========
+	UE_DEFINE_GAMEPLAY_TAG_COMMENT(Character_State_Invulnerable, "Character.State.Invulnerable", "Character is invulnerable");
+
+	UE_DEFINE_GAMEPLAY_TAG(State_RegenPaused_Health, "State.RegenPaused.Health");
+	UE_DEFINE_GAMEPLAY_TAG(State_RegenPaused_Mana, "State.RegenPaused.Mana");
+	UE_DEFINE_GAMEPLAY_TAG(State_RegenPaused_Stamina, "State.RegenPaused.Stamina");
 }

@@ -64,6 +64,7 @@ namespace SFGameplayTags
 	SF_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(Data_Enemy_GuardRange);
 	SF_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(Data_Enemy_SightRadius);
 	SF_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(Data_Enemy_LoseSightRadius);
-	
-	
+
+	// Cost
+	SF_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(Data_Cost_DodgeStamina);
 }

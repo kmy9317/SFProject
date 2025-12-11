@@ -12,5 +12,5 @@ namespace SFGameplayTags
 {
 	SF_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(Effect_Stunned);
 	SF_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(Effect_HitReaction);
-	
+	SF_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(Effect_Fail_NoStamina); // UI 피드백용
 }

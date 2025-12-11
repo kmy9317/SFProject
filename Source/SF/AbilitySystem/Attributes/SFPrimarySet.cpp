@@ -60,6 +60,12 @@ void USFPrimarySet::PostGameplayEffectExecute(const FGameplayEffectModCallbackDa
         {
             return;
         }
+
+        if (SFASC->HasMatchingGameplayTag(SFGameplayTags::Character_State_Invulnerable))
+        {
+            SetDamage(0.0f); // 데미지 무효화
+            return;
+        }
         
         const float DamageDone = GetDamage();
         SetDamage(0.0f);
