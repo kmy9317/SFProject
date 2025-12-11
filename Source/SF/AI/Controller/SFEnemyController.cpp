@@ -86,7 +86,6 @@ ASFEnemyController::ASFEnemyController(const FObjectInitializer& ObjectInitializ
     CombatComponent = ObjectInitializer.CreateDefaultSubobject<USFEnemyCombatComponent>(this, TEXT("CombatComponent")); 
 }
 
-// 네트워크 복제 함수 <- 제거
 void ASFEnemyController::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
 {
     Super::GetLifetimeReplicatedProps(OutLifetimeProps);
@@ -111,8 +110,6 @@ void ASFEnemyController::InitializeController()
             AIPerception->OnTargetPerceptionForgotten.AddDynamic(
                 this, &ASFEnemyController::OnTargetPerceptionForgotten
             );
-
-            // UE_LOG(LogTemp, Log, TEXT("[SFEnemyAI] Perception 이벤트 바인딩 완료"));
         }
         
         if (APawn* InPawn = GetPawn())
@@ -120,11 +117,10 @@ void ASFEnemyController::InitializeController()
             //  StateMachine 바인딩
             BindingStateMachine(InPawn);    
         
-            // 2. StateReactionComponent 바인딩 (CC기/사망 시 BT 제어를 위해 필수 [복구됨])
+            // 2. StateReactionComponent 바인딩 (CC기/사망 시 BT 제어를 위해 필수)
             USFStateReactionComponent* StateReactionComponent = USFStateReactionComponent::FindStateReactionComponent(InPawn);
             if (StateReactionComponent)
             {
-                //  IsAlreadyBound를 사용하여 안전하게 바인딩 (중복 방지)
                 if (!StateReactionComponent->OnStateStart.IsAlreadyBound(this, &ThisClass::ReceiveStateStart))
                 {
                     StateReactionComponent->OnStateStart.AddDynamic(this, &ThisClass::ReceiveStateStart);
@@ -142,9 +138,6 @@ void ASFEnemyController::InitializeController()
         {
             CombatComponent->InitializeCombatComponent();
         }
-
-        
-        // UE_LOG(LogTemp, Log, TEXT("[SFEnemyAI] InitializeController 완료"));
 
         SetGenericTeamId((FGenericTeamId(SFTeamID::Enemy)));
     }
@@ -178,8 +171,6 @@ void ASFEnemyController::OnPossess(APawn* InPawn)
         return;
     }
 
-    // UE_LOG(LogTemp, Log, TEXT("[SFEnemyAI] 제어한 Pawn: %s"), *InPawn->GetName());
-
     // 스폰 위치 저장
     SpawnLocation = InPawn->GetActorLocation();
 }
@@ -201,7 +192,6 @@ void ASFEnemyController::Tick(float DeltaTime)
 // [복구] 상태 이상(CC) 발생 시 BT 일시정지
 void ASFEnemyController::ReceiveStateStart(FGameplayTag StateTag)
 {
-
     if (!HasAuthority())
     {
         return;
@@ -220,14 +210,16 @@ void ASFEnemyController::ReceiveStateStart(FGameplayTag StateTag)
             BTComp->PauseLogic(Reason); // BT 일시정지
             StopMovement(); // 이동도 즉시 정지
         }
+        
+        // [중요 예외] BT가 멈추면 서비스도 멈추므로, 여기서는 직접 풀어줘야 안전함!
         ClearFocus(EAIFocusPriority::Gameplay);
+        
         TargetActor = nullptr;
 
         if (CachedBlackboardComponent)
         {
             CachedBlackboardComponent->ClearValue("TargetActor");
             CachedBlackboardComponent->SetValueAsBool("bHasTarget",false);
-            
         }
     }
 }
@@ -282,7 +274,6 @@ void ASFEnemyController::ReceiveStateEnd(FGameplayTag StateTag)
         {
             FString Reason = FString::Printf(TEXT("State End"), *StateTag.ToString());
             BTComp->ResumeLogic(Reason);
-            
         }
     }
 }
@@ -342,7 +333,6 @@ void ASFEnemyController::ChangeBehaviorTree(FGameplayTag GameplayTag)
     UBehaviorTree* NewTree = BehaviorTreeContainer.GetBehaviourTree(GameplayTag);
     if (NewTree)
     {
-        // UE_LOG(LogTemp, Log, TEXT("[SFEnemyAI] BehaviorTree 변경: %s"), *GameplayTag.ToString());
         SetBehaviorTree(NewTree);
     }
 }
@@ -351,7 +341,6 @@ bool ASFEnemyController::RunBehaviorTree(UBehaviorTree* BehaviorTree)
 {
     if (!BehaviorTree)
     {
-        // UE_LOG(LogTemp, Error, TEXT("[SFEnemyAI] RunBehaviorTree 실패: 전달된 트리가 nullptr"));
         return false;
     }
 
@@ -378,7 +367,7 @@ void ASFEnemyController::OnTargetPerceptionUpdated(AActor* Actor, FAIStimulus St
     if (!TargetTag.IsNone() && !Actor->ActorHasTag(TargetTag))
         return;
 
-    //  CombatComponent에게 시야 감지 결과 전달 (거리 계산 및 태그 부여의 핵심 연결고리)
+    //  CombatComponent에게 시야 감지 결과 전달
     if (CombatComponent)
     {
         CombatComponent->HandleTargetPerceptionUpdated(Actor, Stimulus.WasSuccessfullySensed());
@@ -394,10 +383,10 @@ void ASFEnemyController::OnTargetPerceptionUpdated(AActor* Actor, FAIStimulus St
             bIsInCombat = true;
             SightConfig->PeripheralVisionAngleDegrees = 180.f;
             AIPerception->ConfigureSense(*SightConfig);
-            // UE_LOG(LogTemp, Warning, TEXT("[SFEnemyAI] 상태: Idle → Combat (타겟: %s)"), *Actor->GetName());
         }
 
-        SetFocus(Actor, EAIFocusPriority::Gameplay);
+        // [삭제됨] 직접 SetFocus 호출 -> 이제 BTService (SFBTS_UpdateFocus)가 담당함
+        // SetFocus(Actor, EAIFocusPriority::Gameplay); 
 
         if (CachedBlackboardComponent)
         {
@@ -433,9 +422,8 @@ void ASFEnemyController::OnTargetPerceptionUpdated(AActor* Actor, FAIStimulus St
             SightConfig->PeripheralVisionAngleDegrees = PeripheralVisionAngleDegrees;
             AIPerception->ConfigureSense(*SightConfig);
 
-            // UE_LOG(LogTemp, Warning, TEXT("[SFEnemyAI] 상태: Combat → Idle"));
-
-            ClearFocus(EAIFocusPriority::Gameplay);
+            // [삭제됨] 직접 ClearFocus 호출 -> BTService가 담당
+            // ClearFocus(EAIFocusPriority::Gameplay);
 
             if (CachedBlackboardComponent)
             {
@@ -478,10 +466,10 @@ void ASFEnemyController::OnTargetPerceptionForgotten(AActor* Actor)
         {
             SightConfig->PeripheralVisionAngleDegrees = PeripheralVisionAngleDegrees;
             AIPerception->ConfigureSense(*SightConfig);
-            // UE_LOG(LogTemp, Warning, TEXT("[SFEnemyAI] 상태 변경 (Forgotten): Combat → Idle"));
         }
 
-        ClearFocus(EAIFocusPriority::Gameplay);
+        // [삭제됨] 직접 ClearFocus 호출 -> BTService가 담당
+        // ClearFocus(EAIFocusPriority::Gameplay);
 
         if (CachedBlackboardComponent)
         {
@@ -532,7 +520,6 @@ void ASFEnemyController::DrawDebugPerception()
             16, FColor::Cyan, false, LifeTime, 0, 1.5f
         );
 
-        // 디버그 정보는 CombatComponent가 정확히 가지고 있으므로 여기서 그리는 건 참고용입니다.
         DrawDebugSphere(GetWorld(), PawnLocation, 200.f, 12, FColor::Red, false, LifeTime, 0, 4.0f); // Melee (임시)
         DrawDebugSphere(GetWorld(), PawnLocation, 1200.f, 16, FColor::Yellow, false, LifeTime, 0, 2.5f); // Guard (임시)
 
@@ -600,8 +587,8 @@ void ASFEnemyController::SetTargetForce(AActor* NewTarget)
         CachedBlackboardComponent->SetValueAsVector("LastKnownPosition", NewTarget->GetActorLocation());
     }
 
-    // 4. 즉시 회전 (Focus 설정) - AI가 적을 바라보게 함
-    SetFocus(NewTarget, EAIFocusPriority::Gameplay);
+    // [삭제됨] 직접 SetFocus 호출 -> BTService가 담당
+    // SetFocus(NewTarget, EAIFocusPriority::Gameplay);
     
     // 5. CombatComponent에도 알림 (거리 계산, 공격 가능 여부 판단 등을 위해 필수)
     if (CombatComponent)
@@ -609,7 +596,4 @@ void ASFEnemyController::SetTargetForce(AActor* NewTarget)
         // 강제로 감지된 것으로 처리하여 내부 상태 갱신
         CombatComponent->HandleTargetPerceptionUpdated(NewTarget, true);
     }
-
-    // [로그 주석 처리]
-     UE_LOG(LogTemp, Warning, TEXT("[SFEnemyAI] 피격 반응: 타겟 강제 변경 -> %s"), *NewTarget->GetName());
 }

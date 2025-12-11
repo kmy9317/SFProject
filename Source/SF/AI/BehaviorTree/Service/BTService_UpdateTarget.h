@@ -1,4 +1,4 @@
-// Fill out your copyright notice in the Description page of Project Settings.
+// BTService_UpdateTarget.h
 
 #pragma once
 
@@ -9,12 +9,10 @@
 class ASFEnemyController;
 
 /**
- * UBTService_UpdateTarget (통합 완전체 버전)
- * * [기능 목록]
- * 1. 타겟 탐색 (Perception) - 기존 기능 복구
- * 2. 최적 타겟 선정 (Score) - 기존 기능 복구
- * 3. 슬롯 요청 및 유지 (Request/Maintain) - 삭제됐던 기능 복구 및 강화
- * 4. 근접 강제 공격 (Force Attack) - 신규 기능 추가
+ * UBTService_UpdateTarget (수정됨)
+ * - 기능 1: 타겟 탐색 및 선정 (Perception & Score)
+ * - 기능 2: 전투 슬롯(Slot) 요청 및 유지
+ * - [제거됨]: SetFocus (이제 SFBTS_UpdateFocus가 담당)
  */
 UCLASS()
 class SF_API UBTService_UpdateTarget : public UBTService
@@ -41,7 +39,7 @@ protected:
 	UPROPERTY(EditAnywhere, Category = "Target Priority", meta = (ClampMin = "0.0"))
 	float ScoreDifferenceThreshold = 50.f;
 
-	/** [신규] 이 거리보다 가까우면 슬롯 제한을 무시하고 강제로 공격권을 따냅니다. (cm) */
+	/** 이 거리보다 가까우면 슬롯 제한을 무시하고 강제 공격권 획득 */
 	UPROPERTY(EditAnywhere, Category = "Combat", meta = (ClampMin = "0.0"))
 	float ForceAttackDistance = 200.0f;
 
