@@ -103,8 +103,8 @@ protected:
 	TArray<FGameplayAbilitySpecHandle> InputHeldSpecHandles;
 
 //Effect
-protected:
-	// GameplayEffect를 처리한다  
-	void HandleGameplayEffectAppliedToSelf(UAbilitySystemComponent* SourceASC, const FGameplayEffectSpec& Spec, FActiveGameplayEffectHandle Handle);
-	void ProcessHitReactionEvent(const FGameplayEffectSpec& Spec);
+public:
+	void ProcessHitReactionEvent(float Damage,const FGameplayEffectSpec& Spec);
+	void ProcessParryEvent(float Damage,const FGameplayEffectSpec& Spec);
+	void ProcessDeathEvent(const FGameplayEffectSpec& Spec);
 };

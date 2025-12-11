@@ -369,6 +369,22 @@ void USFEnemyAnimInstance::UpdateTurnInPlace(float DeltaSeconds)
 			ProcessBlendOutMode(DeltaSeconds);
 			break;
 	}
+	if (bIsTurningInPlace)
+	{
+		
+		if (bHasVelocity)
+		{
+			RootYawOffsetMode = ERootYawOffsetMode::BlendOut;
+			bIsTurningInPlace = false;
+		}
+		
+		if (FMath::Abs(RootYawOffset) < 0.1f)
+		{
+			RootYawOffsetMode = ERootYawOffsetMode::BlendOut;
+			bIsTurningInPlace = false;
+		}
+	}
+
 }
 
 void USFEnemyAnimInstance::ProcessAccumulateMode(float DeltaYaw)
