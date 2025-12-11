@@ -11,6 +11,7 @@ namespace SFGameplayTags
 	// ========== 장비 타입 (Equipment Type) ==========
 	SF_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(EquipmentTag_Weapon);
 	SF_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(EquipmentTag_Weapon_Melee);      // 근접 무기
+	SF_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(EquipmentTag_Weapon_Shield);      // 방패 무기
 	SF_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(EquipmentTag_Weapon_Ranged);     // 원거리 무기
 	SF_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(EquipmentTag_Armor);             // 방어구
 	SF_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(EquipmentTag_Accessory);         // 액세서리

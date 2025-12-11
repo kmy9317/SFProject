@@ -1,5 +1,6 @@
 #include "SFGameMode.h"
 
+#include "EngineUtils.h"
 #include "SFEnemyManagerComponent.h"
 #include "SFGameState.h"
 #include "SFLogChannels.h"
@@ -9,11 +10,19 @@
 #include "Character/Hero/SFHeroDefinition.h"
 #include "Character/SFPawnData.h"
 #include "Character/SFPawnExtensionComponent.h"
+#include "Engine/PlayerStartPIE.h"
 #include "System/SFGameInstance.h"
 
 ASFGameMode::ASFGameMode()
 {
 	bUseSeamlessTravel = true;
+}
+
+void ASFGameMode::InitGame(const FString& MapName, const FString& Options, FString& ErrorMessage)
+{
+	Super::InitGame(MapName, Options, ErrorMessage);
+
+	AssignedPlayerStarts.Empty();
 }
 
 void ASFGameMode::InitGameState()
@@ -127,6 +136,7 @@ APawn* ASFGameMode::SpawnDefaultPawnAtTransform_Implementation(AController* NewP
 	SpawnInfo.Instigator = GetInstigator();
 	SpawnInfo.ObjectFlags |= RF_Transient;
 	SpawnInfo.bDeferConstruction = true;
+	SpawnInfo.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AdjustIfPossibleButAlwaysSpawn;
     
 	if (UClass* PawnClass = GetDefaultPawnClassForController(NewPlayer))
 	{
@@ -171,6 +181,62 @@ bool ASFGameMode::PlayerCanRestart_Implementation(APlayerController* Player)
 	}
 	
 	return Super::PlayerCanRestart_Implementation(Player);
+}
+
+AActor* ASFGameMode::ChoosePlayerStart_Implementation(AController* Player)
+{
+	UWorld* World = GetWorld();
+	UClass* PawnClass = GetDefaultPawnClassForController(Player);
+	APawn* PawnToFit = PawnClass ? PawnClass->GetDefaultObject<APawn>() : nullptr;
+
+	TArray<APlayerStart*> AvailableStarts;
+	
+	for (TActorIterator<APlayerStart> It(World); It; ++It)
+	{
+		APlayerStart* PlayerStart = *It;
+
+		// 에디터에서 Play From Here로 테스트 용이하게 함
+		if (PlayerStart->IsA<APlayerStartPIE>())
+		{
+			return PlayerStart;
+		}
+
+		if (AssignedPlayerStarts.Contains(PlayerStart))
+		{
+			continue;
+		}
+
+		FVector ActorLocation = PlayerStart->GetActorLocation();
+		const FRotator ActorRotation = PlayerStart->GetActorRotation();
+        
+		if (!World->EncroachingBlockingGeometry(PawnToFit, ActorLocation, ActorRotation))
+		{
+			AvailableStarts.Add(PlayerStart);
+		}
+	}
+	
+	// 태그 기준 정렬
+	AvailableStarts.Sort([](const APlayerStart& A, const APlayerStart& B)
+	{
+		int32 IndexA = FCString::Atoi(*A.PlayerStartTag.ToString());
+		int32 IndexB = FCString::Atoi(*B.PlayerStartTag.ToString());
+		return IndexA < IndexB;
+	});
+
+	APlayerStart* ChosenStart = AvailableStarts.Num() > 0 ? AvailableStarts[0] : nullptr;
+    
+	if (AvailableStarts.Num() > 0)
+	{
+		ChosenStart = AvailableStarts[0];
+		AssignedPlayerStarts.Add(ChosenStart);
+	}
+	else if (AssignedPlayerStarts.Num() > 0)
+	{
+		// 부족하면 첫 번째 사용했던 것 재사용
+		ChosenStart = AssignedPlayerStarts[0];
+	}
+
+	return ChosenStart;
 }
 
 const USFPawnData* ASFGameMode::GetPawnDataForController(const AController* InController) const

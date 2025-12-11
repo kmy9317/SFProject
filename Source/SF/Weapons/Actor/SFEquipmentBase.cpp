@@ -3,6 +3,7 @@
 #include "Character/SFCharacterBase.h"
 #include "Components/ArrowComponent.h"
 #include "Components/BoxComponent.h"
+#include "Net/UnrealNetwork.h"
 
 ASFEquipmentBase::ASFEquipmentBase(const FObjectInitializer& ObjectInitializer)
 	: Super( ObjectInitializer)
@@ -30,6 +31,13 @@ ASFEquipmentBase::ASFEquipmentBase(const FObjectInitializer& ObjectInitializer)
 	TraceDebugCollision->PrimaryComponentTick.bStartWithTickEnabled = false;
 }
 
+void ASFEquipmentBase::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
+{
+	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
+
+	DOREPLIFETIME(ThisClass, bIsBlocking);
+}
+
 UAbilitySystemComponent* ASFEquipmentBase::GetAbilitySystemComponent() const
 {
 	if (ASFCharacterBase* SFCharacter = Cast<ASFCharacterBase>(GetOwner()))
@@ -39,9 +47,17 @@ UAbilitySystemComponent* ASFEquipmentBase::GetAbilitySystemComponent() const
 	return nullptr;
 }
 
-void ASFEquipmentBase::BeginPlay()
+void ASFEquipmentBase::SetIsBlocking(bool bNewBlockingState)
 {
-	Super::BeginPlay();
+	if (HasAuthority())
+	{
+		bIsBlocking = bNewBlockingState;
+		OnRep_IsBlocking();
+	}
+}
+
+void ASFEquipmentBase::OnRep_IsBlocking()
+{
 	
 }
 

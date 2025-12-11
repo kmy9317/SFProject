@@ -18,7 +18,7 @@ class SF_API ASFEquipmentBase : public AActor, public IAbilitySystemInterface
 public:
 
 	ASFEquipmentBase(const FObjectInitializer& ObjectInitializer = FObjectInitializer::Get());
-
+	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
 	virtual UAbilitySystemComponent* GetAbilitySystemComponent() const override;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "SF|Combat")
@@ -26,8 +26,13 @@ public:
 
 	USkeletalMeshComponent* GetMeshComponent() const { return MeshComponent; }
 
-protected:
-	virtual void BeginPlay() override;
+	void SetIsBlocking(bool bNewBlockingState);
+	bool GetIsBlocking() const { return bIsBlocking; }
+
+private:
+
+	UFUNCTION()
+	void OnRep_IsBlocking();
 
 public:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly)
@@ -38,4 +43,8 @@ public:
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly)
 	TObjectPtr<UBoxComponent> TraceDebugCollision;
+
+private:
+	UPROPERTY(ReplicatedUsing=OnRep_IsBlocking)
+	bool bIsBlocking;
 };

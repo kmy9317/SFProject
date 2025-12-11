@@ -3,13 +3,23 @@
 #pragma once
 
 #include "CoreMinimal.h"
+#include "GameplayTagContainer.h"
 #include "Engine/DataAsset.h"
 #include "SFPawnData.generated.h"
 
+class USFGameplayAbility;
 class USFInputConfig;
 class USFAbilitySet;
 class USFCameraMode;
 
+USTRUCT(BlueprintType)
+struct FSFSkillUpgradeOptionList
+{
+	GENERATED_BODY()
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
+	TArray<TSubclassOf<USFGameplayAbility>> UpgradeAbilities;
+};
 
 /**
  * 
@@ -29,6 +39,14 @@ public:
 
 	USFPawnData(const FObjectInitializer& ObjectInitializer);
 
+	// 특정 InputTag의 업그레이드 선택지 반환
+	UFUNCTION(BlueprintCallable, Category = "SF|SkillUpgrade")
+	TArray<TSubclassOf<USFGameplayAbility>> GetUpgradeOptionsForSlot(FGameplayTag InputTag) const;
+    
+	// 스테이지 인덱스에 해당하는 InputTag 반환
+	UFUNCTION(BlueprintCallable, Category = "SF|SkillUpgrade")
+	FGameplayTag GetUpgradeSlotTagForStage(int32 StageIndex) const;
+
 public:
 
 	// Class to instantiate for this pawn (should usually derive from ALCPawn or ALCCharacter).
@@ -46,4 +64,14 @@ public:
 	// Default camera mode used by player controlled pawns.
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "SF|Camera")
 	TSubclassOf<USFCameraMode> DefaultCameraMode;
+
+	// 카테고리별 업그레이드 선택지 (EX : InputTag.PrimarySkill → Primary skills[GA_A, GA_B, GA_C])
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "SF|SkillUpgrade", meta = (Categories = "InputTag"))
+	TMap<FGameplayTag, FSFSkillUpgradeOptionList> SkillUpgradeMap;
+    
+	// 스테이지별 업그레이드할 카테고리 순서
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "SF|SkillUpgrade", meta = (Categories = "InputTag"))
+	TArray<FGameplayTag> UpgradeSlotOrder;
+
+	
 };

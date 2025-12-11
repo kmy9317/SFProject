@@ -9,6 +9,7 @@ namespace SFGameplayTags
 	// ========== 장비 타입 (Equipment Type) ==========
 	UE_DEFINE_GAMEPLAY_TAG_COMMENT(EquipmentTag_Weapon, "Equipment.Weapon", "Weapon Equipment Tag");
 	UE_DEFINE_GAMEPLAY_TAG_COMMENT(EquipmentTag_Weapon_Melee, "Equipment.Weapon.Melee", "Melee Weapon Equipment Tag");
+	UE_DEFINE_GAMEPLAY_TAG_COMMENT(EquipmentTag_Weapon_Shield, "Equipment.Weapon.Shield", "Shield Weapon Equipment Tag");
 	UE_DEFINE_GAMEPLAY_TAG_COMMENT(EquipmentTag_Weapon_Ranged, "Equipment.Weapon.Ranged", "Ranged Weapon Equipment Tag");
 	UE_DEFINE_GAMEPLAY_TAG_COMMENT(EquipmentTag_Armor, "Equipment.Armor", "Armor Equipment Tag");
 	UE_DEFINE_GAMEPLAY_TAG_COMMENT(EquipmentTag_Accessory, "Equipment.Accessory", "Accessory Equipment Tag");
