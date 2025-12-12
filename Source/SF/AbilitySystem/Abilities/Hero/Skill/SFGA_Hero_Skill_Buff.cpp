@@ -1,21 +1,21 @@
 #include "SFGA_Hero_Skill_Buff.h"
 
+#include "Components/CapsuleComponent.h"
 #include "AbilitySystemComponent.h"
 #include "Abilities/Tasks/AbilityTask_WaitGameplayEvent.h"
 #include "Abilities/Tasks/AbilityTask_PlayMontageAndWait.h"
 #include "Character/SFCharacterBase.h"
 #include "AbilitySystem/SFAbilitySystemComponent.h"
-
+#include "AbilitySystem/Abilities/Hero/Skill/SkillActor/SFBuffArea.h"
 
 USFGA_Hero_Skill_Buff::USFGA_Hero_Skill_Buff(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 {
+	
 	InstancingPolicy = EGameplayAbilityInstancingPolicy::InstancedPerActor;
 }
 
-
-
-//=========================ActivateAbility=========================
+//========================ActivateAbility========================
 void USFGA_Hero_Skill_Buff::ActivateAbility(
 	const FGameplayAbilitySpecHandle Handle,
 	const FGameplayAbilityActorInfo* ActorInfo,
@@ -24,149 +24,155 @@ void USFGA_Hero_Skill_Buff::ActivateAbility(
 {
 	Super::ActivateAbility(Handle, ActorInfo, ActivationInfo, TriggerEventData);
 
-	if (!CommitAbility(Handle, ActorInfo, ActivationInfo))
+	if (!CommitCheck(Handle, ActorInfo, ActivationInfo))
 	{
 		EndAbility(Handle, ActorInfo, ActivationInfo, true, true);
 		return;
 	}
-
-	//모션 실행
-	if (BuffMontage && ActorInfo && ActorInfo->AbilitySystemComponent.IsValid())
+	
+	//몽타주 재생
+	if (BuffMontage && ActorInfo && ActorInfo->AvatarActor.IsValid())
 	{
-		auto* Task = UAbilityTask_PlayMontageAndWait::CreatePlayMontageAndWaitProxy(
-			this, NAME_None, BuffMontage, 1.f, NAME_None, false, 1.f);
+		UAbilityTask_PlayMontageAndWait* MontageTask =
+			UAbilityTask_PlayMontageAndWait::CreatePlayMontageAndWaitProxy(
+				this,
+				NAME_None,
+				BuffMontage
+			);
 
-		if(Task)
+		MontageTask->OnCompleted.AddDynamic(this, &USFGA_Hero_Skill_Buff::OnMontageCompleted);
+		MontageTask->OnInterrupted.AddDynamic(this, &USFGA_Hero_Skill_Buff::OnMontageInterrupted);
+		MontageTask->OnCancelled.AddDynamic(this, &USFGA_Hero_Skill_Buff::OnMontageInterrupted);
+		MontageTask->OnBlendOut.AddDynamic(this, &USFGA_Hero_Skill_Buff::OnMontageBlendOut);
+
+		MontageTask->ReadyForActivation();
+	}
+
+	//GameplayEvent 대기 (노티파이에서 StartEventTag 쏴주면 됨)
+	if (StartEventTag.IsValid())
+	{
+		UAbilityTask_WaitGameplayEvent* EventTask =
+			UAbilityTask_WaitGameplayEvent::WaitGameplayEvent(
+				this,
+				StartEventTag,
+				NULL,
+				true,
+				true
+			);
+
+		EventTask->EventReceived.AddDynamic(this, &USFGA_Hero_Skill_Buff::OnReceivedSkillEvent);
+		EventTask->ReadyForActivation();
+	}
+}
+//===============================================================
+
+
+//====================OnReceivedSkillEvent====================
+void USFGA_Hero_Skill_Buff::OnReceivedSkillEvent(FGameplayEventData Payload)
+{
+	UAbilitySystemComponent* ASC =
+		CurrentActorInfo ? CurrentActorInfo->AbilitySystemComponent.Get() : nullptr;
+	
+	if (!ASC)
+		return;
+
+	if (!CommitAbility(CurrentSpecHandle, CurrentActorInfo, CurrentActivationInfo))
+	{
+		EndAbility(CurrentSpecHandle, CurrentActorInfo, CurrentActivationInfo, true, true);
+		return;
+	}
+	
+	//실제 스킬 로직 호출(BuffArea 장판 소환)
+	OnSkillEventTriggered();
+}
+//===========================================================
+
+
+//===========================BuffArea 액터 소환=============================
+void USFGA_Hero_Skill_Buff::OnSkillEventTriggered_Implementation()
+{
+	if (!BuffAreaClass)
+	{
+		return;
+	}
+
+	UWorld* World = GetWorld();
+	if (!World || !CurrentActorInfo)
+	{
+		return;
+	}
+
+	AActor* Avatar = GetAvatarActorFromActorInfo();
+	if (!Avatar)
+	{
+		return;
+	}
+
+	UAbilitySystemComponent* ASC = CurrentActorInfo->AbilitySystemComponent.Get();
+	if (!ASC)
+	{
+		return;
+	}
+	
+	//BuffArea 액터 소환 위치 지정
+	FVector SpawnLoc = Avatar->GetActorLocation();
+
+	float HalfHeight = 0.f;
+
+	//Pawn인지 확인 후 Capsule 정보 가져오기
+	if (ACharacter* Char = Cast<ACharacter>(Avatar))
+	{
+		if (auto* Capsule = Char->GetCapsuleComponent())
 		{
-			Task->OnInterrupted.AddDynamic(this, &USFGA_Hero_Skill_Buff::OnMontageInterrupted);
-			Task->OnCancelled.AddDynamic(this, &USFGA_Hero_Skill_Buff::OnMontageInterrupted);
-			Task->OnBlendOut.AddDynamic(this, &USFGA_Hero_Skill_Buff::OnMontageBlendOut);
-
-			Task->ReadyForActivation();
+			HalfHeight = Capsule->GetScaledCapsuleHalfHeight();
 		}
 	}
 
-	//Gameplay Event 수신 (서버에서만 처리)
-	if (HasAuthority(&ActivationInfo) && StartEventTag.IsValid())
+	//캐릭터 중심 → 발바닥 위치로 이동
+	SpawnLoc.Z -= HalfHeight;
+
+	//FX 추가 위치 보정
+	SpawnLoc.Z += 3.f;
+	
+	//BuffArea 액터 소환
+	FActorSpawnParameters Params;
+	Params.Owner = Avatar;
+	Params.Instigator = Cast<APawn>(Avatar);
+
+	ASFBuffArea* AreaActor = World->SpawnActor<ASFBuffArea>(
+		BuffAreaClass,
+		SpawnLoc,
+		FRotator::ZeroRotator,
+		Params
+	);
+
+	if (AreaActor)
 	{
-		auto* Wait = UAbilityTask_WaitGameplayEvent::WaitGameplayEvent(this, StartEventTag);
-		Wait->EventReceived.AddDynamic(this, &USFGA_Hero_Skill_Buff::OnReceivedSkillEvent);
-		Wait->ReadyForActivation();
+		AreaActor->InitializeArea(ASC);
 	}
 }
-//====================================================================
+//=====================================================================
 
 
-
-//=================GameplayEvent (Notify로부터 신호 받음)===============
-void USFGA_Hero_Skill_Buff::OnReceivedSkillEvent(FGameplayEventData Payload)
-{
-	auto* ASC = CurrentActorInfo ? CurrentActorInfo->AbilitySystemComponent.Get() : nullptr;
-	if(!ASC) return;
-
-	//장판 Cue
-	if (GroundCueTag.IsValid())
-		ASC->AddGameplayCue(GroundCueTag);
-
-	//스킬 발동 확정 처리
-	if (SkillActivatedTag.IsValid())
-		ASC->AddLooseGameplayTag(SkillActivatedTag);
-
-	//자식 Ability 커스텀 처리
-	OnSkillEventTriggered();
-}
-//====================================================================
-
-
-
-//====================BlueprintNativeEvent 기본 구현===================
-void USFGA_Hero_Skill_Buff::OnSkillEventTriggered_Implementation()
-{
-	//자식 클래스가 Override
-}
-//====================================================================
-
-
-
-//===========================Montage Interruption=======================
+//========================Montage Delegates========================
 void USFGA_Hero_Skill_Buff::OnMontageInterrupted()
 {
-	auto* ASC = CurrentActorInfo ? CurrentActorInfo->AbilitySystemComponent.Get() : nullptr;
-
-	//발동 태그가 없으면 스킬 실패 처리
-	if (!ASC || !ASC->HasMatchingGameplayTag(SkillActivatedTag))
-	{
 		EndAbility(CurrentSpecHandle, CurrentActorInfo, CurrentActivationInfo, true, true);
-	}
 }
-//====================================================================
 
-
-
-//=========================Montage BlendOut============================
 void USFGA_Hero_Skill_Buff::OnMontageBlendOut()
 {
-	if(!IsActive()) return;
-
-	auto* ASC = CurrentActorInfo ? CurrentActorInfo->AbilitySystemComponent.Get() : nullptr;
-
-	//발동 태그가 없으면 스킬 실패 처리
-	if (!ASC || !ASC->HasMatchingGameplayTag(SkillActivatedTag))
-	{
 		EndAbility(CurrentSpecHandle, CurrentActorInfo, CurrentActivationInfo, true, false);
-	}
 }
-//====================================================================
 
-
-
-//=========================Buff Handling===============================
-void USFGA_Hero_Skill_Buff::ApplyAura(AActor* Target)
+void USFGA_Hero_Skill_Buff::OnMontageCompleted()
 {
-	if(!AuraCueTag.IsValid()) return;
-	if(!Target->ActorHasTag("Player")) return;
-
-	auto* Char = Cast<ASFCharacterBase>(Target);
-	if(!Char) return;
-
-	auto* ASC = Cast<USFAbilitySystemComponent>(Char->GetAbilitySystemComponent());
-	if(!ASC) return;
-
-	auto Ctx = ASC->MakeEffectContext();
-	Ctx.AddSourceObject(this);
-
-	auto Spec = ASC->MakeOutgoingSpec(BuffEffectClass, BuffLevel, Ctx);
-	if(!Spec.IsValid()) return;
-
-	auto Handle = ASC->ApplyGameplayEffectSpecToSelf(*Spec.Data.Get());
-	if(!Handle.IsValid()) return;
-
-	ASC->AddGameplayCue(AuraCueTag);
-	ActiveAuraEffects.Add(Target, Handle);
+		EndAbility(CurrentSpecHandle, CurrentActorInfo, CurrentActivationInfo, true, false);
 }
-
-void USFGA_Hero_Skill_Buff::RemoveAura(AActor* Target)
-{
-	if(!ActiveAuraEffects.Contains(Target)) return;
-
-	auto* Char = Cast<ASFCharacterBase>(Target);
-	if(!Char) return;
-
-	auto* ASC = Cast<USFAbilitySystemComponent>(Char->GetAbilitySystemComponent());
-	if(ASC)
-	{
-		auto Handle = ActiveAuraEffects[Target];
-		if(Handle.IsValid()) ASC->RemoveActiveGameplayEffect(Handle);
-		if(AuraCueTag.IsValid()) ASC->RemoveGameplayCue(AuraCueTag);
-	}
-
-	ActiveAuraEffects.Remove(Target);
-}
-//====================================================================
+//=================================================================
 
 
-
-//=============================EndAbility==============================
+//==========================EndAbility==========================
 void USFGA_Hero_Skill_Buff::EndAbility(
 	const FGameplayAbilitySpecHandle Handle,
 	const FGameplayAbilityActorInfo* ActorInfo,
@@ -174,26 +180,6 @@ void USFGA_Hero_Skill_Buff::EndAbility(
 	bool bReplicateEndAbility,
 	bool bWasCancelled)
 {
-	auto* ASC = ActorInfo ? ActorInfo->AbilitySystemComponent.Get() : nullptr;
-
-	//장판 Cue 제거
-	if(ASC && GroundCueTag.IsValid())
-		ASC->RemoveGameplayCue(GroundCueTag);
-
-	//Aura 제거
-	TArray<AActor*> Keys;
-	ActiveAuraEffects.GetKeys(Keys);
-	for(auto* T : Keys)
-		RemoveAura(T);
-
-	ActiveAuraEffects.Empty();
-
-	//스킬 발동 태그 제거
-	if (ASC && SkillActivatedTag.IsValid())
-	{
-		ASC->RemoveLooseGameplayTag(SkillActivatedTag);
-	}
-
 	Super::EndAbility(Handle, ActorInfo, ActivationInfo, bReplicateEndAbility, bWasCancelled);
 }
-//=======================================================================
+//==============================================================
