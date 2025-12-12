@@ -1,6 +1,7 @@
 #pragma once
 
 #include "CoreMinimal.h"
+#include "GameplayAbilitySpecHandle.h"
 #include "SFSkillInfoMessages.generated.h"
 
 class UTextBlock;

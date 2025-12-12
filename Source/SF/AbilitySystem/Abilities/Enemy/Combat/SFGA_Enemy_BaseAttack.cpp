@@ -6,6 +6,7 @@
 #include "AbilitySystemComponent.h"
 #include "AbilitySystem/Abilities/SFGameplayAbilityTags.h"
 #include "AbilitySystem/GameplayEvent/SFGameplayEventTags.h"
+#include "AI/Controller/SFEnemyCombatComponent.h"
 #include "AI/Controller/SFEnemyController.h"
 #include "Character/SFCharacterBase.h"
 #include "Character/SFCharacterGameplayTags.h"
@@ -212,11 +213,15 @@ void USFGA_Enemy_BaseAttack::ApplyDamageToTarget(
 	);
 }
 
-ASFCharacterBase* USFGA_Enemy_BaseAttack::GetCurrentTarget() const
+AActor* USFGA_Enemy_BaseAttack::GetCurrentTarget() const
 {
-	if (ASFEnemyController* Ctrl = Cast<ASFEnemyController>(GetControllerFromActorInfo()))
-		return Cast<ASFCharacterBase>(Ctrl->TargetActor);
-
+	if (ISFAIControllerInterface* Interface = Cast<ISFAIControllerInterface>(GetControllerFromActorInfo()))
+	{
+		if (USFEnemyCombatComponent* CombatComp = Interface->GetCombatComponent())
+		{
+			return CombatComp->GetCurrentTarget();
+		}
+	}
 	return nullptr;
 }
 

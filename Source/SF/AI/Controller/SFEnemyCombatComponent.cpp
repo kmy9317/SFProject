@@ -20,11 +20,7 @@ USFEnemyCombatComponent::USFEnemyCombatComponent(const FObjectInitializer& Objec
     PrimaryComponentTick.bStartWithTickEnabled = true;
 }
 
-void USFEnemyCombatComponent::BeginPlay()
-{
-	Super::BeginPlay();
-	InitializeCombatComponent();
-}
+
 
 void USFEnemyCombatComponent::InitializeCombatComponent()
 {

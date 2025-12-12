@@ -25,22 +25,25 @@ bool USFPrimarySet_Enemy::PreGameplayEffectExecute(FGameplayEffectModCallbackDat
 
 void USFPrimarySet_Enemy::PostGameplayEffectExecute(const FGameplayEffectModCallbackData& Data)
 {
-
+	
+	
 	if (Data.EvaluatedData.Attribute == GetDamageAttribute())
 	{
 		const float DamageDone = GetDamage();
-
+	
 		// 유효한 데미지가 들어왔는지 확인
 		if (DamageDone > 0.0f)
 		{
 			// 공격자(Instigator) 정보 가져오기
 			AActor* Instigator = Data.EffectSpec.GetContext().GetInstigator();
-
+			
 			//  Enemy의 LastAttacker 업데이트 
 			if (ASFEnemy* Enemy = Cast<ASFEnemy>(GetOwningActor()))
 			{
 				Enemy->SetLastAttacker(Instigator);
 			}
+
+			OnTakeDamageDelegate.Broadcast(DamageDone, Instigator);
 		}
 	}
 	
@@ -62,7 +65,7 @@ void USFPrimarySet_Enemy::PreAttributeChange(const FGameplayAttribute& Attribute
 void USFPrimarySet_Enemy::PostAttributeChange(const FGameplayAttribute& Attribute, float OldValue, float NewValue)
 {
 	Super::PostAttributeChange(Attribute, OldValue, NewValue);
-
+	
 	if (Attribute == GetMaxStaggerAttribute())
 	{
 		if (GetStagger() > NewValue)

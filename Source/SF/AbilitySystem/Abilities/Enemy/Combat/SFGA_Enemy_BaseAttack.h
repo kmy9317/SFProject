@@ -76,7 +76,7 @@ protected:
 
 
     UFUNCTION(BlueprintCallable, Category = "Attack")
-    virtual ASFCharacterBase* GetCurrentTarget() const;
+    virtual AActor* GetCurrentTarget() const;
 
     virtual void ApplyCooldown(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo) const override;
 

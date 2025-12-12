@@ -33,7 +33,6 @@ void USFEnemyComponent::OnRegister()
 	{
 		return;
 	}
-
 	// InitState에 등록
 	RegisterInitStateFeature();
 }
@@ -174,15 +173,14 @@ void USFEnemyComponent::InitializeAI()
 	{
 		return;
 	}
-
-	ASFEnemyController* EnemyController = Cast<ASFEnemyController>(AIController);
-	if (!EnemyController)
+	ISFAIControllerInterface* AIControllerInterface = Cast<ISFAIControllerInterface>(AIController);
+	if (!AIControllerInterface)
 	{
 		return;
 	}
+	AIControllerInterface->InitializeAIController();
+			
 
-	EnemyController->InitializeController();
-	EnemyController->SetBehaviourContainer(EnemyData->BehaviourContainer);
 }
 
 void USFEnemyComponent::InitalizeStateMachineComponent()

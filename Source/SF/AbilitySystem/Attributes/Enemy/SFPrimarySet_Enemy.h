@@ -6,6 +6,7 @@
 #include "AbilitySystem/Attributes/SFPrimarySet.h"
 #include "SFPrimarySet_Enemy.generated.h"
 
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FOnTakeDamageSignature, float, Damage, AActor*, DamageCauser);
 /**
  * 
  */
@@ -32,6 +33,8 @@ protected:
 public:
 	ATTRIBUTE_ACCESSORS(ThisClass, Stagger);
 	ATTRIBUTE_ACCESSORS(ThisClass, MaxStagger);
+
+	FOnTakeDamageSignature OnTakeDamageDelegate;
 
 protected:
 	UFUNCTION()

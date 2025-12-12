@@ -108,18 +108,15 @@ float USFDamageEffectExecCalculation::ApplyCritical(
     float CriticalChance = 0.f;
     ExecutionParams.AttemptCalculateCapturedAttributeMagnitude(
         DamageStatics.CriticalChanceDef, EvalParams, CriticalChance);
-
-    // 크리티컬 판정
+    
     bool bIsCritical = FMath::FRand() < CriticalChance;
 
     if (bIsCritical)
     {
-        // 크리티컬 데미지 배율 가져오기
         float CriticalDamage = 0.f;
         ExecutionParams.AttemptCalculateCapturedAttributeMagnitude(
             DamageStatics.CriticalDamageDef, EvalParams, CriticalDamage);
-
-        // 크리티컬 컨텍스트에 표시
+        
         FGameplayEffectContextHandle ContextHandle = Spec.GetEffectContext();
         if (FSFGameplayEffectContext* SFContext = static_cast<FSFGameplayEffectContext*>(ContextHandle.Get()))
         {

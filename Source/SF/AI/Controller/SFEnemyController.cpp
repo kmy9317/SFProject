@@ -1,24 +1,12 @@
-// Fill out your copyright notice in the Description page of Project Settings.
-
 #include "SFEnemyController.h"
 
-#include "AbilitySystemComponent.h"
-#include "AbilitySystemGlobals.h"
-#include "AI/StateMachine/SFStateMachine.h"
-#include "BehaviorTree/BehaviorTree.h"
-#include "BehaviorTree/BehaviorTreeComponent.h"
-#include "BehaviorTree/BlackboardComponent.h"
-#include "Components/GameFrameworkComponentManager.h"
 #include "Perception/AISense_Sight.h"
 #include "DrawDebugHelpers.h"
 #include "GameFramework/Character.h"
-#include "NavigationSystem.h"
-#include "Net/UnrealNetwork.h"
+#include "Navigation/CrowdFollowingComponent.h"
 #include "AI/Controller/SFEnemyCombatComponent.h"
 #include "Character/SFCharacterGameplayTags.h"
-#include "Character/Enemy/Component/SFStateReactionComponent.h"
-#include "Navigation/CrowdFollowingComponent.h"
-#include "Team/SFTeamTypes.h"
+#include "BehaviorTree/BlackboardComponent.h"
 
 #include UE_INLINE_GENERATED_CPP_BY_NAME(SFEnemyController)
 
@@ -62,123 +50,30 @@ ASFEnemyController::ASFEnemyController(const FObjectInitializer& ObjectInitializ
     PrimaryActorTick.bCanEverTick = true;
     PrimaryActorTick.TickGroup = TG_PostUpdateWork;
 
-    bIsInCombat = false;
-    TargetActor = nullptr;
-
-    if (UCrowdFollowingComponent* CrowdComp = Cast<UCrowdFollowingComponent>(GetPathFollowingComponent()))
-    {
-        // 1. 회피 품질 설정 (높을수록 좋음, 성능 고려하여 Good~High 추천)
-        CrowdComp->SetCrowdAvoidanceQuality(ECrowdAvoidanceQuality::Good);
-
-        // 2. 충돌 감지 범위 (이 범위 내의 다른 AI를 피함)
-        // 캐릭터 캡슐 크기에 따라 조절 (보통 500~700 적당)
-        CrowdComp->SetCrowdCollisionQueryRange(600.f);
-
-        // 3. 그룹 설정 (기본값 유지해도 무방하지만 명시적으로 설정)
-        CrowdComp->SetAvoidanceGroup(1);
-        CrowdComp->SetGroupsToAvoid(1);
-        
-        // 4. 서로 너무 강하게 밀치지 않도록 분리 가중치 조절
-        //CrowdComp->SetCrowdSeparationWeight(50.f); 
-    }
-    
     // CombatComponent 생성
-    CombatComponent = ObjectInitializer.CreateDefaultSubobject<USFEnemyCombatComponent>(this, TEXT("CombatComponent")); 
+    CombatComponent = ObjectInitializer.CreateDefaultSubobject<USFEnemyCombatComponent>(this, TEXT("CombatComponent"));
 }
 
-void ASFEnemyController::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
-{
-    Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 
-    DOREPLIFETIME(ASFEnemyController, bIsInCombat);
-    DOREPLIFETIME(ASFEnemyController, bHasGuardSlot);
-    DOREPLIFETIME(ASFEnemyController, TeamId);
-}
-
-// 컨트롤러 초기화 통합 함수 (StateMachine, Combat, StateReaction 모두 처리)
-void ASFEnemyController::InitializeController()
+void ASFEnemyController::InitializeAIController()
 {
+    // 베이스 클래스의 공통 초기화 호출
+    Super::InitializeAIController();
+
     if (HasAuthority())
     {
-        //AIPerception 바인딩 
+        // AIPerception 바인딩 (Enemy 전용)
         if (AIPerception)
         {
             AIPerception->OnTargetPerceptionUpdated.AddDynamic(
                 this, &ASFEnemyController::OnTargetPerceptionUpdated
             );
-        
+
             AIPerception->OnTargetPerceptionForgotten.AddDynamic(
                 this, &ASFEnemyController::OnTargetPerceptionForgotten
             );
         }
-        
-        if (APawn* InPawn = GetPawn())
-        {
-            //  StateMachine 바인딩
-            BindingStateMachine(InPawn);    
-        
-            // 2. StateReactionComponent 바인딩 (CC기/사망 시 BT 제어를 위해 필수)
-            USFStateReactionComponent* StateReactionComponent = USFStateReactionComponent::FindStateReactionComponent(InPawn);
-            if (StateReactionComponent)
-            {
-                if (!StateReactionComponent->OnStateStart.IsAlreadyBound(this, &ThisClass::ReceiveStateStart))
-                {
-                    StateReactionComponent->OnStateStart.AddDynamic(this, &ThisClass::ReceiveStateStart);
-                }
-
-                if (!StateReactionComponent->OnStateEnd.IsAlreadyBound(this, &ThisClass::ReceiveStateEnd))
-                {
-                    StateReactionComponent->OnStateEnd.AddDynamic(this, &ThisClass::ReceiveStateEnd);
-                }
-            }
-        }
-    
-        // 3. CombatComponent 초기화 (거리 계산, ASC 캐싱 필수)
-        if (CombatComponent)
-        {
-            CombatComponent->InitializeCombatComponent();
-        }
-
-        SetGenericTeamId((FGenericTeamId(SFTeamID::Enemy)));
     }
-}
-
-void ASFEnemyController::PreInitializeComponents()
-{
-    Super::PreInitializeComponents();
-    UGameFrameworkComponentManager::AddGameFrameworkComponentReceiver(this);
-}
-
-
-void ASFEnemyController::BeginPlay()
-{
-    UGameFrameworkComponentManager::SendGameFrameworkComponentExtensionEvent(this, UGameFrameworkComponentManager::NAME_GameActorReady);
-    Super::BeginPlay();
-}
-
-void ASFEnemyController::EndPlay(const EEndPlayReason::Type EndPlayReason)
-{
-    UGameFrameworkComponentManager::RemoveGameFrameworkComponentReceiver(this);
-    Super::EndPlay(EndPlayReason);
-}
-
-void ASFEnemyController::OnPossess(APawn* InPawn)
-{
-    Super::OnPossess(InPawn);
-    
-    if (!InPawn)
-    {
-        return;
-    }
-
-    // 스폰 위치 저장
-    SpawnLocation = InPawn->GetActorLocation();
-}
-
-void ASFEnemyController::OnUnPossess()
-{
-    UnBindingStateMachine();
-    Super::OnUnPossess();
 }
 
 void ASFEnemyController::Tick(float DeltaTime)
@@ -186,176 +81,6 @@ void ASFEnemyController::Tick(float DeltaTime)
     Super::Tick(DeltaTime);
     DrawDebugPerception();
 }
-
-#pragma region BT
-
-// [복구] 상태 이상(CC) 발생 시 BT 일시정지
-void ASFEnemyController::ReceiveStateStart(FGameplayTag StateTag)
-{
-    if (!HasAuthority())
-    {
-        return;
-    }
-    if (StateTag == SFGameplayTags::Character_State_Stunned ||
-        StateTag == SFGameplayTags::Character_State_Groggy ||
-        StateTag == SFGameplayTags::Character_State_Parried||
-        StateTag == SFGameplayTags::Character_State_Knockback ||
-        StateTag == SFGameplayTags::Character_State_Knockdown ||
-        StateTag == SFGameplayTags::Character_State_Dead)
-    {
-        SetActorTickEnabled(false);
-        if (UBehaviorTreeComponent* BTComp = Cast<UBehaviorTreeComponent>(BrainComponent))
-        {
-            FString Reason = FString::Printf(TEXT("State Start: %s"), *StateTag.ToString());
-            BTComp->PauseLogic(Reason); // BT 일시정지
-            StopMovement(); // 이동도 즉시 정지
-        }
-        
-        // [중요 예외] BT가 멈추면 서비스도 멈추므로, 여기서는 직접 풀어줘야 안전함!
-        ClearFocus(EAIFocusPriority::Gameplay);
-        
-        TargetActor = nullptr;
-
-        if (CachedBlackboardComponent)
-        {
-            CachedBlackboardComponent->ClearValue("TargetActor");
-            CachedBlackboardComponent->SetValueAsBool("bHasTarget",false);
-        }
-    }
-}
-
-// [복구] 상태 이상 해제 시 BT 재개
-void ASFEnemyController::ReceiveStateEnd(FGameplayTag StateTag)
-{
-    // Death 상태는 재개하지 않음
-    if (!HasAuthority())
-    {
-        return;
-    }
-    if (StateTag == SFGameplayTags::Character_State_Dead)
-    {
-        return;
-    }
-    
-    if (StateTag == SFGameplayTags::Character_State_Stunned ||
-        StateTag == SFGameplayTags::Character_State_Groggy ||
-        StateTag == SFGameplayTags::Character_State_Parried ||
-        StateTag == SFGameplayTags::Character_State_Knockback ||
-        StateTag == SFGameplayTags::Character_State_Knockdown)
-    {
-        APawn* ControlledPawn = GetPawn();
-        if (!ControlledPawn)
-        {
-            return;
-        }
-        
-        UAbilitySystemComponent* ASC = UAbilitySystemGlobals::GetAbilitySystemComponentFromActor(ControlledPawn);
-        if (!ASC)
-        {
-            return;
-        }
-        
-        FGameplayTagContainer CCStateTags;
-        CCStateTags.AddTag(SFGameplayTags::Character_State_Stunned);
-        CCStateTags.AddTag(SFGameplayTags::Character_State_Groggy);
-        CCStateTags.AddTag(SFGameplayTags::Character_State_Parried);
-        CCStateTags.AddTag(SFGameplayTags::Character_State_Knockback);
-        CCStateTags.AddTag(SFGameplayTags::Character_State_Knockdown);
-        CCStateTags.AddTag(SFGameplayTags::Character_State_Dead);
-        
-        if (ASC->HasAnyMatchingGameplayTags(CCStateTags))
-        {
-            return;
-        }
-        
-        SetActorTickEnabled(true);
-        
-        if (UBehaviorTreeComponent* BTComp = Cast<UBehaviorTreeComponent>(BrainComponent))
-        {
-            FString Reason = FString::Printf(TEXT("State End"), *StateTag.ToString());
-            BTComp->ResumeLogic(Reason);
-        }
-    }
-}
-
-void ASFEnemyController::SetBehaviorTree(UBehaviorTree* NewBehaviorTree)
-{
-    if (!NewBehaviorTree)
-        return;
-   
-    if (CachedBehaviorTreeComponent && 
-        CachedBehaviorTreeComponent->GetCurrentTree() == NewBehaviorTree)
-    {
-        return;
-    }
-
-    RunBehaviorTree(NewBehaviorTree);
-}
-
-void ASFEnemyController::BindingStateMachine(const APawn* InPawn)
-{
-    if (!InPawn) return;
-    
-    USFStateMachine* StateMachine = USFStateMachine::FindStateMachineComponent(InPawn);
-    if (StateMachine)
-    {
-        StateMachine->OnChangeTreeDelegate.AddUObject(this, &ThisClass::ChangeBehaviorTree);
-        StateMachine->OnStopTreeDelegate.AddUObject(this, &ThisClass::StopBehaviorTree);
-    }
-}
-
-void ASFEnemyController::UnBindingStateMachine()
-{
-    APawn* ControlledPawn = GetPawn();
-    if (!ControlledPawn) return;
-
-    USFStateMachine* StateMachine = USFStateMachine::FindStateMachineComponent(ControlledPawn);
-    if (StateMachine)
-    {
-        StateMachine->OnChangeTreeDelegate.RemoveAll(this);
-        StateMachine->OnStopTreeDelegate.RemoveAll(this);
-    }
-}
-
-void ASFEnemyController::StopBehaviorTree()
-{
-    if (CachedBehaviorTreeComponent)
-        CachedBehaviorTreeComponent->StopTree();
-}
-
-void ASFEnemyController::ChangeBehaviorTree(FGameplayTag GameplayTag)
-{
-    if (!GameplayTag.IsValid())
-    {
-        return;
-    }
-
-    UBehaviorTree* NewTree = BehaviorTreeContainer.GetBehaviourTree(GameplayTag);
-    if (NewTree)
-    {
-        SetBehaviorTree(NewTree);
-    }
-}
-
-bool ASFEnemyController::RunBehaviorTree(UBehaviorTree* BehaviorTree)
-{
-    if (!BehaviorTree)
-    {
-        return false;
-    }
-
-    const bool bSuccess = Super::RunBehaviorTree(BehaviorTree);
-    
-    if (bSuccess)
-    {
-        CachedBehaviorTreeComponent = Cast<UBehaviorTreeComponent>(GetBrainComponent());
-        CachedBlackboardComponent = GetBlackboardComponent();
-    }
-
-    bIsInCombat = false;
-    return bSuccess;
-}
-#pragma endregion 
 
 void ASFEnemyController::OnTargetPerceptionUpdated(AActor* Actor, FAIStimulus Stimulus)
 {
@@ -376,6 +101,8 @@ void ASFEnemyController::OnTargetPerceptionUpdated(AActor* Actor, FAIStimulus St
     // 감지 성공
     if (Stimulus.WasSuccessfullySensed())
     {
+        // [수정됨] 직접 할당보다는 BTService가 최종 결정하도록 유도하지만,
+        // 최초 발견 반응을 위해 변수는 유지하거나 블랙보드 갱신에 집중합니다.
         TargetActor = Actor;
 
         if (!bIsInCombat)
@@ -390,6 +117,7 @@ void ASFEnemyController::OnTargetPerceptionUpdated(AActor* Actor, FAIStimulus St
 
         if (CachedBlackboardComponent)
         {
+            // 타겟을 발견했으므로 블랙보드 갱신 (추격 시작)
             CachedBlackboardComponent->SetValueAsObject("TargetActor", Actor);
             CachedBlackboardComponent->SetValueAsBool("bHasTarget", true);
             CachedBlackboardComponent->SetValueAsBool("bIsInCombat", true);
@@ -399,85 +127,58 @@ void ASFEnemyController::OnTargetPerceptionUpdated(AActor* Actor, FAIStimulus St
     // 감지 상실
     else
     {
+        // [중요 수정] 여기서 타겟을 nullptr로 지우는 로직을 전면 삭제합니다.
+        // 타겟 해제 판단은 이제 'BTService_UpdateTarget'에서 거리와 시간을 계산해서 수행합니다.
+        
+        // (디버깅용 로그 정도는 남길 수 있음)
+        // UE_LOG(LogTemp, Verbose, TEXT("Perception Lost: %s (Service checking distance...)"), *GetNameSafe(Actor));
+        
+        /* -- 삭제된 코드 --
         TArray<AActor*> PerceivedActors;
-        if (AIPerception)
-        {
-            AIPerception->GetCurrentlyPerceivedActors(UAISense_Sight::StaticClass(), PerceivedActors);
-        }
-
+        if (AIPerception) { ... }
         int32 PlayerCount = 0;
-        for (AActor* PerceivedActor : PerceivedActors)
-        {
-            if (!TargetTag.IsNone() && PerceivedActor->ActorHasTag(TargetTag))
-            {
-                PlayerCount++;
-            }
-        }
+        for (AActor* PerceivedActor : PerceivedActors) { ... }
 
         if (PlayerCount == 0 && bIsInCombat)
         {
             bIsInCombat = false;
-            TargetActor = nullptr;
-
-            SightConfig->PeripheralVisionAngleDegrees = PeripheralVisionAngleDegrees;
-            AIPerception->ConfigureSense(*SightConfig);
-
-            // [삭제됨] 직접 ClearFocus 호출 -> BTService가 담당
-            // ClearFocus(EAIFocusPriority::Gameplay);
-
+            TargetActor = nullptr; // <--- 삭제됨
+            // ... 시야각 복구 로직 등도 Service 혹은 별도 State 처리 권장
+            
             if (CachedBlackboardComponent)
             {
-                CachedBlackboardComponent->ClearValue("TargetActor");
-                CachedBlackboardComponent->SetValueAsBool("bHasTarget", false);
-                CachedBlackboardComponent->SetValueAsBool("bIsInCombat", false);
+                CachedBlackboardComponent->ClearValue("TargetActor"); // <--- 삭제됨
+                // ...
             }
         }
+        */
     }
 }
 
 void ASFEnemyController::OnTargetPerceptionForgotten(AActor* Actor)
 {
+    // [중요 수정] 
+    // 타겟 해제 판단(Give Up Logic)은 이제 'BTService_UpdateTarget'으로 완전히 이관되었습니다.
+    // 따라서 Perception 시스템이 타겟을 잊었다고(Max Age 경과) 알려줘도,
+    // 컨트롤러가 독단적으로 타겟 정보를 지우거나 전투 상태를 해제하지 않습니다.
+
+    /* -- 전면 삭제 --
     if (!Actor) return;
-
-    if (!TargetTag.IsNone() && !Actor->ActorHasTag(TargetTag))
-        return;
-
-    TArray<AActor*> PerceivedActors;
-    if (AIPerception)
-    {
-        AIPerception->GetCurrentlyPerceivedActors(UAISense_Sight::StaticClass(), PerceivedActors);
-    }
-
-    int32 PlayerCount = 0;
-    for (AActor* PerceivedActor : PerceivedActors)
-    {
-        if (!TargetTag.IsNone() && PerceivedActor->ActorHasTag(TargetTag))
-        {
-            PlayerCount++;
-        }
-    }
+    if (!TargetTag.IsNone() && !Actor->ActorHasTag(TargetTag)) return;
+    
+    // ... PlayerCount 계산 로직 ...
 
     if (PlayerCount == 0 && bIsInCombat)
     {
         bIsInCombat = false;
         TargetActor = nullptr;
-
-        if (SightConfig)
-        {
-            SightConfig->PeripheralVisionAngleDegrees = PeripheralVisionAngleDegrees;
-            AIPerception->ConfigureSense(*SightConfig);
-        }
-
-        // [삭제됨] 직접 ClearFocus 호출 -> BTService가 담당
-        // ClearFocus(EAIFocusPriority::Gameplay);
-
-        if (CachedBlackboardComponent)
-        {
-            CachedBlackboardComponent->ClearValue("TargetActor");
-            CachedBlackboardComponent->SetValueAsBool("bHasTarget", false);
-            CachedBlackboardComponent->SetValueAsBool("bIsInCombat", false);
-        }
+        // ... 시야각 복구 ...
+        // ... 블랙보드 초기화 ...
     }
+    */
+    
+    // 필요하다면 디버그용 로그만 남겨둡니다.
+    // UE_LOG(LogTemp, Verbose, TEXT("Perception Forgotten: %s"), *GetNameSafe(Actor));
 }
 
 void ASFEnemyController::DrawDebugPerception()
@@ -535,19 +236,6 @@ void ASFEnemyController::DrawDebugPerception()
 #endif
 }
 
-void ASFEnemyController::SetGenericTeamId(const FGenericTeamId& InTeamID)
-{
-    if (HasAuthority())
-    {
-        TeamId = InTeamID;
-    }
-}
-
-FGenericTeamId ASFEnemyController::GetGenericTeamId() const
-{
-    return TeamId;
-}
-
 // [추가] 강제 타겟 설정 함수 구현
 void ASFEnemyController::SetTargetForce(AActor* NewTarget)
 {
@@ -587,9 +275,10 @@ void ASFEnemyController::SetTargetForce(AActor* NewTarget)
         CachedBlackboardComponent->SetValueAsVector("LastKnownPosition", NewTarget->GetActorLocation());
     }
 
-    // [삭제됨] 직접 SetFocus 호출 -> BTService가 담당
-    // SetFocus(NewTarget, EAIFocusPriority::Gameplay);
-    
+    // [중요 수정] 여기서 SetFocus를 직접 호출하지 않습니다!
+    // SetFocus(NewTarget); <--- 이 줄이 있으면 피격 순간 몸이 획 돌아버립니다.
+    // 이제 회전은 BT의 'SF Rotate to Target' 태스크나 'UpdateFocus' 서비스가 부드럽게 처리합니다.
+
     // 5. CombatComponent에도 알림 (거리 계산, 공격 가능 여부 판단 등을 위해 필수)
     if (CombatComponent)
     {
@@ -597,3 +286,5 @@ void ASFEnemyController::SetTargetForce(AActor* NewTarget)
         CombatComponent->HandleTargetPerceptionUpdated(NewTarget, true);
     }
 }
+
+

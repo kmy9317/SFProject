@@ -19,9 +19,9 @@ class SF_API USFEnemyCombatComponent : public UControllerComponent
 public:
 	
 	USFEnemyCombatComponent(const FObjectInitializer& ObjectInitializer);
-
-	// 컴포넌트 생명주기
-	virtual void BeginPlay() override;
+	
+	AActor* GetCurrentTarget() const { return CurrentTarget; }
+	
 	virtual void TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction) override;
 
 	UFUNCTION(BlueprintPure, Category = "SF|Combat")
@@ -31,14 +31,14 @@ public:
 	}
 	
 	// 초기화: ASC 및 AttributeSet 캐싱, Perception 설정 적용
-	void InitializeCombatComponent();
+	virtual void InitializeCombatComponent();
 
 	// AIController에서 Perception 감지 시 호출할 함수
 	void HandleTargetPerceptionUpdated(AActor* Actor, bool bSuccessfullySensed);
 
 	// (기존 함수 유지) 어빌리티 선택 로직
 	bool SelectAbility(const FEnemyAbilitySelectContext& Context, const FGameplayTagContainer& SearchTags, FGameplayTag& OutSelectedTag);
-
+	
 
 protected:
 	// 매 프레임 실행: 타겟과의 거리를 계산하고 태그 업데이트
@@ -50,15 +50,13 @@ protected:
 	// ASC에 LooseTag 부여/제거
 	void SetGameplayTagStatus(const FGameplayTag& Tag, bool bActive);
 
-private:
+protected:
 	// 캐싱된 데이터
 	UPROPERTY()
 	TObjectPtr<USFCombatSet_Enemy> CachedCombatSet;
 
 	UPROPERTY()
 	TObjectPtr<USFAbilitySystemComponent> CachedASC;
-
-
 	
 	// 현재 추적 중인 타겟
 	UPROPERTY()
