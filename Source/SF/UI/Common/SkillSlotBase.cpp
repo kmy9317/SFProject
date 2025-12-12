@@ -6,6 +6,7 @@
 #include "Components/Image.h"
 #include "Components/ProgressBar.h"
 #include "Components/TextBlock.h"
+#include "Materials/MaterialInstanceDynamic.h"
 #include "Interface/SFChainedSkill.h"
 #include "UI/Controller/SFOverlayWidgetController.h"
 
@@ -18,6 +19,15 @@ void USkillSlotBase::NativeOnWidgetControllerSet()
 	if (Text_CooldownCount)
 	{
 		Text_CooldownCount->SetVisibility(ESlateVisibility::Collapsed);
+	}
+	if (Img_SkillBorder)
+	{
+		Img_SkillBorder->SetVisibility(ESlateVisibility::SelfHitTestInvisible);
+
+		if (UMaterialInstanceDynamic* DMI = Img_SkillBorder->GetDynamicMaterial())
+		{
+			DMI->SetScalarParameterValue(FName("Percent"), 1.0f);
+		}
 	}
 	if (Text_KeyPrompt && !KeyPromptText.IsEmpty())
 	{
@@ -56,7 +66,8 @@ void USkillSlotBase::NativeTick(const FGeometry& MyGeometry, float InDeltaTime)
 
 	if (CachedAbilitySpecHandle.IsValid())
 	{
-		RefreshCooldown();
+		RefreshCooldown();			//쿨타임 갱신
+		RefreshActiveDuration();    // 지속시간 갱신
 	}
 }
 
@@ -157,6 +168,49 @@ void USkillSlotBase::RefreshCooldown()
 	}
 }
 
+void USkillSlotBase::RefreshActiveDuration()
+{
+	// 1. 컨트롤러 및 ASC 유효성 검사
+	USFOverlayWidgetController* OverlayController = GetWidgetControllerTyped<USFOverlayWidgetController>();
+	if (!OverlayController) return;
+	
+	UAbilitySystemComponent* ASC = OverlayController->GetWidgetControllerParams().AbilitySystemComponent;
+	if (!ASC) return;
+
+	// 2. 현재 지속시간(Remaining)과 전체시간(Total)을 받아올 변수
+	float RemainingTime = 0.f;
+	float TotalDuration = 0.f;
+
+	// 3. 현재 스킬이 '활성화(Active)' 상태인지 체크
+	bool bIsActive = GetCurrentSkillActiveDuration(ASC, RemainingTime, TotalDuration);
+
+	if (Img_SkillBorder)
+	{
+		// 머티리얼 인스턴스 가져오기
+		UMaterialInstanceDynamic* DMI = Img_SkillBorder->GetDynamicMaterial();
+		if (!DMI) return;
+		
+		if (bIsActive && TotalDuration > 0.f)
+		{
+			// [상태 1] 스킬 발동 중: 시간에 따라 줄어듦
+			float PercentValue = FMath::Clamp(RemainingTime / TotalDuration, 0.f, 1.f);
+			DMI->SetScalarParameterValue(FName("Percent"), PercentValue);
+		}
+		else
+		{
+			// [상태 2] 평상시: 숨기는 게 아니라(Collapsed X), 꽉 채워서 테두리 유지
+			DMI->SetScalarParameterValue(FName("Percent"), 1.0f);
+
+			// 혹시라도 숨겨져 있었다면 다시 보이게 (방어 코드)
+			if (Img_SkillBorder->GetVisibility() == ESlateVisibility::Collapsed)
+			{
+				Img_SkillBorder->SetVisibility(ESlateVisibility::SelfHitTestInvisible);
+			}
+		}
+	}
+	
+}
+
 float USkillSlotBase::GetActiveCooldownDuration(UAbilitySystemComponent* ASC, UGameplayAbility* Ability)
 {
 	const FGameplayTagContainer* CooldownTags = Ability->GetCooldownTags();
@@ -167,6 +221,7 @@ float USkillSlotBase::GetActiveCooldownDuration(UAbilitySystemComponent* ASC, UG
 
 	FGameplayEffectQuery const Query = FGameplayEffectQuery::MakeQuery_MatchAnyOwningTags(*CooldownTags);
 	TArray<FActiveGameplayEffectHandle> ActiveHandles = ASC->GetActiveEffects(Query);
+	
 	if (ActiveHandles.Num() > 0)
 	{
 		if (const FActiveGameplayEffect* ActiveGE = ASC->GetActiveGameplayEffect(ActiveHandles[0]))
@@ -178,6 +233,56 @@ float USkillSlotBase::GetActiveCooldownDuration(UAbilitySystemComponent* ASC, UG
 	}
 	
 	return 0.f;
+}
+
+// 현재 스킬의 활성화(버프) 상태 체크 로직
+bool USkillSlotBase::GetCurrentSkillActiveDuration(UAbilitySystemComponent* ASC, float& OutRemaining, float& OutTotal)
+{
+	FGameplayAbilitySpec* Spec = ASC->FindAbilitySpecFromHandle(CachedAbilitySpecHandle);
+	if (!Spec || !Spec->Ability) return false;
+	
+	// 스킬 자체가 가진 태그(AbilityTags)를 기준으로 활성 효과 검색
+	FGameplayTagContainer AbilityTags = Spec->Ability->AbilityTags;
+	if (AbilityTags.Num() == 0) return false;
+
+	FGameplayEffectQuery Query;
+	Query.MakeQuery_MatchAnyOwningTags(AbilityTags);
+
+	TArray<FActiveGameplayEffectHandle> ActiveHandles = ASC->GetActiveEffects(Query);
+
+	float MaxDuration = 0.f;
+	float MaxRemaining = 0.f;
+	bool bFound = false;
+
+	for (const FActiveGameplayEffectHandle& Handle : ActiveHandles)
+	{
+		const FActiveGameplayEffect* ActiveGE = ASC->GetActiveGameplayEffect(Handle);
+		if (ActiveGE)
+		{
+			float Duration = ActiveGE->GetDuration();
+			float Remaining = ActiveGE->GetTimeRemaining(ASC->GetWorld()->GetTimeSeconds());
+
+			// 지속시간이 있고(즉발X, 무한X) 시간이 남은 경우만
+			if (Duration > 0.f && Remaining > 0.f)
+			{
+				if (Remaining < MaxRemaining)
+				{
+					MaxRemaining = Remaining;
+					MaxDuration = Duration;
+					bFound = true;
+				}
+			}
+		}
+	}
+
+	if (bFound)
+	{
+		OutRemaining = MaxRemaining;
+		OutTotal = MaxDuration;
+		return true;
+	}
+
+	return false;
 }
 
 void USkillSlotBase::OnAbilityChanged(FGameplayAbilitySpecHandle AbilitySpecHandle, bool bGiven)

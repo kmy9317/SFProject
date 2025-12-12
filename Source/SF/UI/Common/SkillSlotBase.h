@@ -22,9 +22,14 @@ protected:
 	virtual void NativeTick(const FGeometry& MyGeometry, float InDeltaTime) override;
 
 	void InitializeSlot();
+	// 쿨타임 갱신용 (ProgressBar)
 	void RefreshCooldown();
+	// 지속시간 갱신용 (Border)
+	void RefreshActiveDuration();
 
 	float GetActiveCooldownDuration(UAbilitySystemComponent* ASC, UGameplayAbility* Ability);
+	// 현재 사용중인 스킬로 인해 적용된 지속시간을 찾아내는 헬퍼 함수
+	bool GetCurrentSkillActiveDuration(UAbilitySystemComponent* ASC, float& OutRemaining, float& OutTotal);
 
 	UFUNCTION()
 	void OnAbilityChanged(FGameplayAbilitySpecHandle AbilitySpecHandle, bool bGiven);
@@ -41,6 +46,9 @@ protected:
 
 	UPROPERTY(meta = (BindWidget))
 	TObjectPtr<UProgressBar> PB_Cooldown;
+
+	UPROPERTY(meta = (BindWidget))
+	TObjectPtr<UImage> Img_SkillBorder;
 
 	UPROPERTY(meta = (BindWidget))
 	TObjectPtr<UTextBlock> Text_CooldownCount;
@@ -70,4 +78,7 @@ private:
 	float CachedCooldownDuration = 0.f;
 
 	int32 CachedChainIndex = INDEX_NONE;
+
+	UPROPERTY()
+	TObjectPtr<UMaterialInstanceDynamic> SkillBorderDMI;
 };
