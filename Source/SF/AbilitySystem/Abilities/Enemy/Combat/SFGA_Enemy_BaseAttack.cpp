@@ -111,6 +111,7 @@ float USFGA_Enemy_BaseAttack::CalcAIScore(const FEnemyAbilitySelectContext& Cont
 		return ValuePtr ? *ValuePtr : DefaultValue;
 	};
 
+	// 데이터 가져오기
 	const float BaseDamage = GetValueFromSpec(SFGameplayTags::Data_EnemyAbility_BaseDamage, 10.f);
 	const float AttackRange = GetValueFromSpec(SFGameplayTags::Data_EnemyAbility_AttackRange, 200.f);
 	const float MinAttackRange = GetValueFromSpec(SFGameplayTags::Data_EnemyAbility_MinAttackRange, 0.f);
@@ -119,55 +120,57 @@ float USFGA_Enemy_BaseAttack::CalcAIScore(const FEnemyAbilitySelectContext& Cont
 
 	const float Dist = Context.Self->GetDistanceTo(Context.Target);
 
-	// 1. [최소 거리 체크] 너무 가까우면 공격 불가 (0점)
-	// 예: 창(Spear)이라서 딱 붙으면 못 때림 -> 뒤로 물러나는 로직이 없다면 0점 처리
+	// 1. [최소 거리 체크] 너무 가까워서 공격 불가능한 무기인 경우 (창 등)
 	if (Dist <= MinAttackRange)
 	{
 		return 0.f;
 	}
 
-	// 2. [각도 체크] (0점)
-	if (ASFCharacterBase* Owner = Cast<ASFCharacterBase>(Context.Self))
-	{
-		const FVector ToTarget = (Context.Target->GetActorLocation() - Owner->GetActorLocation()).GetSafeNormal();
-		const float Dot = FVector::DotProduct(Owner->GetActorForwardVector(), ToTarget);
-		const float Angle = FMath::RadiansToDegrees(FMath::Acos(FMath::Clamp(Dot, -1.f, 1.f)));
+	// ==============================================================================
+	// [수정] 각도 체크 예외 처리 (Blind Check)
+	// ==============================================================================
+	// 거리가 300(혹은 AttackRange) 이내라면, 등 뒤에 있어도 공격 시도 (회전해서 때림)
+	// 거리가 멀 때만 각도를 엄격하게 체크
+	const float BlindCheckRange = 300.0f; 
 
-		if (Angle > (AttackAngle * 0.5f))
+	if (Dist > BlindCheckRange)
+	{
+		// 2. [각도 체크] (멀리 있는데 각도 안 맞으면 0점)
+		if (ASFCharacterBase* Owner = Cast<ASFCharacterBase>(Context.Self))
 		{
-			return 0.f;
+			const FVector ToTarget = (Context.Target->GetActorLocation() - Owner->GetActorLocation()).GetSafeNormal();
+			const float Dot = FVector::DotProduct(Owner->GetActorForwardVector(), ToTarget);
+			const float Angle = FMath::RadiansToDegrees(FMath::Acos(FMath::Clamp(Dot, -1.f, 1.f)));
+
+			if (Angle > (AttackAngle * 0.5f))
+			{
+				return 0.f;
+			}
 		}
 	}
+	// (거리가 가까우면 위 if문을 건너뛰므로, 등 뒤에 있어도 점수가 계산됨!)
 
 	float Score = 0.f;
 	bool bIsInRange = (Dist <= AttackRange);
 
-	// ====================================================
-	// [핵심 수정] 상태별 점수 부여 (Ready vs Chase)
-	// ====================================================
+	// 상태별 점수 부여 (Ready vs Chase)
 	if (bIsInRange)
 	{
-		// 상황 A: [공격 가능] 사거리 안임 -> 매우 높은 점수 부여
-		// 당장 때릴 수 있는 스킬을 우선적으로 선택하도록 함 (1500점 베이스)
+		// [공격 가능] 사거리 안 -> 높은 점수
 		Score = 1500.f;
 
-		// 거리 적합성 보너스 (최대 사거리 끝자락일수록 점수 높음 -> 카이팅 유도)
+		// 거리 적합성 보너스 (끝자락일수록 높게 주어 카이팅 유도 등)
 		const float Span = FMath::Max(AttackRange - MinAttackRange, 1.f);
 		const float DistRatio = (Dist - MinAttackRange) / Span; 
 		Score += DistRatio * 500.f;
 	}
 	else
 	{
-		// 상황 B: [추격 필요] 사거리 밖임 -> 낮은 점수 부여 (하지만 0점은 아님!)
-		// 강공격 쿨타임일 때, 약공격(사거리 150)이 여기서 선택되어야 "접근"을 시도함
+		// [추격 필요] 사거리 밖 -> 낮은 점수 (하지만 0점은 아님, 접근 유도)
 		Score = 500.f;
-
-		// (옵션) 사거리가 긴 스킬일수록 조금 더 점수를 줘서, 조금만 가도 되는 걸 선호하게 함
-		// Score += AttackRange * 1.0f; 
 	}
 
-	// 3. [공통] 데미지/쿨타임(DPS) 보정
-	// 사거리 상태가 같다면, 쿨타임 짧고 센 스킬을 선호
+	// 3. [공통] DPS(데미지/쿨타임) 가중치
 	const float CooldownSafe = FMath::Max(Cooldown, 0.1f);
 	Score += (BaseDamage / CooldownSafe) * 10.f;
 

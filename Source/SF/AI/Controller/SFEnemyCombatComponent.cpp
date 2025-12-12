@@ -247,17 +247,24 @@ void USFEnemyCombatComponent::HandleTargetPerceptionUpdated(AActor* Actor, bool 
 		{
 			CurrentTarget = Actor;
 			SetGameplayTagStatus(SFGameplayTags::AI_State_Combat, true);
-			UE_LOG(LogTemp, Log, TEXT("[SFCombatComp] 타겟 획득: %s"), *Actor->GetName());		}
+			UE_LOG(LogTemp, Log, TEXT("[SFCombatComp] 타겟 획득: %s"), *Actor->GetName());
+		}
 	}
 	else
 	{
-		// 시야 상실
+		// [수정] 시야 상실 시 로직을 비워야 합니다!
+		// 여기서 타겟과 태그를 지우면, 벽 뒤에 있는 적을 추격할 수 없습니다.
+        
+		// ▼▼▼ 이 부분을 주석 처리하세요 ▼▼▼
+		/*
 		if (CurrentTarget == Actor)
 		{
-			// 바로 해제할지, 일정 시간 유지할지는 플레이해보고 결정 일단은 즉시 해지
+			// 타겟 해제는 BTService가 거리를 보고 판단해서 ClearTarget()을 호출할 때까지 보류
 			CurrentTarget = nullptr;
 			SetGameplayTagStatus(SFGameplayTags::AI_State_Combat, false);
 		}
+		*/
+		// ▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲
 	}
 }
 
