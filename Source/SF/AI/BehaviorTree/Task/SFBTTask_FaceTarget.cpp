@@ -18,20 +18,28 @@ bool USFBTTask_FaceTarget::CheckAbilityAttackAngle(UBehaviorTreeComponent& Owner
 	UBlackboardComponent* BB = OwnerComp.GetBlackboardComponent();
 	if (!BB) return false;
 
-	// 1. 블랙보드에서 태그 가져오기
+	// 1. 블랙보드에서 태그 이름 가져오기
 	FName TagName = BB->GetValueAsName(AbilityTagKey.SelectedKeyName);
-	FGameplayTag AbilityTag = FGameplayTag::RequestGameplayTag(TagName);
 
-	// 태그가 없으면 -> 기본 정밀도(DefaultPrecision)로 직접 계산 (백업 로직)
+	// 이름이 없으면(None) 변환 시도조차 하지 않고 리턴 (여기서 터지는 것 방지)
+	if (TagName.IsNone())
+	{
+		return false;
+	}
+
+	// 두 번째 인자에 false 전달 (존재하지 않는 태그여도 에러 내지 않고 조용히 처리)
+	FGameplayTag AbilityTag = FGameplayTag::RequestGameplayTag(TagName, false);
+
+	// 태그가 없으면 -> 기본 정밀도(DefaultPrecision)로 직접 계산
 	if (!AbilityTag.IsValid()) 
 	{
-		// ... (기존 각도 계산 로직이 필요하다면 여기에 작성하거나 false 리턴) ...
-		// 편의상 태그 없으면 false 처리 (DefaultPrecision 사용은 ExecuteTask에서 처리)
 		return false;
 	}
 
 	// 2. ASC 가져오기
 	AAIController* AIC = OwnerComp.GetAIOwner();
+	if (!AIC) return false;
+
 	UAbilitySystemComponent* ASC = UAbilitySystemGlobals::GetAbilitySystemComponentFromActor(AIC->GetPawn());
 	if (!ASC) return false;
 
@@ -41,10 +49,9 @@ bool USFBTTask_FaceTarget::CheckAbilityAttackAngle(UBehaviorTreeComponent& Owner
 		if (Spec.Ability && Spec.Ability->AbilityTags.HasTag(AbilityTag))
 		{
 			// 4. 어빌리티 인스턴스(Instance) 가져오기
-			// (InstancedPerActor 정책을 사용 중이므로 PrimaryInstance가 존재함)
 			USFGA_Enemy_BaseAttack* EnemyAttack = Cast<USFGA_Enemy_BaseAttack>(Spec.GetPrimaryInstance());
 			
-			// 인스턴스가 없으면 CDO(Default Object)라도 사용 시도
+			// 인스턴스가 없으면 라도 사용 시도
 			if (!EnemyAttack) 
 			{
 				EnemyAttack = Cast<USFGA_Enemy_BaseAttack>(Spec.Ability);
@@ -52,7 +59,7 @@ bool USFBTTask_FaceTarget::CheckAbilityAttackAngle(UBehaviorTreeComponent& Owner
 
 			if (EnemyAttack)
 			{
-				// [정답] 어빌리티가 직접 판단하게 함! ("나 쏴도 돼?")
+				// 어빌리티가 직접 판단
 				return EnemyAttack->IsWithinAttackAngle(Target);
 			}
 		}
