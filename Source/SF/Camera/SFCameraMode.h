@@ -82,15 +82,19 @@ public:
 
 	const FSFCameraModeView& GetCameraModeView() const { return View; }
 
-	virtual void OnActivation() {};
+	virtual void OnActivation();
 
 	virtual void OnDeactivation() {};
-
+	
 	void UpdateCameraMode(float DeltaTime);
 
 	float GetBlendTime() const { return BlendTime; }
 	float GetBlendWeight() const { return BlendWeight; }
 	void SetBlendWeight(float Weight);
+	
+	void SetYawLimitsEnabled(bool bEnabled) { bUseYawLimits = bEnabled; }
+	void SetYawLimitsTemporarilyDisabled(bool bDisabled) { bYawLimitsTemporarilyDisabled = bDisabled; }
+	bool IsYawLimitsActive() const { return bUseYawLimits && !bYawLimitsTemporarilyDisabled; }
 
 	FGameplayTag GetCameraTypeTag() const
 	{
@@ -134,6 +138,32 @@ protected:
 	// 최대 뷰 피치 (카메라 상하 각도 최댓값).
 	UPROPERTY(EditDefaultsOnly, Category = "View", Meta = (UIMin = "-89.9", UIMax = "89.9", ClampMin = "-89.9", ClampMax = "89.9"))
 	float ViewPitchMax;
+
+	// Yaw 제한 사용 여부
+	UPROPERTY(EditDefaultsOnly, Category = "View")
+	bool bUseYawLimits = false;
+
+	// 캐릭터 기준 좌우 최대 각도 (예: -90 ~ +90)
+	UPROPERTY(EditDefaultsOnly, Category = "View", Meta = (EditCondition = "bUseYawLimits"))
+	float ViewYawMin = -90.0f;
+
+	UPROPERTY(EditDefaultsOnly, Category = "View", Meta = (EditCondition = "bUseYawLimits"))
+	float ViewYawMax = 90.0f;
+    
+	// Yaw 보간 속도 (높을수록 빠르게 제한 범위로 이동)
+	UPROPERTY(EditDefaultsOnly, Category = "View", Meta = (EditCondition = "bUseYawLimits"))
+	float YawLimitInterpSpeed = 5.0f;
+
+	// Yaw 제한 보간용
+	float CurrentYawOffset = 0.0f;
+
+	// Yaw 보간 중인지 추적
+	bool bIsYawInterpolating = false;
+
+	float PreviousRelativeYaw = 0.0f;
+
+	// 런타임 임시 비활성화 플래그
+	bool bYawLimitsTemporarilyDisabled = false;
 
 	// 이 모드로 완전히 블렌드(전환)되는 데 걸리는 시간.
 	UPROPERTY(EditDefaultsOnly, Category = "Blending")
@@ -189,7 +219,11 @@ public:
 
 	// 가장 위쪽 레이어(현재 가장 활성화된 모드)의 블렌드 가중치와 태그 정보 획득.
 	void GetBlendInfo(float& OutWeightOfTopLayer, FGameplayTag& OutTagOfTopLayer) const;
-	
+
+	void DisableYawLimitsForMode(TSubclassOf<USFCameraMode> CameraModeClass);
+
+	void DisableAllYawLimitsTemporarily();
+
 protected:
 
 	// 카메라 모드 클래스(설계도)로부터 실제 인스턴스(객체)를 가져오거나 생성.

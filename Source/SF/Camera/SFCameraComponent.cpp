@@ -108,6 +108,22 @@ void USFCameraComponent::UpdateCameraModes()
 	}
 }
 
+void USFCameraComponent::DisableYawLimitsForMode(TSubclassOf<USFCameraMode> CameraModeClass)
+{
+	if (CameraModeStack)
+	{
+		CameraModeStack->DisableYawLimitsForMode(CameraModeClass);
+	}
+}
+
+void USFCameraComponent::DisableAllYawLimitsTemporarily()
+{
+	if (CameraModeStack)
+	{
+		CameraModeStack->DisableAllYawLimitsTemporarily();
+	}
+}
+
 void USFCameraComponent::DrawDebug(UCanvas* Canvas) const
 {
 	check(Canvas);

@@ -3,8 +3,10 @@
 #include "CoreMinimal.h"
 #include "GenericTeamAgentInterface.h"
 #include "Abilities/GameplayAbility.h"
+#include "Character/Hero/Component/SFHeroMovementComponent.h"
 #include "SFGameplayAbility.generated.h"
 
+class ASFPlayerController;
 class USFHeroComponent;
 class USFCameraMode;
 class UInputMappingContext;
@@ -40,6 +42,9 @@ public:
 	ASFCharacterBase* GetSFCharacterFromActorInfo() const;
 
 	UFUNCTION(BlueprintCallable, Category = "SF|Ability")
+	USFHeroMovementComponent* GetHeroMovementComponentFromActorInfo() const;
+
+	UFUNCTION(BlueprintCallable, Category = "SF|Ability")
 	USFHeroComponent* GetHeroComponentFromActorInfo() const;
 	
 	ESFAbilityActivationPolicy GetActivationPolicy() const { return ActivationPolicy; }
@@ -59,6 +64,18 @@ public:
 
 	UFUNCTION(BlueprintCallable, Category = "SF|Ability|Camera")
 	void ClearCameraMode();
+
+	UFUNCTION(BlueprintCallable, Category = "SF|Ability|Camera")
+	void DisableCameraYawLimits();
+
+	UFUNCTION(BlueprintCallable, Category = "SF|Ability|Camera")
+	void DisableCameraYawLimitsForActiveMode();
+
+	UFUNCTION(BlueprintCallable, Category = "SF|Ability|Movement")
+	void ApplySlidingMode(ESFSlidingMode NewMode);
+
+	UFUNCTION(BlueprintCallable, Category = "SF|Ability|Movement")
+	void RestoreSlidingMode();
 	
 protected:
 	//~UGameplayAbility interface
@@ -88,4 +105,11 @@ public:
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category="SF|AbilityInfo")
 	FText Description;
+
+private:
+	// 원본 모드 저장
+	ESFSlidingMode SavedSlidingMode = ESFSlidingMode::Normal;
+
+	// 적용 여부 (복원 필요 체크용)
+	bool bSlidingModeApplied = false;
 };

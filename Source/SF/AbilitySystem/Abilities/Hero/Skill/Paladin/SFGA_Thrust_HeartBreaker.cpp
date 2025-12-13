@@ -11,6 +11,7 @@
 #include "MotionWarpingComponent.h"
 #include "AbilitySystem/GameplayEffect/Hero/EffectContext/SFTargetDataTypes.h"
 #include "Camera/SFCameraMode.h"
+#include "Character/Hero/SFHeroComponent.h"
 #include "GameFramework/GameplayMessageSubsystem.h"
 #include "Messages/SFMessageGameplayTags.h"
 #include "Messages/SFSkillInfoMessages.h"
@@ -165,6 +166,9 @@ void USFGA_Thrust_HeartBreaker::OnKeyReleased(float TimeHeld)
 	// UI 숨김 메시지 전송
 	BroadcastUIConstruct(false);
 
+	// 카메라 Yaw 제한 선 해제
+	DisableCameraYawLimits();
+
 	// TimeHeld를 기준으로 페이즈 재확정 (UI 타이머와 미세한 오차가 있을 수 있으므로)
 	CurrentPhaseIndex = CalculatePhase(TimeHeld);
 
@@ -257,8 +261,13 @@ void USFGA_Thrust_HeartBreaker::SetupMotionWarpingTarget(const FVector& TargetLo
 
 void USFGA_Thrust_HeartBreaker::ExecuteRushAttack()
 {
+	if (PhaseSlidingModes.IsValidIndex(CurrentPhaseIndex))
+	{
+		ApplySlidingMode(PhaseSlidingModes[CurrentPhaseIndex]);
+	}
+	
 	UAnimMontage* RushAttackMontage = nullptr;
-
+	
 	if (RushAttackMontages.IsValidIndex(CurrentPhaseIndex))
 	{
 		RushAttackMontage = RushAttackMontages[CurrentPhaseIndex];
@@ -509,6 +518,8 @@ float USFGA_Thrust_HeartBreaker::GetPhaseRushDistance() const
 
 void USFGA_Thrust_HeartBreaker::EndAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, bool bReplicateEndAbility, bool bWasCancelled)
 {
+	RestoreSlidingMode();
+	
 	ClearCameraMode();
 	
 	// 타이머 정리

@@ -472,3 +472,30 @@ void USFHeroComponent::ClearAbilityCameraMode(const FGameplayAbilitySpecHandle& 
 	}
 }
 
+void USFHeroComponent::DisableAbilityCameraYawLimits()
+{
+	if (APawn* Pawn = GetPawn<APawn>())
+	{
+		if (USFCameraComponent* CameraComp = USFCameraComponent::FindCameraComponent(Pawn))
+		{
+			CameraComp->DisableAllYawLimitsTemporarily();
+		}
+	}
+}
+
+void USFHeroComponent::DisableAbilityCameraYawLimitsForMode(TSubclassOf<USFCameraMode> CameraModeClass)
+{
+	if (!CameraModeClass)
+	{
+		return;
+	}
+
+	if (APawn* Pawn = GetPawn<APawn>())
+	{
+		if (USFCameraComponent* CameraComp = USFCameraComponent::FindCameraComponent(Pawn))
+		{
+			CameraComp->DisableYawLimitsForMode(CameraModeClass);
+		}
+	}
+}
+

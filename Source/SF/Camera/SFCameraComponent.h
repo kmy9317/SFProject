@@ -59,10 +59,13 @@ public:
 	// 현재 활성화된 카메라 모드(스택 최상단)의 블렌드 정보 획득.
 	void GetBlendInfo(float& OutWeightOfTopLayer, FGameplayTag& OutTagOfTopLayer) const;
 
-public:
 	// 벽 충돌 값을 모드 간 공유
 	float GetSharedPenetrationBlockedPct() const { return SharedPenetrationBlockedPct; }
 	void SetSharedPenetrationBlockedPct(float Value) { SharedPenetrationBlockedPct = Value; }
+
+	void DisableYawLimitsForMode(TSubclassOf<USFCameraMode> CameraModeClass);
+
+	void DisableAllYawLimitsTemporarily();
 
 protected:
 

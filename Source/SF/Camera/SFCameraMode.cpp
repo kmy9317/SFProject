@@ -89,6 +89,11 @@ AActor* USFCameraMode::GetTargetActor() const
 	return SFCameraComponent->GetTargetActor();
 }
 
+void USFCameraMode::OnActivation()
+{
+	bYawLimitsTemporarilyDisabled = false;
+}
+
 // 카메라의 중심축(피벗) 위치 계산
 FVector USFCameraMode::GetPivotLocation() const
 {
@@ -165,6 +170,24 @@ void USFCameraMode::UpdateView(float DeltaTime)
 
 	// Pitch(상하 각도)를 최소/최대값 사이로 제한
 	PivotRotation.Pitch = FMath::ClampAngle(PivotRotation.Pitch, ViewPitchMin, ViewPitchMax);
+
+	// Yaw 제한
+	if (bUseYawLimits)
+	{
+		AActor* TargetActor = GetTargetActor();
+		if (TargetActor)
+		{
+			// 캐릭터 정면 기준 상대 Yaw 계산
+			float CharacterYaw = TargetActor->GetActorRotation().Yaw;
+			float RelativeYaw = FRotator::NormalizeAxis(PivotRotation.Yaw - CharacterYaw);
+            
+			// 제한 적용
+			RelativeYaw = FMath::Clamp(RelativeYaw, ViewYawMin, ViewYawMax);
+            
+			// 다시 절대 Yaw로 변환
+			PivotRotation.Yaw = CharacterYaw + RelativeYaw;
+		}
+	}
 
 	// 계산된 값을 최종 뷰(View)에 저장
 	View.Location = PivotLocation;
@@ -516,6 +539,34 @@ void USFCameraModeStack::GetBlendInfo(float& OutWeightOfTopLayer, FGameplayTag& 
 		check(TopEntry);
 		OutWeightOfTopLayer = TopEntry->GetBlendWeight();
 		OutTagOfTopLayer = TopEntry->GetCameraTypeTag();
+	}
+}
+
+void USFCameraModeStack::DisableYawLimitsForMode(TSubclassOf<USFCameraMode> CameraModeClass)
+{
+	if (!CameraModeClass)
+	{
+		return;
+	}
+
+	for (USFCameraMode* CameraMode : CameraModeStack)
+	{
+		if (CameraMode && CameraMode->GetClass() == CameraModeClass)
+		{
+			CameraMode->SetYawLimitsTemporarilyDisabled(true); 
+			break;
+		}
+	}
+}
+
+void USFCameraModeStack::DisableAllYawLimitsTemporarily()
+{
+	for (USFCameraMode* CameraMode : CameraModeStack)
+	{
+		if (CameraMode)
+		{
+			CameraMode->SetYawLimitsTemporarilyDisabled(true);
+		}
 	}
 }
 

@@ -39,6 +39,13 @@ ASFCharacterBase* USFGameplayAbility::GetSFCharacterFromActorInfo() const
 	return (CurrentActorInfo ? Cast<ASFCharacterBase>(CurrentActorInfo->AvatarActor.Get()) : nullptr);
 }
 
+USFHeroMovementComponent* USFGameplayAbility::GetHeroMovementComponentFromActorInfo() const
+{
+	return (CurrentActorInfo && CurrentActorInfo->AvatarActor.Get()) 
+		? CurrentActorInfo->AvatarActor->FindComponentByClass<USFHeroMovementComponent>() 
+		: nullptr;
+}
+
 USFHeroComponent* USFGameplayAbility::GetHeroComponentFromActorInfo() const
 {
 	return (CurrentActorInfo ? USFHeroComponent::FindHeroComponent(CurrentActorInfo->AvatarActor.Get()) : nullptr);
@@ -154,4 +161,76 @@ void USFGameplayAbility::ClearCameraMode()
 
 		ActiveCameraMode = nullptr;
 	}
+}
+
+void USFGameplayAbility::DisableCameraYawLimits()
+{
+	ENSURE_ABILITY_IS_INSTANTIATED_OR_RETURN(DisableCameraYawLimits, );
+	
+	if (ActiveCameraMode)
+	{
+		if (USFHeroComponent* HeroComponent = GetHeroComponentFromActorInfo())
+		{
+			HeroComponent->DisableAbilityCameraYawLimits();
+		}
+	}
+}
+
+void USFGameplayAbility::DisableCameraYawLimitsForActiveMode()
+{
+	ENSURE_ABILITY_IS_INSTANTIATED_OR_RETURN(DisableCameraYawLimitsForActiveMode, );
+    
+	if (ActiveCameraMode)
+	{
+		if (USFHeroComponent* HeroComponent = GetHeroComponentFromActorInfo())
+		{
+			HeroComponent->DisableAbilityCameraYawLimitsForMode(ActiveCameraMode);
+		}
+	}
+}
+
+void USFGameplayAbility::ApplySlidingMode(ESFSlidingMode NewMode)
+{
+	ASFCharacterBase* Character = GetSFCharacterFromActorInfo();
+	if (!Character)
+	{
+		return;
+	}
+
+	USFHeroMovementComponent* HeroCMC = GetHeroMovementComponentFromActorInfo();
+	if (!HeroCMC)
+	{
+		return;
+	}
+
+	// 이미 적용 중이면 원본 덮어쓰지 않음
+	if (!bSlidingModeApplied)
+	{
+		SavedSlidingMode = HeroCMC->SlidingMode;
+		bSlidingModeApplied = true;
+	}
+
+	HeroCMC->SetSlidingMode(NewMode);
+}
+
+void USFGameplayAbility::RestoreSlidingMode()
+{
+	if (!bSlidingModeApplied)
+	{
+		return;
+	}
+
+	ASFCharacterBase* Character = GetSFCharacterFromActorInfo();
+	if (!Character)
+	{
+		return;
+	}
+
+	USFHeroMovementComponent* CMC = Cast<USFHeroMovementComponent>(Character->GetCharacterMovement());
+	if (CMC)
+	{
+		CMC->SetSlidingMode(SavedSlidingMode);
+	}
+
+	bSlidingModeApplied = false;
 }

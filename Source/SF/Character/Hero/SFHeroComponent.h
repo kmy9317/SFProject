@@ -34,10 +34,13 @@ public:
 	
 	/** Clears the camera override if it is set */
 	void ClearAbilityCameraMode(const FGameplayAbilitySpecHandle& OwningSpecHandle);
-	
+
+	void DisableAbilityCameraYawLimits();
+	void DisableAbilityCameraYawLimitsForMode(TSubclassOf<USFCameraMode> CameraModeClass);
+
 	/** The name of the extension event sent via UGameFrameworkComponentManager when ability inputs are ready to bind */
 	static const FName NAME_BindInputsNow;
-	
+
 	/** FeatureName 정의 */
 	static const FName NAME_ActorFeatureName;
 	

@@ -13,8 +13,9 @@ UCLASS()
 class SF_API ASFHero : public ASFCharacterBase
 {
 	GENERATED_BODY()
-
 public:
+	ASFHero(const FObjectInitializer& ObjectInitializer = FObjectInitializer::Get());
+	
 	virtual FGenericTeamId GetGenericTeamId() const override;
 	virtual void SetGenericTeamId(const FGenericTeamId& NewTeamID) override {}
 };

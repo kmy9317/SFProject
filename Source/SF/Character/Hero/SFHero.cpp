@@ -3,8 +3,14 @@
 
 #include "Character/Hero/SFHero.h"
 
+#include "Component/SFHeroMovementComponent.h"
 #include "Player/SFPlayerState.h"
 #include "Team/SFTeamTypes.h"
+
+ASFHero::ASFHero(const FObjectInitializer& ObjectInitializer)
+	: Super(ObjectInitializer.SetDefaultSubobjectClass<USFHeroMovementComponent>(CharacterMovementComponentName))
+{
+}
 
 FGenericTeamId ASFHero::GetGenericTeamId() const
 {

@@ -90,6 +90,9 @@ protected:
 	UPROPERTY(EditDefaultsOnly, Category = "Camera")
 	TArray<TSubclassOf<USFCameraMode>> PhaseCameraModes;
 
+	UPROPERTY(EditDefaultsOnly, Category = "SF|PhaseInfo")
+	TArray<ESFSlidingMode> PhaseSlidingModes;
+
 	UPROPERTY(EditDefaultsOnly, Category="SF|PhaseInfo")
 	float BaseRushDistance = 124.f;
 
