@@ -30,13 +30,18 @@ protected:
 
 	//=======================Event Handler===================
 	UFUNCTION()
-	void OnParryEventReceived(FGameplayEventData Payload); // 패링 성공 이벤트 수신
+	virtual void OnParryEventReceived(FGameplayEventData Payload); // 패링 성공 이벤트 수신
 	//=======================================================
 
 	//======================Montage Delegate=================
 	virtual void OnChainMontageCompleted() override;
 	virtual void OnChainMontageInterrupted() override;
 	//=======================================================
+
+	//======================Parry State======================
+	//패링 GC가 이미 실행됐는지 여부
+	bool bParryGCExecuted = false;
+	//======================================================
 
 public:
 

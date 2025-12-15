@@ -1,6 +1,9 @@
 #include "SFGA_Hero_Parrying.h"
 
+#include "AbilitySystemGlobals.h"
 #include "AbilitySystemComponent.h"
+#include "AbilitySystem/GameplayEvent/SFGameplayEventTags.h"
+#include "AbilitySystem/GameplayCues/SFGameplayCueTags.h"
 #include "Abilities/Tasks/AbilityTask_WaitGameplayEvent.h"
 #include "Abilities/Tasks/AbilityTask_PlayMontageAndWait.h"
 
@@ -76,24 +79,94 @@ void USFGA_Hero_Parrying::OnParryEventReceived(FGameplayEventData Payload)
 	UE_LOG(LogTemp, Warning, TEXT("[Parry] Angle=%.2f | Dot=%.2f | InFront(180deg)=%d"),
 		AngleDeg, Dot, bInFront);
 
-	// 4) 후방 공격 → 패링 실패
+	//후방 공격 → 패링 실패
 	if (!bInFront)
 	{
 		UE_LOG(LogTemp, Error, TEXT("[Parry] FAILED - Attack from BEHIND"));
 		return;
 	}
 
-	// 5) 패링 성공
+	//패링 성공 로그
 	UE_LOG(LogTemp, Error, TEXT("[Parry] SUCCESS - Attack from FRONT (180 deg)"));
 
+	//패링 이벤트 전달 및 GC로 패링 이펙트 처리
 	if (HasAuthority(&CurrentActivationInfo))
 	{
-		GetAbilitySystemComponentFromActorInfo()->AddLooseGameplayTag(ParryEventTag);
+		UAbilitySystemComponent* OwnerASC = GetAbilitySystemComponentFromActorInfo();
+		if (!OwnerASC) return;
+
+		//패링 성공 태그
+		OwnerASC->AddLooseGameplayTag(ParryEventTag);
+
+		//공격자에게 Parried 이벤트 전달
+		if (UAbilitySystemComponent* InstigatorASC =
+			UAbilitySystemGlobals::GetAbilitySystemComponentFromActor(InstigatorActor))
+		{
+			FGameplayEventData EventData;
+			EventData.EventTag      = SFGameplayTags::GameplayEvent_Parried;
+			EventData.Instigator    = OwnerActor;
+			EventData.Target        = InstigatorActor;
+			EventData.ContextHandle = Payload.ContextHandle;
+
+			InstigatorASC->HandleGameplayEvent(
+				SFGameplayTags::GameplayEvent_Parried,
+				&EventData
+			);
+		}
+
+		if (!Payload.ContextHandle.IsValid())
+		{
+			UE_LOG(LogTemp, Error,
+				TEXT("[Parry] ContextHandle INVALID"));
+		}
+		else if (const FHitResult* HR = Payload.ContextHandle.GetHitResult())
+		{
+			UE_LOG(LogTemp, Warning,
+				TEXT("[Parry] HitResult OK | Impact=%s | Bone=%s"),
+				*HR->ImpactPoint.ToString(),
+				*HR->BoneName.ToString());
+		}
+		else
+		{
+			UE_LOG(LogTemp, Error,
+				TEXT("[Parry] ContextHandle VALID but HitResult NULL"));
+		}
+
+		ApplyComboState(this, ExecutingChainIndex + 1);
+		
+		// 이미 패링 GC 실행됐으면 무시
+		if (bParryGCExecuted)
+		{
+			UE_LOG(LogTemp, Warning, TEXT("[Parry] GC already executed - Skip"));
+			return;
+		}
+		
+		//패링 GameplayCue 실행
+		FVector FXLocation = OwnerLocation;
+		if (Payload.ContextHandle.IsValid())
+		{
+			if (const FHitResult* Hit = Payload.ContextHandle.GetHitResult())
+			{
+				FXLocation = Hit->ImpactPoint;
+			}
+		}
+
+		FGameplayCueParameters CueParams;
+		CueParams.Location     = FXLocation;
+		CueParams.Instigator   = OwnerActor;
+		CueParams.EffectCauser = InstigatorActor;
+		CueParams.SourceObject = this;
+		CueParams.OriginalTag  = ParryEventTag;
+		CueParams.Normal       = DirToInstigator;
+
+		OwnerASC->ExecuteGameplayCue(
+			SFGameplayTags::GameplayCue_Event_Parry,
+			CueParams
+			);
+		
+		//GC 실행 완료 표시
+		bParryGCExecuted = true;
 	}
-	
-	ApplyComboState(this, ExecutingChainIndex + 1);
-	
-	//Parried 이벤트 전송
 }
 
 void USFGA_Hero_Parrying::OnChainMontageCompleted()
@@ -143,6 +216,8 @@ void USFGA_Hero_Parrying::EndAbility(
 	bool bReplicateEndAbility,
 	bool bWasCancelled)
 {
+	bParryGCExecuted = false;
+	
 	UAbilitySystemComponent* ASC = GetAbilitySystemComponentFromActorInfo();
 	
 	if (ASC && ASC->HasMatchingGameplayTag(ParryEventTag))

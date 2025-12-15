@@ -70,7 +70,7 @@ public:
 	void ApplyChainEffects(int32 ChainIndex, UGameplayAbility* SourceAbility);
 
 	void RemoveChainEffects();
-	void CompleteCombo(UGameplayAbility* SourceAbility);
+	virtual void CompleteCombo(UGameplayAbility* SourceAbility);
 
 protected:
 	void BroadcastChainStateChanged(UGameplayAbility* SourceAbility, int32 ChainIndex);

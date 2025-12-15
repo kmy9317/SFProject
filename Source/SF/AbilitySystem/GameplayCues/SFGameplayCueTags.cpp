@@ -10,4 +10,6 @@ namespace SFGameplayTags
 	UE_DEFINE_GAMEPLAY_TAG(GameplayCue_HitReaction_Type_Normal, TEXT("GameplayCue.HitReaction.Type.Normal"))
 	UE_DEFINE_GAMEPLAY_TAG(GameplayCue_HitReaction_Heavy, TEXT("GameplayCue.HitReaction.Heavy"))
 	UE_DEFINE_GAMEPLAY_TAG(GameplayCue_HitReaction_Light, TEXT("GameplayCue.HitReaction.Light"))
+	
+	UE_DEFINE_GAMEPLAY_TAG(GameplayCue_Event_Parry, TEXT("GameplayCue.Event.Parry"))
 }
