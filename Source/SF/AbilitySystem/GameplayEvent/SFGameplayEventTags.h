@@ -18,6 +18,7 @@ namespace SFGameplayTags
 	SF_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(GameplayEvent_Death);
 	SF_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(GameplayEvent_Parry);
 	SF_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(GameplayEvent_Parried);
+	SF_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(GameplayEvent_Knockback);
 	
 
 	//Damage Events

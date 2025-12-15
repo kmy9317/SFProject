@@ -59,6 +59,14 @@ public:
 	// 현재 활성화된 카메라 모드(스택 최상단)의 블렌드 정보 획득.
 	void GetBlendInfo(float& OutWeightOfTopLayer, FGameplayTag& OutTagOfTopLayer) const;
 
+	// 벽 충돌 값을 모드 간 공유
+	float GetSharedPenetrationBlockedPct() const { return SharedPenetrationBlockedPct; }
+	void SetSharedPenetrationBlockedPct(float Value) { SharedPenetrationBlockedPct = Value; }
+
+	void DisableYawLimitsForMode(TSubclassOf<USFCameraMode> CameraModeClass);
+
+	void DisableAllYawLimitsTemporarily();
+
 protected:
 
 	virtual void OnRegister() override;
@@ -77,4 +85,8 @@ protected:
 
 	// FOV(시야각) 오프셋 (1프레임 후 자동으로 0으로 초기화됨).
 	float FieldOfViewOffset;
+
+	// 카메라 모드 간 공유되는 벽 충돌 비율
+	UPROPERTY(Transient)
+	float SharedPenetrationBlockedPct = 1.0f;
 };

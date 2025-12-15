@@ -10,6 +10,8 @@
 #include "Character/SFCharacterBase.h"
 #include "MotionWarpingComponent.h"
 #include "AbilitySystem/GameplayEffect/Hero/EffectContext/SFTargetDataTypes.h"
+#include "Camera/SFCameraMode.h"
+#include "Character/Hero/SFHeroComponent.h"
 #include "GameFramework/GameplayMessageSubsystem.h"
 #include "Messages/SFMessageGameplayTags.h"
 #include "Messages/SFSkillInfoMessages.h"
@@ -78,6 +80,15 @@ void USFGA_Thrust_HeartBreaker::ActivateAbility(const FGameplayAbilitySpecHandle
 	StartChargingCue();
 	StartPhaseTimer();
 
+	if (PhaseCameraModes.Num() > 0)
+	{
+		UpdateCameraModeForPhase(0);
+	}
+	else
+	{
+		SetCameraMode(CameraModeClass);
+	}
+
 	// 서버인 경우 클라이언트로부터 TargetData(차지 페이즈, 위치) 수신 대기
 	if (ActorInfo->IsNetAuthority())
 	{
@@ -139,6 +150,9 @@ void USFGA_Thrust_HeartBreaker::OnPhaseTimePassed()
 	}
 
 	UpdateChargingCuePhase();
+
+	UpdateCameraModeForPhase(CurrentPhaseIndex);
+	
 	StartPhaseTimer();
 }
 
@@ -151,6 +165,9 @@ void USFGA_Thrust_HeartBreaker::OnKeyReleased(float TimeHeld)
 	
 	// UI 숨김 메시지 전송
 	BroadcastUIConstruct(false);
+
+	// 카메라 Yaw 제한 선 해제
+	DisableCameraYawLimits();
 
 	// TimeHeld를 기준으로 페이즈 재확정 (UI 타이머와 미세한 오차가 있을 수 있으므로)
 	CurrentPhaseIndex = CalculatePhase(TimeHeld);
@@ -244,8 +261,13 @@ void USFGA_Thrust_HeartBreaker::SetupMotionWarpingTarget(const FVector& TargetLo
 
 void USFGA_Thrust_HeartBreaker::ExecuteRushAttack()
 {
+	if (PhaseSlidingModes.IsValidIndex(CurrentPhaseIndex))
+	{
+		ApplySlidingMode(PhaseSlidingModes[CurrentPhaseIndex]);
+	}
+	
 	UAnimMontage* RushAttackMontage = nullptr;
-
+	
 	if (RushAttackMontages.IsValidIndex(CurrentPhaseIndex))
 	{
 		RushAttackMontage = RushAttackMontages[CurrentPhaseIndex];
@@ -269,6 +291,8 @@ void USFGA_Thrust_HeartBreaker::ExecuteRushAttack()
 			RushMontageTask->ReadyForActivation();
 		}
 	}
+
+	ClearCameraMode();
 }
 
 int32 USFGA_Thrust_HeartBreaker::CalculatePhase(float TimeHeld) const
@@ -466,6 +490,14 @@ void USFGA_Thrust_HeartBreaker::StopChargingCue()
 	ASC->RemoveGameplayCue(ChargingCueTag);
 }
 
+void USFGA_Thrust_HeartBreaker::UpdateCameraModeForPhase(int32 PhaseIndex)
+{
+	if (PhaseCameraModes.IsValidIndex(PhaseIndex) && PhaseCameraModes[PhaseIndex])
+	{
+		SetCameraMode(PhaseCameraModes[PhaseIndex]);
+	}
+}
+
 float USFGA_Thrust_HeartBreaker::GetPhaseDamage() const
 {
 	if (PhaseDamageMultipliers.IsValidIndex(CurrentPhaseIndex))
@@ -486,6 +518,10 @@ float USFGA_Thrust_HeartBreaker::GetPhaseRushDistance() const
 
 void USFGA_Thrust_HeartBreaker::EndAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, bool bReplicateEndAbility, bool bWasCancelled)
 {
+	RestoreSlidingMode();
+	
+	ClearCameraMode();
+	
 	// 타이머 정리
 	if (UWorld* World = GetWorld())
 	{

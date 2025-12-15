@@ -1,9 +1,22 @@
 #include "SFGameplayAbility.h"
 
 #include "AbilitySystemComponent.h"
+#include "AbilitySystemLog.h"
 #include "AbilitySystem/SFAbilitySystemComponent.h"
+#include "Camera/SFCameraMode.h"
 #include "Character/SFCharacterBase.h"
+#include "Character/Hero/SFHeroComponent.h"
 #include "Player/SFPlayerController.h"
+
+#define ENSURE_ABILITY_IS_INSTANTIATED_OR_RETURN(FunctionName, ReturnValue)																				\
+{																																						\
+	if (!ensure(IsInstantiated()))																														\
+	{																																					\
+	ABILITY_LOG(Error, TEXT("%s: " #FunctionName " cannot be called on a non-instanced ability. Check the instancing policy."), *GetPathName());		\
+	return ReturnValue;																																	\
+	}																																					\
+}
+
 
 USFGameplayAbility::USFGameplayAbility(const FObjectInitializer& ObjectInitializer)
 {
@@ -24,6 +37,18 @@ ASFPlayerController* USFGameplayAbility::GetSFPlayerControllerFromActorInfo() co
 ASFCharacterBase* USFGameplayAbility::GetSFCharacterFromActorInfo() const
 {
 	return (CurrentActorInfo ? Cast<ASFCharacterBase>(CurrentActorInfo->AvatarActor.Get()) : nullptr);
+}
+
+USFHeroMovementComponent* USFGameplayAbility::GetHeroMovementComponentFromActorInfo() const
+{
+	return (CurrentActorInfo && CurrentActorInfo->AvatarActor.Get()) 
+		? CurrentActorInfo->AvatarActor->FindComponentByClass<USFHeroMovementComponent>() 
+		: nullptr;
+}
+
+USFHeroComponent* USFGameplayAbility::GetHeroComponentFromActorInfo() const
+{
+	return (CurrentActorInfo ? USFHeroComponent::FindHeroComponent(CurrentActorInfo->AvatarActor.Get()) : nullptr);
 }
 
 ETeamAttitude::Type USFGameplayAbility::GetAttitudeTowards(AActor* Target) const
@@ -110,4 +135,102 @@ void USFGameplayAbility::TryActivateAbilityOnSpawn(const FGameplayAbilityActorIn
 			}
 		}
 	}
+}
+
+void USFGameplayAbility::SetCameraMode(TSubclassOf<USFCameraMode> CameraMode)
+{
+	ENSURE_ABILITY_IS_INSTANTIATED_OR_RETURN(SetCameraMode, );
+
+	if (USFHeroComponent* HeroComponent = GetHeroComponentFromActorInfo())
+	{
+		HeroComponent->SetAbilityCameraMode(CameraMode, CurrentSpecHandle);
+		ActiveCameraMode = CameraMode;
+	}
+}
+
+void USFGameplayAbility::ClearCameraMode()
+{
+	ENSURE_ABILITY_IS_INSTANTIATED_OR_RETURN(ClearCameraMode, );
+
+	if (ActiveCameraMode)
+	{
+		if (USFHeroComponent* HeroComponent = GetHeroComponentFromActorInfo())
+		{
+			HeroComponent->ClearAbilityCameraMode(CurrentSpecHandle);
+		}
+
+		ActiveCameraMode = nullptr;
+	}
+}
+
+void USFGameplayAbility::DisableCameraYawLimits()
+{
+	ENSURE_ABILITY_IS_INSTANTIATED_OR_RETURN(DisableCameraYawLimits, );
+	
+	if (ActiveCameraMode)
+	{
+		if (USFHeroComponent* HeroComponent = GetHeroComponentFromActorInfo())
+		{
+			HeroComponent->DisableAbilityCameraYawLimits();
+		}
+	}
+}
+
+void USFGameplayAbility::DisableCameraYawLimitsForActiveMode()
+{
+	ENSURE_ABILITY_IS_INSTANTIATED_OR_RETURN(DisableCameraYawLimitsForActiveMode, );
+    
+	if (ActiveCameraMode)
+	{
+		if (USFHeroComponent* HeroComponent = GetHeroComponentFromActorInfo())
+		{
+			HeroComponent->DisableAbilityCameraYawLimitsForMode(ActiveCameraMode);
+		}
+	}
+}
+
+void USFGameplayAbility::ApplySlidingMode(ESFSlidingMode NewMode)
+{
+	ASFCharacterBase* Character = GetSFCharacterFromActorInfo();
+	if (!Character)
+	{
+		return;
+	}
+
+	USFHeroMovementComponent* HeroCMC = GetHeroMovementComponentFromActorInfo();
+	if (!HeroCMC)
+	{
+		return;
+	}
+
+	// 이미 적용 중이면 원본 덮어쓰지 않음
+	if (!bSlidingModeApplied)
+	{
+		SavedSlidingMode = HeroCMC->SlidingMode;
+		bSlidingModeApplied = true;
+	}
+
+	HeroCMC->SetSlidingMode(NewMode);
+}
+
+void USFGameplayAbility::RestoreSlidingMode()
+{
+	if (!bSlidingModeApplied)
+	{
+		return;
+	}
+
+	ASFCharacterBase* Character = GetSFCharacterFromActorInfo();
+	if (!Character)
+	{
+		return;
+	}
+
+	USFHeroMovementComponent* CMC = Cast<USFHeroMovementComponent>(Character->GetCharacterMovement());
+	if (CMC)
+	{
+		CMC->SetSlidingMode(SavedSlidingMode);
+	}
+
+	bSlidingModeApplied = false;
 }

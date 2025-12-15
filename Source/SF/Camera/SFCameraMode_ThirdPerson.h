@@ -26,7 +26,7 @@ public:
 protected:
 	// 이 카메라 모드가 활성화될 때 한 번 호출됩니다.
 	virtual void OnActivation() override;
-	
+
 	// 매 프레임 뷰(시점) 업데이트 (3인칭 로직 적용).
 	virtual void UpdateView(float DeltaTime) override;
 
@@ -116,7 +116,7 @@ public:
 	TArray<FSFPenetrationAvoidanceFeeler> PenetrationAvoidanceFeelers;
 
 	UPROPERTY(Transient)
-	float AimLineToDesiredPosBlockedPct;
+	float AimLineToDesiredPosBlockedPct = 1.f;
 
 	UPROPERTY(Transient)
 	TArray<TObjectPtr<const AActor>> DebugActorsHitDuringCameraPenetration;

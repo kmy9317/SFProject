@@ -5,12 +5,11 @@
 
 #include "AbilitySystemBlueprintLibrary.h"
 #include "KismetTraceUtils.h"
-#include "AI/SFAIGameplayTags.h"
+#include "SFLogChannels.h"
 #include "Character/SFCharacterBase.h"
 #include "Components/BoxComponent.h"
 #include "Equipment/SFEquipmentTags.h"
 #include "Equipment/EquipmentComponent/SFEquipmentComponent.h"
-#include "Equipment/EquipmentInstance/SFEquipmentInstance.h"
 #include "Kismet/KismetMathLibrary.h"
 #include "Weapons/Actor/SFEquipmentBase.h"
 
@@ -42,11 +41,46 @@ void USFAnimNotifyState_PerformTrace::NotifyBegin(USkeletalMeshComponent* MeshCo
 			if (EquipmentActor && EquipmentComponent->IsSlotEquipmentMatchesTag(WeaponSlotTag, SFGameplayTags::EquipmentTag_Weapon))
 			{
 				CachedWeaponActor = EquipmentActor;
-				PreviousTraceTransform = CachedWeaponActor->MeshComponent->GetComponentTransform();
-				PreviousDebugTransform = CachedWeaponActor->TraceDebugCollision->GetComponentTransform();
+				
+				// 트레이스 방식에 따라 Transform 소스 선택
+				if (TraceParams.TraceMethod == ESFTraceMethod::ComponentSweep)
+				{
+					PreviousTraceTransform = CachedWeaponActor->MeshComponent->GetComponentTransform();
+					PreviousDebugTransform = CachedWeaponActor->TraceDebugCollision->GetComponentTransform();
+				}
+				else
+				{
+					PreviousTraceTransform = CachedWeaponActor->TraceDebugCollision->GetComponentTransform();
+					PreviousDebugTransform = PreviousTraceTransform;
+				}
 				PreviousSocketTransform = CachedWeaponActor->MeshComponent->GetSocketTransform(TraceParams.TraceSocketName);
 			}
 		}
+	}
+
+	if (CachedWeaponActor.IsValid())
+	{
+#if UE_EDITOR
+		if (TraceDebugParams.bLogTraceInfo)
+		{
+			FVector WeaponExtent = CachedWeaponActor->TraceDebugCollision->GetScaledBoxExtent();
+			FVector ScaleDiff = TraceShapeParams.ExtentScale - FVector::OneVector;
+			FVector CalculatedOffset = WeaponExtent * ScaleDiff;
+
+			UE_LOG(LogSF, Warning, TEXT("========== Trace Box Info =========="));
+			UE_LOG(LogSF, Warning, TEXT("Weapon BoxExtent: X=%.1f, Y=%.1f, Z=%.1f"), 
+				WeaponExtent.X, WeaponExtent.Y, WeaponExtent.Z);
+			UE_LOG(LogSF, Warning, TEXT("ExtentScale: X=%.1f, Y=%.1f, Z=%.1f"), 
+				TraceShapeParams.ExtentScale.X, TraceShapeParams.ExtentScale.Y, TraceShapeParams.ExtentScale.Z);
+			UE_LOG(LogSF, Warning, TEXT("------------------------------------"));
+			UE_LOG(LogSF, Warning, TEXT("한쪽 방향 확장용 PivotOffset:"));
+			UE_LOG(LogSF, Warning, TEXT("  + 방향: (%.1f, %.1f, %.1f)"), 
+				CalculatedOffset.X, CalculatedOffset.Y, CalculatedOffset.Z);
+			UE_LOG(LogSF, Warning, TEXT("  - 방향: (%.1f, %.1f, %.1f)"), 
+				-CalculatedOffset.X, -CalculatedOffset.Y, -CalculatedOffset.Z);
+			UE_LOG(LogSF, Warning, TEXT("===================================="));
+		}
+#endif
 	}
 
 	CachedHitActors.Empty();
@@ -105,8 +139,31 @@ void USFAnimNotifyState_PerformTrace::PerformTrace(USkeletalMeshComponent* MeshC
 	// 각 서브스텝의 비율 (0~1 사이 값)
 	float SubstepRatio = 1.f / SubStepCount;
 
-	const FTransform& CurrentTraceTransform = CachedWeaponActor->MeshComponent->GetComponentTransform();
-	const FTransform& CurrentDebugTransform = CachedWeaponActor->TraceDebugCollision->GetComponentTransform();
+	// 트레이스 방식에 따라 Transform 소스 선택
+	FTransform CurrentTraceTransform;
+	FTransform CurrentDebugTransform;
+
+	if (TraceParams.TraceMethod == ESFTraceMethod::ComponentSweep)
+	{
+		CurrentTraceTransform = CachedWeaponActor->MeshComponent->GetComponentTransform();
+		CurrentDebugTransform = CachedWeaponActor->TraceDebugCollision->GetComponentTransform();
+	}
+	else
+	{
+		CurrentTraceTransform = CachedWeaponActor->TraceDebugCollision->GetComponentTransform();
+		CurrentDebugTransform = CurrentTraceTransform;
+	}
+
+	// 트레이스 박스 크기 계산
+	FVector BoxExtent = GetTraceBoxExtent();
+	FCollisionShape CollisionShape = FCollisionShape::MakeBox(BoxExtent);
+
+	// 오브젝트 타입 설정
+	FCollisionObjectQueryParams ObjectQueryParams;
+	for (EObjectTypeQuery ObjectType : TraceParams.ObjectTypes)
+	{
+		ObjectQueryParams.AddObjectTypesToQuery(UEngineTypes::ConvertToCollisionChannel(ObjectType));
+	}
 
 	TArray<FHitResult> FinalHitResults;
 
@@ -119,13 +176,53 @@ void USFAnimNotifyState_PerformTrace::PerformTrace(USkeletalMeshComponent* MeshC
 		// 평균 Transform (회전에 사용)
 		FTransform AverageTraceTransform = UKismetMathLibrary::TLerp(StartTraceTransform, EndTraceTransform, 0.5f, ELerpInterpolationMode::DualQuatInterp);
 
-		FComponentQueryParams Params = FComponentQueryParams::DefaultComponentQueryParams;
-		Params.bReturnPhysicalMaterial = true;
-		TArray<AActor*> IgnoredActors = { CachedWeaponActor.Get(), CachedWeaponActor->GetOwner() };
-		Params.AddIgnoredActors(IgnoredActors);
+		// Pivot 오프셋 적용 (로컬 → 월드 변환)
+		FVector StartLocation = StartTraceTransform.GetLocation();
+		FVector EndLocation = EndTraceTransform.GetLocation();
+
+		if (!TraceShapeParams.PivotOffset.IsZero())
+		{
+			StartLocation += StartTraceTransform.GetRotation().RotateVector(TraceShapeParams.PivotOffset);
+			EndLocation += EndTraceTransform.GetRotation().RotateVector(TraceShapeParams.PivotOffset);
+		}
 		
 		TArray<FHitResult> HitResults;
-		MeshComponent->GetWorld()->ComponentSweepMulti(HitResults, CachedWeaponActor->MeshComponent, StartTraceTransform.GetLocation(), EndTraceTransform.GetLocation(), AverageTraceTransform.GetRotation(), Params);
+
+		if (TraceParams.TraceMethod == ESFTraceMethod::ComponentSweep)
+		{
+			// ComponentSweepMulti 방식
+			FComponentQueryParams Params = FComponentQueryParams::DefaultComponentQueryParams;
+			Params.bReturnPhysicalMaterial = true;
+			TArray<AActor*> IgnoredActors = { CachedWeaponActor.Get(), CachedWeaponActor->GetOwner() };
+			Params.AddIgnoredActors(IgnoredActors);
+
+			MeshComponent->GetWorld()->ComponentSweepMulti(
+				HitResults,
+				CachedWeaponActor->MeshComponent,
+				StartLocation,
+				EndLocation,
+				AverageTraceTransform.GetRotation(),
+				Params
+			);
+		}
+		else
+		{
+			// BoxSweep 방식
+			FCollisionQueryParams Params;
+			Params.bReturnPhysicalMaterial = true;
+			Params.AddIgnoredActor(CachedWeaponActor.Get());
+			Params.AddIgnoredActor(CachedWeaponActor->GetOwner());
+
+			MeshComponent->GetWorld()->SweepMultiByObjectType(
+				HitResults,
+				StartLocation,
+				EndLocation,
+				AverageTraceTransform.GetRotation(),
+				ObjectQueryParams,
+				CollisionShape,
+				Params
+			);
+		}
 
 		for (const FHitResult& HitResult : HitResults)
 		{
@@ -138,20 +235,35 @@ void USFAnimNotifyState_PerformTrace::PerformTrace(USkeletalMeshComponent* MeshC
 		}
 
 #if UE_EDITOR
-		if (GIsEditor)
+		if (GIsEditor && TraceDebugParams.bDrawDebugShape)
 		{
-			if (TraceDebugParams.bDrawDebugShape)
+			FColor Color = (HitResults.Num() > 0) ? TraceDebugParams.HitColor : TraceDebugParams.TraceColor;
+
+			FTransform StartDebugTransform = UKismetMathLibrary::TLerp(PreviousDebugTransform, CurrentDebugTransform, SubstepRatio * i, ELerpInterpolationMode::DualQuatInterp);
+			FTransform EndDebugTransform = UKismetMathLibrary::TLerp(PreviousDebugTransform, CurrentDebugTransform, SubstepRatio * (i + 1), ELerpInterpolationMode::DualQuatInterp);
+			FTransform AverageDebugTransform = UKismetMathLibrary::TLerp(StartDebugTransform, EndDebugTransform, 0.5f, ELerpInterpolationMode::DualQuatInterp);
+
+			FVector StartDebugLocation = StartDebugTransform.GetLocation();
+			FVector EndDebugLocation = EndDebugTransform.GetLocation();
+
+			if (!TraceShapeParams.PivotOffset.IsZero())
 			{
-				FColor Color = (HitResults.Num() > 0) ? TraceDebugParams.HitColor : TraceDebugParams.TraceColor;
-
-				// 디버그 콜리전의 Transform 보간
-				FTransform StartDebugTransform = UKismetMathLibrary::TLerp(PreviousDebugTransform, CurrentDebugTransform, SubstepRatio * i, ELerpInterpolationMode::DualQuatInterp);
-				FTransform EndDebugTransform = UKismetMathLibrary::TLerp(PreviousDebugTransform, CurrentDebugTransform, SubstepRatio * (i + 1), ELerpInterpolationMode::DualQuatInterp);
-				FTransform AverageDebugTransform = UKismetMathLibrary::TLerp(StartDebugTransform, EndDebugTransform, 0.5f, ELerpInterpolationMode::DualQuatInterp);
-
-				// Swept Box 디버그 드로우
-				DrawDebugSweptBox(MeshComponent->GetWorld(), StartDebugTransform.GetLocation(), EndDebugTransform.GetLocation(), AverageDebugTransform.GetRotation().Rotator(), CachedWeaponActor->TraceDebugCollision->GetScaledBoxExtent(), Color, false, 2.f);
+				StartDebugLocation += StartDebugTransform.GetRotation().RotateVector(TraceShapeParams.PivotOffset);
+				EndDebugLocation += EndDebugTransform.GetRotation().RotateVector(TraceShapeParams.PivotOffset);
 			}
+			
+			DrawDebugSweptBox(
+			   MeshComponent->GetWorld(),
+			   StartDebugLocation,
+			   EndDebugLocation,
+			   AverageDebugTransform.GetRotation().Rotator(),
+			   (TraceParams.TraceMethod == ESFTraceMethod::ComponentSweep)
+				   ? CachedWeaponActor->TraceDebugCollision->GetScaledBoxExtent()
+				   : BoxExtent,
+			   Color,
+			   false,
+			   2.f
+		   );
 		}
 #endif
 	}
@@ -182,6 +294,21 @@ void USFAnimNotifyState_PerformTrace::PerformTrace(USkeletalMeshComponent* MeshC
 			UAbilitySystemBlueprintLibrary::SendGameplayEventToActor(MeshComponent->GetOwner(), EventTag, EventData);
 		}
 	}
+}
+
+FVector USFAnimNotifyState_PerformTrace::GetTraceBoxExtent() const
+{
+	if (!CachedWeaponActor.IsValid())
+	{
+		return TraceShapeParams.BoxExtent;
+	}
+
+	if (TraceShapeParams.bUseWeaponDefaultExtent)
+	{
+		return CachedWeaponActor->TraceDebugCollision->GetScaledBoxExtent() * TraceShapeParams.ExtentScale;
+	}
+
+	return TraceShapeParams.BoxExtent;
 }
 
 

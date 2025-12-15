@@ -44,8 +44,14 @@ void USFAnimNotifyState_WeaponTrailNiagaraEffect::NotifyEnd(class USkeletalMeshC
 
 UFXSystemComponent* USFAnimNotifyState_WeaponTrailNiagaraEffect::SpawnEffect(USkeletalMeshComponent* MeshComp, UAnimSequenceBase* Animation) const
 {
-	bool bValid = true;
+	if (!MeshComp)
+	{
+		return nullptr;
+	}
 
+	
+	bool bValid = true;
+	
 	if (!Template)
 	{
 		bValid = false;

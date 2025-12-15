@@ -13,6 +13,7 @@ namespace SFGameplayTags
 	UE_DEFINE_GAMEPLAY_TAG_COMMENT(Character_State_Stunned, "Character.State.Stunned", "Character is stunned");
 	UE_DEFINE_GAMEPLAY_TAG_COMMENT(Character_State_ComboWindow, "Character.State.ComboWindow", "Valid input window for next combo attack");
 	UE_DEFINE_GAMEPLAY_TAG_COMMENT(Character_State_UsingAbility, "Character.State.UsingAbility", "Character UseAbility");
+	UE_DEFINE_GAMEPLAY_TAG_COMMENT(Character_State_Skill, "Character.State.Skill", "Character Using Skill");
 	
 	// ========== 방어/회피 ==========
 	UE_DEFINE_GAMEPLAY_TAG_COMMENT(Character_State_Blocking, "Character.State.Blocking", "Character is blocking");
@@ -29,10 +30,12 @@ namespace SFGameplayTags
 	UE_DEFINE_GAMEPLAY_TAG_COMMENT(Character_State_Parried, "Character.State.Parried", "Character is parried (staggered due to parry)");
 	UE_DEFINE_GAMEPLAY_TAG_COMMENT(Character_State_Groggy, "Character.State.Groggy", "Character is in groggy state");
 
-	// ========== 무적 ==========
+	// ========== 이펙트 ==========
 	UE_DEFINE_GAMEPLAY_TAG_COMMENT(Character_State_Invulnerable, "Character.State.Invulnerable", "Character is invulnerable");
+	UE_DEFINE_GAMEPLAY_TAG_COMMENT(Character_State_SuperArmor, "Character.State.SuperArmor", "Character has super armor effect");
 
 	UE_DEFINE_GAMEPLAY_TAG(State_RegenPaused_Health, "State.RegenPaused.Health");
 	UE_DEFINE_GAMEPLAY_TAG(State_RegenPaused_Mana, "State.RegenPaused.Mana");
 	UE_DEFINE_GAMEPLAY_TAG(State_RegenPaused_Stamina, "State.RegenPaused.Stamina");
+	
 }

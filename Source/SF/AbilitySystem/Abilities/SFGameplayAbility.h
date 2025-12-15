@@ -3,8 +3,12 @@
 #include "CoreMinimal.h"
 #include "GenericTeamAgentInterface.h"
 #include "Abilities/GameplayAbility.h"
+#include "Character/Hero/Component/SFHeroMovementComponent.h"
 #include "SFGameplayAbility.generated.h"
 
+class ASFPlayerController;
+class USFHeroComponent;
+class USFCameraMode;
 class UInputMappingContext;
 class USFAbilitySystemComponent;
 class ASFCharacterBase;
@@ -18,6 +22,8 @@ enum class ESFAbilityActivationPolicy : uint8
 	WhileInputActive,
 	/** avatar가 생성되었을 경우, 바로 할당(패시브 스킬 등) */
 	OnSpawn,
+	/** Event 발생시 활성화 되는 어빌리티 타입*/
+	Manual 
 };
 
 UCLASS()
@@ -36,6 +42,12 @@ public:
 	
 	UFUNCTION(BlueprintCallable, Category = "SF|Ability")
 	ASFCharacterBase* GetSFCharacterFromActorInfo() const;
+
+	UFUNCTION(BlueprintCallable, Category = "SF|Ability")
+	USFHeroMovementComponent* GetHeroMovementComponentFromActorInfo() const;
+
+	UFUNCTION(BlueprintCallable, Category = "SF|Ability")
+	USFHeroComponent* GetHeroComponentFromActorInfo() const;
 	
 	ESFAbilityActivationPolicy GetActivationPolicy() const { return ActivationPolicy; }
 
@@ -48,6 +60,25 @@ public:
 
 	UFUNCTION(BlueprintCallable, Category = "SF|Ability|Team")
 	ETeamAttitude::Type GetAttitudeTowards(AActor* Target) const;
+
+	UFUNCTION(BlueprintCallable, Category = "SF|Ability|Camera")
+	void SetCameraMode(TSubclassOf<USFCameraMode> CameraMode);
+
+	UFUNCTION(BlueprintCallable, Category = "SF|Ability|Camera")
+	void ClearCameraMode();
+
+	UFUNCTION(BlueprintCallable, Category = "SF|Ability|Camera")
+	void DisableCameraYawLimits();
+
+	UFUNCTION(BlueprintCallable, Category = "SF|Ability|Camera")
+	void DisableCameraYawLimitsForActiveMode();
+
+	UFUNCTION(BlueprintCallable, Category = "SF|Ability|Movement")
+	void ApplySlidingMode(ESFSlidingMode NewMode);
+
+	UFUNCTION(BlueprintCallable, Category = "SF|Ability|Movement")
+	void RestoreSlidingMode();
+	
 protected:
 	//~UGameplayAbility interface
 	virtual void OnGiveAbility(const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilitySpec& Spec) override;
@@ -61,6 +92,9 @@ protected:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "SF|AbilityID")
 	FName AbilityID;
 
+	// Current camera mode set by the ability.
+	TSubclassOf<USFCameraMode> ActiveCameraMode;
+
 public:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category="SF|Ability")
 	TObjectPtr<UInputMappingContext> InputMappingContext;
@@ -73,4 +107,11 @@ public:
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category="SF|AbilityInfo")
 	FText Description;
+
+private:
+	// 원본 모드 저장
+	ESFSlidingMode SavedSlidingMode = ESFSlidingMode::Normal;
+
+	// 적용 여부 (복원 필요 체크용)
+	bool bSlidingModeApplied = false;
 };

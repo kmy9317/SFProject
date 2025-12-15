@@ -39,6 +39,12 @@ void USFCameraComponent::GetCameraView(float DeltaTime, FMinimalViewInfo& Desire
 	// 현재 어떤 카메라 모드를 사용할지 결정 (예: 3인칭 or 조준)
 	UpdateCameraModes();
 
+	// 스택이 비어있으면 아무것도 하지 않음
+	if (CameraModeStack->IsStackEmpty())
+	{
+		return;
+	}
+
 	// 카메라 모드 스택을 평가(계산)하여 최종 '뷰' 결과물(CameraModeView) 획득
 	FSFCameraModeView CameraModeView;
 	CameraModeStack->EvaluateStack(DeltaTime, CameraModeView);
@@ -105,6 +111,22 @@ void USFCameraComponent::UpdateCameraModes()
 				CameraModeStack->PushCameraMode(CameraMode);
 			}
 		}
+	}
+}
+
+void USFCameraComponent::DisableYawLimitsForMode(TSubclassOf<USFCameraMode> CameraModeClass)
+{
+	if (CameraModeStack)
+	{
+		CameraModeStack->DisableYawLimitsForMode(CameraModeClass);
+	}
+}
+
+void USFCameraComponent::DisableAllYawLimitsTemporarily()
+{
+	if (CameraModeStack)
+	{
+		CameraModeStack->DisableAllYawLimitsTemporarily();
 	}
 }
 

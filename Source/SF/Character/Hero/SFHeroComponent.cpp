@@ -26,7 +26,7 @@ const FName USFHeroComponent::NAME_ActorFeatureName("Hero");
 USFHeroComponent::USFHeroComponent(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 {
-	//AbilityCameraMode = nullptr;
+	AbilityCameraMode = nullptr;
 }
 
 void USFHeroComponent::OnRegister()
@@ -428,6 +428,12 @@ void USFHeroComponent::InitializeHUD()
 
 TSubclassOf<USFCameraMode> USFHeroComponent::DetermineCameraMode()
 {
+	if (AbilityCameraMode)
+	{
+		return AbilityCameraMode;
+	}
+
+	
 	const APawn* Pawn = GetPawn<APawn>();
 	if (!Pawn)
 	{
@@ -446,5 +452,50 @@ TSubclassOf<USFCameraMode> USFHeroComponent::DetermineCameraMode()
 	}
 
 	return nullptr;
+}
+
+void USFHeroComponent::SetAbilityCameraMode(TSubclassOf<USFCameraMode> CameraMode, const FGameplayAbilitySpecHandle& OwningSpecHandle)
+{
+	if (CameraMode)
+	{
+		AbilityCameraMode = CameraMode;
+		AbilityCameraModeOwningSpecHandle = OwningSpecHandle;
+	}
+}
+
+void USFHeroComponent::ClearAbilityCameraMode(const FGameplayAbilitySpecHandle& OwningSpecHandle)
+{
+	if (AbilityCameraModeOwningSpecHandle == OwningSpecHandle)
+	{
+		AbilityCameraMode = nullptr;
+		AbilityCameraModeOwningSpecHandle = FGameplayAbilitySpecHandle();
+	}
+}
+
+void USFHeroComponent::DisableAbilityCameraYawLimits()
+{
+	if (APawn* Pawn = GetPawn<APawn>())
+	{
+		if (USFCameraComponent* CameraComp = USFCameraComponent::FindCameraComponent(Pawn))
+		{
+			CameraComp->DisableAllYawLimitsTemporarily();
+		}
+	}
+}
+
+void USFHeroComponent::DisableAbilityCameraYawLimitsForMode(TSubclassOf<USFCameraMode> CameraModeClass)
+{
+	if (!CameraModeClass)
+	{
+		return;
+	}
+
+	if (APawn* Pawn = GetPawn<APawn>())
+	{
+		if (USFCameraComponent* CameraComp = USFCameraComponent::FindCameraComponent(Pawn))
+		{
+			CameraComp->DisableYawLimitsForMode(CameraModeClass);
+		}
+	}
 }
 

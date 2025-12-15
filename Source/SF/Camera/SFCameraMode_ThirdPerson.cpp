@@ -1,6 +1,8 @@
 // Copyright Epic Games, Inc. All Rights Reserved.
 
 #include "SFCameraMode_ThirdPerson.h"
+
+#include "SFCameraComponent.h"
 #include "Camera/SFCameraMode.h"
 #include "Components/PrimitiveComponent.h"
 #include "Camera/SFPenetrationAvoidanceFeeler.h"
@@ -43,13 +45,34 @@ USFCameraMode_ThirdPerson::USFCameraMode_ThirdPerson()
 
 void USFCameraMode_ThirdPerson::OnActivation()
 {
+	Super::OnActivation();
+	
 	// 캐릭터의 현재 위치(오프셋 포함)
 	FVector IdealPivotLocation = GetPivotLocation() + CurrentCrouchOffset + CurrentJumpOffset;
 
 	// 보간될 위치를 현재 위치로 즉시 설정(Snap)
 	SmoothedPivotLocation = IdealPivotLocation;
 
-	Super::OnActivation();
+	if (USFCameraComponent* CameraComp = GetSFCameraComponent())
+	{
+		AimLineToDesiredPosBlockedPct = CameraComp->GetSharedPenetrationBlockedPct();
+	}
+
+	// Yaw 보간 상태 체크
+	if (IsYawLimitsActive())
+	{
+		AActor* TargetActor = GetTargetActor();
+		if (TargetActor)
+		{
+			FRotator PivotRotation = GetPivotRotation();
+			float CharacterYaw = TargetActor->GetActorRotation().Yaw;
+			float RelativeYaw = FRotator::NormalizeAxis(PivotRotation.Yaw - CharacterYaw);
+            
+			// 범위 밖에서 시작하면 보간 활성화
+			PreviousRelativeYaw = RelativeYaw;
+			bIsYawInterpolating = (RelativeYaw < ViewYawMin || RelativeYaw > ViewYawMax);
+		}
+	}
 }
 
 // 3인칭 카메라 뷰 업데이트
@@ -81,6 +104,46 @@ void USFCameraMode_ThirdPerson::UpdateView(float DeltaTime)
 	// Pitch(상하 각도) 제한
 	PivotRotation.Pitch = FMath::ClampAngle(PivotRotation.Pitch, ViewPitchMin, ViewPitchMax);
 
+	// Yaw(좌우 각도) 제한
+	if (IsYawLimitsActive())
+	{
+		AActor* TargetActor = GetTargetActor();
+		if (TargetActor)
+		{
+			float CharacterYaw = TargetActor->GetActorRotation().Yaw;
+			float RelativeYaw = FRotator::NormalizeAxis(PivotRotation.Yaw - CharacterYaw);
+			float TargetRelativeYaw = FMath::Clamp(RelativeYaw, ViewYawMin, ViewYawMax);
+        
+			// 범위 밖이면 보간 시작
+			if (RelativeYaw < ViewYawMin || RelativeYaw > ViewYawMax)
+			{
+				bIsYawInterpolating = true;
+			}
+        
+			float FinalRelativeYaw;
+        
+			if (bIsYawInterpolating)
+			{
+				// 보간 중 - 플레이어 입력 무시, 이전 위치에서 목표로 보간
+				FinalRelativeYaw = FMath::FInterpTo(PreviousRelativeYaw, TargetRelativeYaw, DeltaTime, YawLimitInterpSpeed);
+            
+				if (FMath::IsNearlyEqual(FinalRelativeYaw, TargetRelativeYaw, 1.0f))
+				{
+					bIsYawInterpolating = false;
+					FinalRelativeYaw = TargetRelativeYaw;
+				}
+			}
+			else
+			{
+				// 보간 끝 - Clamp 적용
+				FinalRelativeYaw = FMath::Clamp(RelativeYaw, ViewYawMin, ViewYawMax);
+			}
+        
+			PreviousRelativeYaw = FinalRelativeYaw;
+			PivotRotation.Yaw = CharacterYaw + FinalRelativeYaw;
+		}
+	}
+
 	View.Location = PivotLocation;
 	View.Rotation = PivotRotation;
 	View.ControlRotation = View.Rotation;
@@ -109,6 +172,11 @@ void USFCameraMode_ThirdPerson::UpdateView(float DeltaTime)
 
 	// 최종 희망 카메라 위치를 조정하여 벽 뚫림(관통) 방지
 	UpdatePreventPenetration(DeltaTime);
+
+	if (USFCameraComponent* CameraComp = GetSFCameraComponent())
+	{
+		CameraComp->SetSharedPenetrationBlockedPct(AimLineToDesiredPosBlockedPct);
+	}
 }
 
 // 타겟(캐릭터) 상태 추적

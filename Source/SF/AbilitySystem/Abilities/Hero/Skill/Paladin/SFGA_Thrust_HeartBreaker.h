@@ -59,6 +59,8 @@ protected:
 	// 차징 Cue 종료 
 	void StopChargingCue();
 
+	void UpdateCameraModeForPhase(int32 PhaseIndex);
+
 protected:
 
 	// 차징 몽타주 (Start → Loop)
@@ -84,6 +86,12 @@ protected:
 	// Phase별 돌진 거리 배율
 	UPROPERTY(EditDefaultsOnly, Category="SF|PhaseInfo")
 	TArray<float> PhaseRushDistanceScales;
+
+	UPROPERTY(EditDefaultsOnly, Category = "Camera")
+	TArray<TSubclassOf<USFCameraMode>> PhaseCameraModes;
+
+	UPROPERTY(EditDefaultsOnly, Category = "SF|PhaseInfo")
+	TArray<ESFSlidingMode> PhaseSlidingModes;
 
 	UPROPERTY(EditDefaultsOnly, Category="SF|PhaseInfo")
 	float BaseRushDistance = 124.f;
