@@ -20,6 +20,7 @@ ASFMeleeWeaponActor::ASFMeleeWeaponActor(const FObjectInitializer& ObjectInitial
     StaticMeshComponent = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("WeaponMesh"));
     RootComponent = StaticMeshComponent;
     StaticMeshComponent->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+    StaticMeshComponent->SetCollisionResponseToChannel(ECC_Camera, ECR_Ignore);
     StaticMeshComponent->SetSimulatePhysics(false);
 
     // Collision Box
@@ -28,6 +29,7 @@ ASFMeleeWeaponActor::ASFMeleeWeaponActor(const FObjectInitializer& ObjectInitial
     WeaponCollision->SetCollisionObjectType(ECC_WorldDynamic);
     WeaponCollision->SetCollisionResponseToAllChannels(ECR_Ignore);
     WeaponCollision->SetCollisionResponseToChannel(ECC_Pawn, ECR_Overlap);
+    WeaponCollision->SetCollisionResponseToChannel(ECC_Camera, ECR_Ignore);
     WeaponCollision->SetGenerateOverlapEvents(true);
     WeaponCollision->SetCollisionEnabled(ECollisionEnabled::NoCollision);
     WeaponCollision->SetBoxExtent(FVector(50.f, 10.f, 50.f));

@@ -2,6 +2,7 @@
 
 #include "CoreMinimal.h"
 #include "GameplayTagContainer.h"
+#include "Character/Hero/Component/SFHeroMovementComponent.h"
 #include "UObject/Interface.h"
 #include "SFChainedSkill.generated.h"
 
@@ -29,6 +30,9 @@ struct SF_API FSFChainConfig
 
 	UPROPERTY(EditDefaultsOnly, Category = "Effects")
 	TArray<TSubclassOf<UGameplayEffect>> ChainEffects;
+
+	UPROPERTY(EditDefaultsOnly, Category = "Movement")
+	ESFSlidingMode ChainSlidingMode;
 };
 
 

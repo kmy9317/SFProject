@@ -76,6 +76,11 @@ void USFGA_ChainedSkill_Melee::ExecuteChainStep(int32 ChainIndex)
 	const FSFChainConfig& ChainConfig = ChainConfigs[ChainIndex];
 	CurrentDamageMultiplier = ChainConfig.DamageMultiplier;
 
+	if (ChainConfig.ChainSlidingMode != ESFSlidingMode::None)
+	{
+		ApplySlidingMode(ChainConfig.ChainSlidingMode);
+	}
+
 	UAnimMontage* MontageToPlay = ChainConfig.Montage;
 	if (!MontageToPlay)
 	{
@@ -121,6 +126,7 @@ void USFGA_ChainedSkill_Melee::ExecuteChainStep(int32 ChainIndex)
 void USFGA_ChainedSkill_Melee::OnChainMontageCompleted()
 {
 	RemoveChainEffects();
+	RestoreSlidingMode();
 
 	if (IsLastChain(ExecutingChainIndex))
 	{
@@ -133,6 +139,7 @@ void USFGA_ChainedSkill_Melee::OnChainMontageCompleted()
 void USFGA_ChainedSkill_Melee::OnChainMontageInterrupted()
 {
 	RemoveChainEffects();
+	RestoreSlidingMode();
 
 	if (IsLastChain(ExecutingChainIndex))
 	{
@@ -144,6 +151,7 @@ void USFGA_ChainedSkill_Melee::OnChainMontageInterrupted()
 
 void USFGA_ChainedSkill_Melee::EndAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, bool bReplicateEndAbility, bool bWasCancelled)
 {
+	RestoreSlidingMode();
 	ExecutingChainIndex = 0;
 	CurrentDamageMultiplier = 1.0f;
 	

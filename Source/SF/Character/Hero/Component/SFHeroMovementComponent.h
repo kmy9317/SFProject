@@ -7,6 +7,7 @@
 UENUM(BlueprintType)
 enum class ESFSlidingMode : uint8
 {
+	None,
 	// 기본 슬라이딩 동작
 	Normal,
 	
