@@ -1,4 +1,6 @@
 #include "SFPlayerInfoWidget.h"
+
+#include "IMediaTracks.h"
 #include "Components/TextBlock.h"
 #include "Components/RetainerBox.h"
 
@@ -16,14 +18,22 @@ void USFPlayerInfoWidget::UpdatePlayerInfo(const FSFPlayerInfo& NewPlayerInfo)
 	// === Ready Status 설정 ===
 	if (Text_ReadyStatus)
 	{
-		FString ReadyText = PlayerInfo.bReady ? TEXT("Ready") : TEXT("Not Ready");
-		Text_ReadyStatus->SetText(FText::FromString(ReadyText));
+		if (PlayerInfo.bReady)
+		{
+			Text_ReadyStatus->SetText(FText::FromString(TEXT("READY")));
+			Text_ReadyStatus->SetColorAndOpacity(FSlateColor(FLinearColor::Red));
+		}
+		else
+		{
+			Text_ReadyStatus->SetText(FText::FromString(TEXT("WAIT")));
+			Text_ReadyStatus->SetColorAndOpacity(FSlateColor(FLinearColor::White));
+		}
 	}
 
 	// === Opacity 설정 ===
 	if (RetainerBox)
 	{
-		float Opacity = PlayerInfo.bReady ? 1.0f : 0.2f;
+		float Opacity = PlayerInfo.bReady ? 1.0f : 0.7f;
 		RetainerBox->SetRenderOpacity(Opacity);
 	}
 }

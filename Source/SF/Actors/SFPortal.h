@@ -65,6 +65,11 @@ private:
 
 	void UpdatePortalEffects();
 
+public:
+	/** 포탈 이펙트 */
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
+	TObjectPtr<UNiagaraComponent> PortalEffect;
+	
 private:
 
 	UPROPERTY(VisibleAnywhere, Category = "Components")
@@ -77,10 +82,6 @@ private:
 	/** 포탈 메시 */
 	UPROPERTY(VisibleAnywhere, Category = "Components")
 	TObjectPtr<UStaticMeshComponent> PortalMesh;
-
-	/** 포탈 이펙트 */
-	UPROPERTY(VisibleAnywhere, Category = "Components")
-	TObjectPtr<UNiagaraComponent> PortalEffect;
 
 	/** 다음 스테이지 레벨 */
 	UPROPERTY(EditInstanceOnly, Category = "SF|Portal", meta = (AllowedClasses = "/Script/Engine.World"))

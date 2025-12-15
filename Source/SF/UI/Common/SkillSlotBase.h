@@ -10,6 +10,8 @@
 class UImage;
 class UProgressBar;
 class UTextBlock;
+class UWidgetAnimation;
+class USoundBase;
 
 UCLASS()
 class SF_API USkillSlotBase : public USFUserWidget
@@ -55,6 +57,14 @@ protected:
 
 	UPROPERTY(meta = (BindWidget))
 	TObjectPtr<UTextBlock> Text_KeyPrompt;
+
+	// 쿨타임 종료 시 재생할 위젯 애니메이션
+	UPROPERTY(Transient , meta = (BindWidgetAnim))
+	TObjectPtr<UWidgetAnimation> Anim_CooldownFinished;
+
+	// 쿨타임 종료 시 재생할 사운드
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "UI|Sound")
+	TObjectPtr<USoundBase> CooldownFinishedSound;
 
 	UPROPERTY()
 	bool bIsOnCooldown;

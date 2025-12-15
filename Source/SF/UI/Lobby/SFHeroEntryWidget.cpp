@@ -12,7 +12,7 @@ void USFHeroEntryWidget::NativeOnListItemObjectSet(UObject* ListItemObject)
 	if (HeroDefinition)
 	{
 		HeroIcon->GetDynamicMaterial()->SetTextureParameterValue(IconTextureMatParamName, HeroDefinition->LoadIcon());
-		HeroNameText->SetText(FText::FromString(HeroDefinition->GetHeroDisplayName()));
+		HeroNameText->SetText(FText::FromString(HeroDefinition->GetHeroDisplayName().ToUpper()));
 	}
 }
 

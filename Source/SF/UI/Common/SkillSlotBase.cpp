@@ -6,6 +6,9 @@
 #include "Components/Image.h"
 #include "Components/ProgressBar.h"
 #include "Components/TextBlock.h"
+#include "Sound/SoundBase.h"
+#include "Animation/WidgetAnimation.h"
+#include "Kismet/GameplayStatics.h"
 #include "Materials/MaterialInstanceDynamic.h"
 #include "Interface/SFChainedSkill.h"
 #include "UI/Controller/SFOverlayWidgetController.h"
@@ -87,6 +90,16 @@ void USkillSlotBase::InitializeSlot()
 		return;
 	}
 
+	if (Spec->Ability)
+	{
+		float Rem = Spec->Ability->GetCooldownTimeRemaining(ASC->AbilityActorInfo.Get());
+		bIsOnCooldown = (Rem > 0.0f);
+	}
+	else
+	{
+		bIsOnCooldown = false;
+	}
+
 	if (const USFGameplayAbility* SFAbility = Cast<USFGameplayAbility>(Spec->Ability))
 	{
 		// 연계 스킬 체크 (CDO에서 정보만 가져옴)
@@ -142,10 +155,34 @@ void USkillSlotBase::RefreshCooldown()
 	
 	if (CooldownRemaining > 0.f)
 	{
+		// 쿨타임이 남아있다면 상태를 true로 설정
+		bIsOnCooldown = true;
+
+		// 아이콘을 어둡게 만듦 (RGB를 0.3 정도로 낮춤, A는 1.0 유지)
+		if (Img_SkillIcon)
+		{
+			Img_SkillIcon->SetColorAndOpacity(FLinearColor(0.3f, 0.3f, 0.3f, 1.0f));
+		}
+		
 		float TotalDuration = GetActiveCooldownDuration(ASC, Spec->Ability);
+		
 		if (Text_CooldownCount)
 		{
-			Text_CooldownCount->SetText(FText::AsNumber(FMath::CeilToInt(CooldownRemaining)));
+			if (CooldownRemaining > 1.0f)
+			{
+				// 쿨타임이 1초보다 많이 남았으면 정수로 올림 표시 (예: 1.1초 -> 2)
+				Text_CooldownCount->SetText(FText::AsNumber(FMath::CeilToInt(CooldownRemaining)));
+			}
+			else
+			{
+				// 1초 이하일 때: 소수점 첫째 자리까지 표시 (예: 0.9, 0.4)
+				FNumberFormattingOptions NumberFormat;
+				NumberFormat.MinimumIntegralDigits = 1;	// 정수부 최소 1자리 (0.x 형태 유지)
+				NumberFormat.MaximumFractionalDigits = 1;	// 소수부 최대 1자리
+				NumberFormat.MinimumFractionalDigits = 1;	// 소수부 최소 1자리 (딱 떨어져도 .0 표시)
+
+				Text_CooldownCount->SetText(FText::AsNumber(CooldownRemaining, &NumberFormat));
+			}
 			Text_CooldownCount->SetVisibility(ESlateVisibility::SelfHitTestInvisible);
 		}
 
@@ -157,6 +194,27 @@ void USkillSlotBase::RefreshCooldown()
 	}
 	else
 	{
+		// 쿨타임이 0 이하인데, 방금 전까지 쿨타임 중(bIsOnCooldown == true)이었다면? --> 쿨타임 종료 시점
+		if (bIsOnCooldown)
+		{
+			bIsOnCooldown = false; // 상태 리셋
+
+			if (Anim_CooldownFinished)
+			{
+				PlayAnimation(Anim_CooldownFinished);
+			}
+			if (CooldownFinishedSound)
+			{
+				UGameplayStatics::PlaySound2D(this, CooldownFinishedSound);
+			}
+			
+		}
+		// 아이콘을 원래 색(밝은 흰색)으로 복구
+		if (Img_SkillIcon)
+		{
+			Img_SkillIcon->SetColorAndOpacity(FLinearColor::White);
+		}
+		
 		if (Text_CooldownCount)
 		{
 			Text_CooldownCount->SetVisibility(ESlateVisibility::Collapsed);
