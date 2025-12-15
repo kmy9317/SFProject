@@ -19,6 +19,7 @@ ASFEquipmentBase::ASFEquipmentBase(const FObjectInitializer& ObjectInitializer)
 	
 	MeshComponent = CreateDefaultSubobject<USkeletalMeshComponent>("WeaponMesh");
 	MeshComponent->SetCollisionProfileName("Weapon");
+	MeshComponent->SetCollisionResponseToChannel(ECC_Camera, ECR_Ignore);
 	MeshComponent->SetGenerateOverlapEvents(false);
 	MeshComponent->SetupAttachment(GetRootComponent());
 	MeshComponent->PrimaryComponentTick.bStartWithTickEnabled = false;
@@ -26,6 +27,7 @@ ASFEquipmentBase::ASFEquipmentBase(const FObjectInitializer& ObjectInitializer)
 	
 	TraceDebugCollision = CreateDefaultSubobject<UBoxComponent>("TraceDebugCollision");
 	TraceDebugCollision->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+	TraceDebugCollision->SetCollisionResponseToChannel(ECC_Camera, ECR_Ignore);
 	TraceDebugCollision->SetGenerateOverlapEvents(false);
 	TraceDebugCollision->SetupAttachment(GetRootComponent());
 	TraceDebugCollision->PrimaryComponentTick.bStartWithTickEnabled = false;
