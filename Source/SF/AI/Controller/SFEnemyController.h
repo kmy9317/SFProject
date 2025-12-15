@@ -57,9 +57,5 @@ public:
 	void OnTargetPerceptionUpdated(AActor* Actor, FAIStimulus Stimulus);
 
 #pragma endregion
-
-#pragma region Debug
-	// 시야/범위 디버그 시각화 (콘솔: AI.ShowDebug 1)
-	void DrawDebugPerception();
-#pragma endregion
+	
 };
