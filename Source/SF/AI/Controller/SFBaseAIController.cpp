@@ -28,7 +28,6 @@ void ASFBaseAIController::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& 
     Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 
     DOREPLIFETIME(ASFBaseAIController, bIsInCombat);
-    DOREPLIFETIME(ASFBaseAIController, bHasGuardSlot);
     DOREPLIFETIME(ASFBaseAIController, TeamId);
 }
 
