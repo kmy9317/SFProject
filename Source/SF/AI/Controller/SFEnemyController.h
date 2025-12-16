@@ -26,8 +26,6 @@ public:
 	// ISFAIControllerInterface
 	virtual void InitializeAIController() override;
 
-protected:
-	virtual void Tick(float DeltaTime) override;
 
 #pragma region Perception
 	// 시야 감지 컴포넌트
@@ -58,13 +56,6 @@ protected:
 	UFUNCTION()
 	void OnTargetPerceptionUpdated(AActor* Actor, FAIStimulus Stimulus);
 
-	// 시야 완전 소실 이벤트 (MaxAge 경과)
-	UFUNCTION()
-	void OnTargetPerceptionForgotten(AActor* Actor);
 #pragma endregion
-
-#pragma region Debug
-	// 시야/범위 디버그 시각화 (콘솔: AI.ShowDebug 1)
-	void DrawDebugPerception();
-#pragma endregion
+	
 };

@@ -7,7 +7,7 @@
 #include "BehaviorTree/BlackboardComponent.h"
 #include "Perception/AIPerceptionComponent.h"
 #include "Perception/AISense_Sight.h"
-#include "AI/SFCombatSlotManager.h"
+// [제거] #include "AI/SFCombatSlotManager.h"
 #include "GameFramework/Pawn.h" // GetPawn() 사용을 위해 필요
 
 UBTService_UpdateTarget::UBTService_UpdateTarget()
@@ -48,19 +48,7 @@ void UBTService_UpdateTarget::OnCeaseRelevant(UBehaviorTreeComponent& OwnerComp,
 	{
 		return;
 	}
-	
-	// 타겟이 없다면 슬롯 완전 반납
-	ASFEnemyController* AIController = Cast<ASFEnemyController>(OwnerComp.GetAIOwner());
-	if (AIController)
-	{
-		if (UWorld* World = AIController->GetWorld())
-		{
-			if (USFCombatSlotManager* Manager = World->GetSubsystem<USFCombatSlotManager>())
-			{
-				Manager->ReleaseSlot(AIController);
-			}
-		}
-	}
+
 }
 
 void UBTService_UpdateTarget::TickNode(UBehaviorTreeComponent& OwnerComp, uint8* NodeMemory, float DeltaSeconds)
@@ -86,13 +74,9 @@ void UBTService_UpdateTarget::TickNode(UBehaviorTreeComponent& OwnerComp, uint8*
 	{
 		float Dist = FVector::Dist(MyPawn->GetActorLocation(), CurrentTarget->GetActorLocation());
 		
-		// 1-A. 너무 멀어짐 -> 포기 (Give Up)
 		if (Dist > MaxChaseDistance)
 		{
-			if (auto* Manager = AIController->GetWorld()->GetSubsystem<USFCombatSlotManager>())
-			{
-				Manager->ReleaseSlot(AIController, CurrentTarget);
-			}
+
 
 			BlackboardComp->ClearValue(TargetActorKey.SelectedKeyName);
 			BlackboardComp->SetValueAsBool(HasTargetKey.SelectedKeyName, false);
@@ -102,7 +86,6 @@ void UBTService_UpdateTarget::TickNode(UBehaviorTreeComponent& OwnerComp, uint8*
 			return; 
 		}
 		
-		// 1-B. 거리 안임 -> 일단 유지 (아래 로직에서 더 좋은 타겟이 있으면 바뀜)
 	}
 
 	// ==============================================================================
@@ -165,11 +148,6 @@ void UBTService_UpdateTarget::TickNode(UBehaviorTreeComponent& OwnerComp, uint8*
 		// 교체 확정
 		if (bShouldSwitch)
 		{
-			if (CurrentTarget) 
-			{
-				if (auto* Manager = AIController->GetWorld()->GetSubsystem<USFCombatSlotManager>())
-					Manager->ReleaseSlot(AIController, CurrentTarget);
-			}
 
 			CurrentTarget = BestTarget; // 로컬 변수 갱신
 			
@@ -203,27 +181,12 @@ void UBTService_UpdateTarget::TickNode(UBehaviorTreeComponent& OwnerComp, uint8*
 	}
 
 	// ==============================================================================
-	// [수정 4] 슬롯 관리 (Request / Maintain)
+	// [제거] 슬롯 관리 (Request / Maintain) 로직 제거
 	// ==============================================================================
 	if (CurrentTarget)
 	{
-		// 계속 추적 중이라면 위치 정보 업데이트 (시야에 있을 때만 하는 게 좋지만, 일단은 항상 갱신)
-		// 만약 '벽 뒤의 적'을 구현하려면, PerceivedActors.Contains(CurrentTarget) 일 때만 갱신해야 함.
-		// 여기서는 간단하게 항상 갱신합니다.
+		// 계속 추적 중이라면 위치 정보 업데이트
 		BlackboardComp->SetValueAsVector("LastKnownPosition", CurrentTarget->GetActorLocation());
-
-		if (auto* Manager = AIController->GetWorld()->GetSubsystem<USFCombatSlotManager>())
-		{
-			// 강제 공격권 거리 체크
-			bool bForce = false;
-			const float Dist = FVector::Dist(MyPawn->GetActorLocation(), CurrentTarget->GetActorLocation());
-			if (Dist <= ForceAttackDistance)
-			{
-				bForce = true;
-			}
-
-			// 슬롯 요청 (이미 가지고 있으면 갱신/유지됨)
-			Manager->RequestSlot(AIController, CurrentTarget, bForce);
-		}
+		
 	}
 }
