@@ -11,6 +11,37 @@ class UAnimInstance;
 class USFGameplayAbility;
 class USFEquipmentInstance;
 
+// 무기의 Motion Warping 설정
+USTRUCT(BlueprintType)
+struct FSFWeaponWarpSettings
+{
+	GENERATED_BODY()
+
+	FSFWeaponWarpSettings()
+		: WarpTargetName(TEXT("AttackTarget"))
+		, WarpRange(200.f)
+		, RotationInterpSpeed(10.f)
+		, MaxWindupTurnAngle(90.f)
+	{
+	}
+
+	// Motion Warping 타겟 이름 
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Warp")
+	FName WarpTargetName;
+
+	// Warp 이동 거리
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Warp", meta = (ClampMin = "0.0"))
+	float WarpRange;
+
+	// 회전 보간 속도 (높을수록 빠른 반응, 낮을수록 묵직함)
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Warp", meta = (ClampMin = "0.0"))
+	float RotationInterpSpeed;
+
+	// Windup 중 최대 회전 가능 각도 (0 = 제한 없음)
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Warp", meta = (ClampMin = "0.0", ClampMax = "180.0"))
+	float MaxWindupTurnAngle;
+};
+
 USTRUCT(BlueprintType)
 struct FEquipmentAnimLayer
 {
@@ -105,6 +136,8 @@ public:
 	//해당 무기 장착 시 사용할 AnimationLayer 
 	UPROPERTY(EditDefaultsOnly)
 	TSubclassOf<UAnimInstance> AnimLayerInfo;
-	
-	
+
+	// 무기 고유의 기본 Motion Warping 설정
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Weapon|Motion Warping")
+	FSFWeaponWarpSettings WarpSettings;
 };

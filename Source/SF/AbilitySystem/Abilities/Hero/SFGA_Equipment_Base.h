@@ -4,6 +4,8 @@
 #include "AbilitySystem/Abilities/SFGameplayAbility.h"
 #include "SFGA_Equipment_Base.generated.h"
 
+struct FSFWeaponWarpSettings;
+class USFEquipmentDefinition;
 class USFEquipmentComponent;
 class USFCameraMode;
 class USFEquipmentInstance;
@@ -26,7 +28,7 @@ struct FSFEquipmentInfo
 };
 
 /**
- * 
+ * 장비(무기, 방패 등)가 필요한 어빌리티의 베이스 클래스
  */
 UCLASS()
 class SF_API USFGA_Equipment_Base : public USFGameplayAbility
@@ -41,16 +43,42 @@ public:
 	virtual void EndAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, bool bReplicateEndAbility, bool bWasCancelled) override;
 
 protected:
+
+	USFEquipmentComponent* GetEquipmentComponent() const;
+	
+	// ========== 슬롯 기반 접근 =========
+	
 	// 장착된 무기 액터 가져오기 (특정 슬롯)
 	UFUNCTION(BlueprintCallable, Category = "SF|Equipment")
 	AActor* GetEquippedActorBySlot(const FGameplayTag& SlotTag) const;
 
-	// 주무기 액터 가져오기
+	// 특정 슬롯의 EquipmentInstance
 	UFUNCTION(BlueprintCallable, Category = "SF|Equipment")
+	USFEquipmentInstance* GetEquipmentInstanceBySlot(const FGameplayTag& SlotTag) const;
+
+	// 특정 슬롯의 EquipmentDefinition
+	UFUNCTION(BlueprintCallable, Category = "SF|Equipment")
+	USFEquipmentDefinition* GetEquipmentDefinitionBySlot(const FGameplayTag& SlotTag) const;
+
+	// ========== MainHand 단축 접근 ==========
+	
+	// 주무기 액터 가져오기
+	UFUNCTION(BlueprintCallable, Category = "SF|Equipment|MainHand")
 	AActor* GetMainHandWeaponActor() const;
 
-	// EquipmentComponent 가져오기
-	USFEquipmentComponent* GetEquipmentComponent() const;
+	UFUNCTION(BlueprintCallable, Category = "SF|Equipment|MainHand")
+	USFEquipmentInstance* GetMainHandEquipmentInstance() const;
+
+	UFUNCTION(BlueprintCallable, Category = "SF|Equipment|MainHand")
+	USFEquipmentDefinition* GetMainHandEquipmentDefinition() const;
+
+	// ========== Warp Settings 접근 ==========
+	
+	// MainHand 무기의 WarpSettings (없으면 nullptr)
+	const FSFWeaponWarpSettings* GetMainHandWarpSettings() const;
+
+	// 특정 슬롯의 WarpSettings
+	const FSFWeaponWarpSettings* GetWarpSettingsBySlot(const FGameplayTag& SlotTag) const;
 	
 protected:
 

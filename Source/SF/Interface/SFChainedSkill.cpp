@@ -193,8 +193,11 @@ void ISFChainedSkill::BroadcastChainStateChanged(UGameplayAbility* SourceAbility
 	Message.AbilitySpecHandle = SourceAbility->GetCurrentAbilitySpecHandle();
 	Message.ChainIndex = ChainIndex;
 
-	UGameplayMessageSubsystem& MessageSubsystem = UGameplayMessageSubsystem::Get(World);
-	MessageSubsystem.BroadcastMessage(SFGameplayTags::Message_Skill_ChainStateChanged, Message);
+	if (UGameplayMessageSubsystem::HasInstance(SourceAbility))
+	{
+		UGameplayMessageSubsystem& MessageSubsystem = UGameplayMessageSubsystem::Get(World);
+		MessageSubsystem.BroadcastMessage(SFGameplayTags::Message_Skill_ChainStateChanged, Message);
+	}
 }
 
 UTexture2D* ISFChainedSkill::GetChainIcon(int32 ChainIndex) const
