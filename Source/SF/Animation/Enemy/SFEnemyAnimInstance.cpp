@@ -8,13 +8,6 @@
 #include "GameFramework/CharacterMovementComponent.h"
 #include "AnimCharacterMovementLibrary.h"
 
-// =========================================================================
-// [모션 매칭 섹션] 필수 헤더 추가
-// =========================================================================
-#include "Character/Enemy/SFEnemy.h"        // 캐릭터 캐스팅용
-#include "CharacterTrajectoryComponent.h"   // 컴포넌트 접근용
-// =========================================================================
-
 #include UE_INLINE_GENERATED_CPP_BY_NAME(SFEnemyAnimInstance)
 
 USFEnemyAnimInstance::USFEnemyAnimInstance(const FObjectInitializer& ObjectInitializer)
@@ -47,9 +40,6 @@ USFEnemyAnimInstance::USFEnemyAnimInstance(const FObjectInitializer& ObjectIniti
 	, SmoothedRootYawOffset(0.0f)
 	, TurnAngle(90.0f)
 {
-    // [초기화] 모션 매칭 변수
-    bUseMotionMatching = false;
-    TrajectoryComponent = nullptr;
 }
 
 #pragma region AnimationFunction
@@ -72,17 +62,6 @@ void USFEnemyAnimInstance::NativeInitializeAnimation()
 			CachedMovementComponent = Character->GetCharacterMovement();
 		}
         
-        // =====================================================================
-        // [모션 매칭] 궤적 컴포넌트 캐싱 (한 번만 찾아서 저장)
-        // =====================================================================
-        if (auto* EnemyPawn = Cast<ASFEnemy>(OwningActor))
-        {
-            if (EnemyPawn->CharacterTrajectory)
-            {
-                TrajectoryComponent = EnemyPawn->CharacterTrajectory;
-            }
-        }
-        
 		if (UAbilitySystemComponent* ASC = UAbilitySystemGlobals::GetAbilitySystemComponentFromActor(OwningActor))
 		{
 			InitializeWithAbilitySystem(ASC);
@@ -94,6 +73,7 @@ void USFEnemyAnimInstance::NativeUpdateAnimation(float DeltaSeconds)
 {
 	Super::NativeUpdateAnimation(DeltaSeconds);
 
+	// GameThread로 값을 읽어 와야하는것을 여기서 처리함 
 	if (!Character)
 	{
 		Character = Cast<ACharacter>(GetOwningActor());
@@ -108,6 +88,7 @@ void USFEnemyAnimInstance::NativeUpdateAnimation(float DeltaSeconds)
 		return;
 	}
 
+	// 이전 프레임 값 저장 
 	if (!bIsFirstUpdate)
 	{
 		PreviousWorldLocation = CachedLocation;
@@ -125,41 +106,32 @@ void USFEnemyAnimInstance::NativeUpdateAnimation(float DeltaSeconds)
 	CachedLocation = Character->GetActorLocation();
 	CachedRotation = Character->GetActorRotation();  
 
+	// Velocity 캐싱
 	CachedWorldVelocity = CachedMovementComponent->Velocity;
 	CachedWorldVelocity2D = FVector(CachedWorldVelocity.X, CachedWorldVelocity.Y, 0.0f);
 
+	// Acceleration 캐싱
 	const FVector Acceleration = CachedMovementComponent->GetCurrentAcceleration();
 	CachedWorldAcceleration2D = FVector(Acceleration.X, Acceleration.Y, 0.0f);
 
-
-    // =========================================================================
-    // [모션 매칭 vs 기존 로직 분기]
-    // =========================================================================
-    if (bUseMotionMatching)
-    {
-        // 모션 매칭이 켜져 있으면, 기존 TurnInPlace 로직을 위한 Yaw 계산을 초기화합니다.
-        PreviousRemainingTurnYaw = 0.0f;
-    }
-    else
-    {
-        // 기존 로직 사용 (일반 몬스터)
-        if (bIsTurningInPlace)
-        {
-            float CurrentRemainingYaw = GetCurveValue(FName("RemainingTurnYaw"));
-            float DeltaYaw = PreviousRemainingTurnYaw - CurrentRemainingYaw;
-            
-            if (FMath::Abs(DeltaYaw) > UE_SMALL_NUMBER)
-            {
-                ProcessRemainingTurnYaw(DeltaYaw);
-            }
-            
-            PreviousRemainingTurnYaw = CurrentRemainingYaw;
-        }
-        else
-        {
-            PreviousRemainingTurnYaw = 0.0f;
-        }
-    }
+	// Turn In Place 커브 처리 
+	if (bIsTurningInPlace)
+	{
+		float CurrentRemainingYaw = GetCurveValue(FName("RemainingTurnYaw"));
+		float DeltaYaw = PreviousRemainingTurnYaw - CurrentRemainingYaw;
+		
+		if (FMath::Abs(DeltaYaw) > UE_SMALL_NUMBER)
+		{
+			ProcessRemainingTurnYaw(DeltaYaw);
+		}
+		
+		PreviousRemainingTurnYaw = CurrentRemainingYaw;
+	}
+	else
+	{
+		// Turn이 시작될 때 초기화
+		PreviousRemainingTurnYaw = 0.0f;
+	}
 }
 
 void USFEnemyAnimInstance::NativeThreadSafeUpdateAnimation(float DeltaSeconds)
@@ -171,27 +143,14 @@ void USFEnemyAnimInstance::NativeThreadSafeUpdateAnimation(float DeltaSeconds)
 	UpdateVelocityData();
 	UpdateAccelerationData();
 	
-    // =========================================================================
-    // [모션 매칭 vs 기존 로직 분기]
-    // =========================================================================
-    if (bUseMotionMatching)
-    {
-        // 모션 매칭 사용 시에는 기존의 회전 보정 값들을 모두 0으로 만들어 충돌을 방지합니다.
-        bIsTurningInPlace = false;
-        RootYawOffset = 0.0f;
-        SmoothedRootYawOffset = 0.0f;
-        SpringCurrentValue = 0.0f;
-    }
-    else
-    {
-        // 기존 로직 수행
-        UpdateTurnInPlace(DeltaSeconds);
-        
-        if (bEnableRootYawOffset)
-        {
-            ApplySpringToRootYawOffset(DeltaSeconds);
-        }
-    }
+	
+	UpdateTurnInPlace(DeltaSeconds);
+	
+	// Spring 보간 적용 
+	if (bEnableRootYawOffset)
+	{
+		ApplySpringToRootYawOffset(DeltaSeconds);
+	}
 }
 
 UCharacterMovementComponent* USFEnemyAnimInstance::GetMovementComponent()
@@ -219,8 +178,11 @@ UCharacterMovementComponent* USFEnemyAnimInstance::GetMovementComponent()
 void USFEnemyAnimInstance::UpdateLocationData(float DeltaSeconds)
 {
 	WorldLocation = CachedLocation;
+
+	// Displacement 계산
 	DisplacementSinceLastUpdate = FVector::Dist(WorldLocation, PreviousWorldLocation);
 
+	// Displacement Speed 계산
 	if (DeltaSeconds > 0.0f)
 	{
 		DisplacementSpeed = DisplacementSinceLastUpdate / DeltaSeconds;
@@ -239,7 +201,11 @@ void USFEnemyAnimInstance::UpdateRotationData()
 void USFEnemyAnimInstance::UpdateVelocityData()
 {
 	WorldVelocity2D = CachedWorldVelocity2D;
+	
+	// Local 좌표계로 변환
 	LocalVelocity2D = CachedRotation.UnrotateVector(WorldVelocity2D);
+	
+	// Velocity 체크
 	const float VelocityLength = LocalVelocity2D.Size();
 	
 	if (VelocityLength > 1.0f)
@@ -251,19 +217,25 @@ void USFEnemyAnimInstance::UpdateVelocityData()
 		bHasVelocity = false;
 	}
 
+	// 로컬 좌표계 각도
 	LocalVelocityDirectionAngle = FMath::RadiansToDegrees(FMath::Atan2(LocalVelocity2D.Y, LocalVelocity2D.X));
+
 	LocalVelocityDirection = GetCardinalDirectionFromAngle(LocalVelocityDirectionAngle, CardinalDirectionDeadZone, LocalVelocityDirection, bWasMovingLastFrame);
+
 	bWasMovingLastFrame = bHasVelocity;
 }
 
 void USFEnemyAnimInstance::UpdateAccelerationData()
 {
+	// 서버: 실제 Acceleration 사용
+	// 클라이언트: Velocity 변화량으로 Acceleration 추정
 	if (GetOwningActor() && GetOwningActor()->HasAuthority())
 	{
 		WorldAcceleration2D = CachedWorldAcceleration2D;
 	}
 	else
 	{
+		// 클라이언트는 Velocity 변화량으로 Acceleration 추정
 		const UWorld* World = GetWorld();
 		if (World)
 		{
@@ -283,7 +255,10 @@ void USFEnemyAnimInstance::UpdateAccelerationData()
 		}
 	}
     
+	// Local 좌표계로 변환
 	LocalAcceleration2D = CachedRotation.UnrotateVector(WorldAcceleration2D);
+    
+	// Acceleration 체크
 	const float AccelerationLength = LocalAcceleration2D.Size();
 	bHasAcceleration = AccelerationLength > 1.0f;
 }
@@ -323,6 +298,7 @@ AE_CardinalDirection USFEnemyAnimInstance::GetCardinalDirectionFromAngle(float A
 	float FwdDeadZone = DeadZone;
 	float BwdDeadZone = DeadZone;
 
+	// 현재 direction에 가중치를 주기 위한 처리
 	if (bUseCurrentDirection)
 	{
 		switch (CurrentDirection)
@@ -362,10 +338,12 @@ AE_CardinalDirection USFEnemyAnimInstance::GetCardinalDirectionFromAngle(float A
 
 void USFEnemyAnimInstance::UpdateTurnInPlace(float DeltaSeconds)
 {
+	// 현재 회전과 이전 회전의 Yaw 차이 계산
 	float CurrentYaw = CachedRotation.Yaw;
 	float PreviousYaw = PreviousRotation.Yaw;
 	float DeltaYaw = FMath::FindDeltaAngleDegrees(PreviousYaw, CurrentYaw);
 
+	// 이동 중에는 BlendOut
 	if (bHasVelocity)
 	{
 		if (RootYawOffsetMode != ERootYawOffsetMode::BlendOut)
@@ -377,6 +355,7 @@ void USFEnemyAnimInstance::UpdateTurnInPlace(float DeltaSeconds)
 		return;
 	}
 
+	// 정지 상태에서 모드별 처리
 	switch (RootYawOffsetMode)
 	{
 		case ERootYawOffsetMode::Accumulate:
@@ -411,11 +390,13 @@ void USFEnemyAnimInstance::UpdateTurnInPlace(float DeltaSeconds)
 
 void USFEnemyAnimInstance::ProcessAccumulateMode(float DeltaYaw)
 {
+	// Yaw 변화를 반대 방향으로 누적 (시각적으로 제자리에 있는 것처럼)
 	RootYawOffset += (-DeltaYaw);
 	RootYawOffset = NormalizeAxis(RootYawOffset);
 
 	float AbsOffset = FMath::Abs(RootYawOffset);
 
+	// 180도 Turn 체크 (135도 이상)
 	if (AbsOffset > TurnInPlaceThreshold_180)
 	{
 		bIsTurningInPlace = true;
@@ -423,6 +404,7 @@ void USFEnemyAnimInstance::ProcessAccumulateMode(float DeltaYaw)
 		TurnAngle = 180.0f;
 		RootYawOffsetMode = ERootYawOffsetMode::Hold;
 	}
+	// 90도 Turn 체크 (90도 ~ 135도)
 	else if (AbsOffset > TurnInPlaceThreshold)
 	{
 		bIsTurningInPlace = true;
@@ -434,12 +416,17 @@ void USFEnemyAnimInstance::ProcessAccumulateMode(float DeltaYaw)
 
 void USFEnemyAnimInstance::ProcessHoldMode()
 {
+	// 현재 RootYawOffset 값 유지
+	// 애니메이션이 재생되는 동안 NativeUpdateAnimation에서 
+	// RemainingTurnYaw 커브를 통해 값을 줄여나감
 }
 
 void USFEnemyAnimInstance::ProcessBlendOutMode(float DeltaSeconds)
 {
+	// RootYawOffset을 0으로 부드럽게 보간
 	RootYawOffset = FMath::FInterpTo(RootYawOffset, 0.0f, DeltaSeconds, BlendOutSpeed);
 
+	// 거의 0에 가까우면 완전히 0으로 설정하고 Accumulate 모드로 복귀
 	if (FMath::Abs(RootYawOffset) < 0.1f)
 	{
 		RootYawOffset = 0.0f;
@@ -450,19 +437,24 @@ void USFEnemyAnimInstance::ProcessBlendOutMode(float DeltaSeconds)
 
 void USFEnemyAnimInstance::ProcessRemainingTurnYaw(float DeltaTurnYaw)
 {
+	// Turn In Place 애니메이션의 커브 데이터만큼 RootYawOffset 감소
+	// 커브가 90 -> 0으로 감소하면, Delta는 양수가 되므로 RootYawOffset도 감소
 	RootYawOffset -= DeltaTurnYaw;
 	RootYawOffset = NormalizeAxis(RootYawOffset);
 }
 
 void USFEnemyAnimInstance::OnTurnInPlaceCompleted()
 {
+	// AnimNotify에서 호출됨
+	// BlendOut 모드로 전환
 	RootYawOffsetMode = ERootYawOffsetMode::BlendOut;
 	bIsTurningInPlace = false;
-	TurnAngle = 90.0f; 
+	TurnAngle = 90.0f; // 초기화
 }
 
 float USFEnemyAnimInstance::NormalizeAxis(float Angle)
 {
+	// -180 ~ 180 범위로 정규화
 	Angle = FMath::Fmod(Angle, 360.0f);
 
 	if (Angle > 180.0f)
@@ -483,6 +475,9 @@ float USFEnemyAnimInstance::NormalizeAxis(float Angle)
 
 void USFEnemyAnimInstance::ApplySpringToRootYawOffset(float DeltaSeconds)
 {
+	// Spring을 적용하여 부드러운 보간 (선택사항)
+	// RootYawOffset을 목표값으로 Spring 시뮬레이션
+	
 	float SpringTarget = RootYawOffset;
 
 	SpringCurrentValue = SpringInterpolate(
@@ -495,6 +490,7 @@ void USFEnemyAnimInstance::ApplySpringToRootYawOffset(float DeltaSeconds)
 		SpringMass
 	);
 
+	// 최종 출력값 (애니메이션 그래프에서 사용)
 	SmoothedRootYawOffset = SpringCurrentValue;
 	SmoothedRootYawOffset = NormalizeAxis(SmoothedRootYawOffset);
 }
@@ -503,17 +499,36 @@ float USFEnemyAnimInstance::SpringInterpolate(float Current, float Target, float
                                                float& Velocity, float Stiffness,
                                                float DampingRatio, float Mass)
 {
+	// Spring 물리 시뮬레이션
+	// F = -k * x - c * v
+	// a = F / m
+	// v = v + a * dt
+	// x = x + v * dt
+
 	if (DeltaTime <= 0.0f || Mass <= 0.0f)
 	{
 		return Current;
 	}
 
+	// 오차 계산
 	float Error = Target - Current;
+
+	// Spring 힘 계산
 	float SpringForce = Stiffness * Error;
+
+	// Damping 힘 계산
 	float DampingForce = 2.0f * DampingRatio * FMath::Sqrt(Stiffness * Mass) * Velocity;
+
+	// 총 힘
 	float TotalForce = SpringForce - DampingForce;
+
+	// 가속도
 	float Acceleration = TotalForce / Mass;
+
+	// 속도 업데이트
 	Velocity += Acceleration * DeltaTime;
+
+	// 위치 업데이트
 	float NewValue = Current + Velocity * DeltaTime;
 
 	return NewValue;
