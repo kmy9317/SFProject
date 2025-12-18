@@ -618,3 +618,21 @@ void USFAbilitySystemComponent::ProcessDeathEvent(const FGameplayEffectSpec& Spe
 	PayLoad.ContextHandle = Spec.GetContext();
 	HandleGameplayEvent(SFGameplayTags::GameplayEvent_Death, &PayLoad);
 }
+
+void USFAbilitySystemComponent::ProcessStaggerEvent(
+	const FGameplayEffectSpec& Spec)
+{
+
+	if (HasMatchingGameplayTag(SFGameplayTags::Character_State_Dead))
+		return;
+
+	FGameplayEventData Payload;
+	Payload.EventTag = SFGameplayTags::GameplayEvent_Groggy;
+	Payload.Target = GetAvatarActor();
+	Payload.Instigator = Spec.GetContext().GetInstigator();
+	Payload.ContextHandle = Spec.GetContext();
+
+	HandleGameplayEvent(SFGameplayTags::GameplayEvent_Groggy,&Payload);
+}
+
+

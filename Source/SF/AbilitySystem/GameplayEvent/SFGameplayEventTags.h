@@ -19,6 +19,7 @@ namespace SFGameplayTags
 	SF_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(GameplayEvent_Parry);
 	SF_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(GameplayEvent_Parried);
 	SF_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(GameplayEvent_Knockback);
+	SF_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(GameplayEvent_Groggy);
 	
 
 	//Damage Events
@@ -26,7 +27,7 @@ namespace SFGameplayTags
     
     
 	// Data Tags (SetByCaller)
-    
+
 	// Damage Data
 	SF_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(Data_Damage_BaseDamage);
 	SF_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(Data_Damage_Multiplier);
@@ -35,6 +36,10 @@ namespace SFGameplayTags
 	// Healing Data
 	SF_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(Data_Healing_BaseHealing);
 	SF_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(Data_Healing_Multiplier);
+
+	//Stagger Data
+	SF_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(Data_Stagger_BaseStagger);
+	SF_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(Data_Stagger_Multiplier);
     
 	// Duration Data
 	SF_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(Data_Duration_Stun);

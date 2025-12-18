@@ -24,10 +24,10 @@ struct FTaggedMontage
     TObjectPtr<UAnimMontage> AnimMontage;
 };
 
-/**
- * Enemy 기본 공격 Ability
- * DataTable의 값을 SetByCaller로 받아와서 사용
- */
+
+ // Enemy 기본 공격 Ability
+ //DataTable의 값을 SetByCaller로 받아와서 사용
+ 
 UCLASS(Abstract)
 class SF_API USFGA_Enemy_BaseAttack : public USFGameplayAbility, public ISFEnemyAbilityInterface
 {
@@ -71,12 +71,18 @@ public:
 
 
 protected:
+    // 계산 있는 데미지 적용
     UFUNCTION(BlueprintCallable, Category = "Attack")
     void ApplyDamageToTarget(AActor* Target, const FGameplayEffectContextHandle& ContextHandle);
 
+    // 계산 없는 순수 데미지 적용
+    UFUNCTION(BlueprintCallable, Category = "Attack")
+    void ApplyRawDamageToTarget(AActor* Target, float RawDamage, const FGameplayEffectContextHandle& ContextHandle);
 
     UFUNCTION(BlueprintCallable, Category = "Attack")
     virtual AActor* GetCurrentTarget() const;
+
+    virtual void CommitExecute(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo) override;
 
     virtual void ApplyCooldown(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo) const override;
 
@@ -93,9 +99,13 @@ protected:
     UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Attack")
     FGameplayTag CoolDownTag;
 
-    // 데미지 GameplayEffect 클래스
+    // 데미지 GameplayEffect 클래스 (Calculation 있음: 공격력, 방어력, 크리티컬 적용)
     UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Attack|Damage")
     TSubclassOf<UGameplayEffect> DamageGameplayEffectClass;
+
+    // Raw 데미지 GameplayEffect 클래스 (Calculation 없음: 순수 데미지)
+    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Attack|Damage")
+    TSubclassOf<UGameplayEffect> RawDamageGameplayEffectClass;
 
 private:
     // SetByCaller 값 가져오기 헬퍼 함수

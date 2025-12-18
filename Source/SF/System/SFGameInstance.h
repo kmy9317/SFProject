@@ -12,38 +12,51 @@
 
 /**
  * Ability Data를 담는 Wrapper 구조체
+ * 개선: 포인터 대신 값 복사 방식으로 변경하여 안전성 향상
  */
 USTRUCT()
 struct FAbilityDataWrapper
 {
 	GENERATED_BODY()
 
-	
-	FAbilityBaseData* Data = nullptr;
-    
 	// 타입 정보
 	EAbilityType Type = EAbilityType::None;
 
+	// 실제 데이터 (값 복사)
+	// Attack 타입일 경우 FEnemyAttackAbilityData로 캐스팅 가능
+	FEnemyAttackAbilityData AttackData;
+
+	// 추후 다른 타입 추가 시 여기에 추가
+	// FEnemyDefensiveAbilityData DefensiveData;
+	// FEnemyBuffAbilityData BuffData;
+
 	FAbilityDataWrapper() = default;
-    
-	FAbilityDataWrapper(FAbilityBaseData* InData, EAbilityType InType)
-		: Data(InData), Type(InType)
+
+	// Attack 타입 생성자
+	explicit FAbilityDataWrapper(const FEnemyAttackAbilityData& InAttackData)
+		: Type(EAbilityType::Attack)
+		, AttackData(InAttackData)
 	{}
 
-	// 타입별 안전한 캐스팅 헬퍼 함수들
-	template<typename T>
-	T* GetAs()
+	// 타입별 안전한 데이터 가져오기
+	const FAbilityBaseData* GetBaseData() const
 	{
-		return static_cast<T*>(Data);
+		switch (Type)
+		{
+		case EAbilityType::Attack:
+			return &AttackData;
+		default:
+			return nullptr;
+		}
 	}
 
-	template<typename T>
-	const T* GetAs() const
+	// Attack 데이터 가져오기 (타입 체크 포함)
+	const FEnemyAttackAbilityData* GetAttackData() const
 	{
-		return static_cast<const T*>(Data);
+		return (Type == EAbilityType::Attack) ? &AttackData : nullptr;
 	}
 
-	bool IsValid() const { return Data != nullptr; }
+	bool IsValid() const { return Type != EAbilityType::None; }
 };
 /**
  * 

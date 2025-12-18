@@ -18,6 +18,7 @@ namespace SFGameplayTags
 	UE_DEFINE_GAMEPLAY_TAG(GameplayEvent_Parry, "GameplayEvent.Parry");
 	UE_DEFINE_GAMEPLAY_TAG(GameplayEvent_Parried, "GameplayEvent.Parried");
 	UE_DEFINE_GAMEPLAY_TAG(GameplayEvent_Knockback, "GameplayEvent.Knockback");
+	UE_DEFINE_GAMEPLAY_TAG(GameplayEvent_Groggy, "GameplayEvent.Groggy");
 	
 	
 
@@ -34,6 +35,10 @@ namespace SFGameplayTags
 	// Healing Data
 	UE_DEFINE_GAMEPLAY_TAG(Data_Healing_BaseHealing, "Data.Healing.BaseHealing");
 	UE_DEFINE_GAMEPLAY_TAG(Data_Healing_Multiplier, "Data.Healing.Multiplier");
+
+	//StaggerData
+	UE_DEFINE_GAMEPLAY_TAG(Data_Stagger_BaseStagger, "Data.Stagger.BaseStagger");
+	UE_DEFINE_GAMEPLAY_TAG(Data_Stagger_Multiplier, "Data.Stagger.Multiplier");
     
 	// Duration Data
 	UE_DEFINE_GAMEPLAY_TAG(Data_Duration_Stun, "Data.Duration.Stun");

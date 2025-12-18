@@ -87,48 +87,43 @@ void USFGameInstance::LoadEnemyDataTable()
     if (EnemyAbilityDataTable)
     {
         EnemyAbilityMap.Empty();
-        
+
         TArray<FName> RowNames = EnemyAbilityDataTable->GetRowNames();
-        
+
         for (const FName& RowName : RowNames)
         {
-            // 먼저 Base로 읽어서 타입 확인
-            FAbilityBaseData* BaseData = EnemyAbilityDataTable->FindRow<FAbilityBaseData>(RowName, TEXT(""));
-            
-            if (!BaseData )
+            // Attack 타입으로 먼저 시도 
+            if (FEnemyAttackAbilityData* AttackData = EnemyAbilityDataTable->FindRow<FEnemyAttackAbilityData>(RowName, TEXT("")))
             {
-                continue;
-            	
-            }
-        	
-            FAbilityDataWrapper Wrapper;
-            
-            switch (BaseData->AbilityType)
-            {
-                case EAbilityType::Attack:
+                // AbilityType이 Attack인지 확인
+                if (AttackData->AbilityType == EAbilityType::Attack)
                 {
-                    FEnemyAttackAbilityData* AttackData = EnemyAbilityDataTable->FindRow<FEnemyAttackAbilityData>(RowName, TEXT(""));
-                    if (AttackData)
-                    {
-                        Wrapper = FAbilityDataWrapper(AttackData, EAbilityType::Attack);
-                        EnemyAbilityMap.Add(RowName, Wrapper);
-                    }
-                    break;
+                    FAbilityDataWrapper Wrapper(*AttackData);
+                    EnemyAbilityMap.Add(RowName, Wrapper);
+                    continue;
                 }
-            default:
-            	    break;
             }
+
+            // 추후 다른 타입 추가 시 여기에 추가
+            // if (FEnemyDefensiveAbilityData* DefensiveData = ...)
+            // {
+            //     if (DefensiveData->AbilityType == EAbilityType::Defensive)
+            //     {
+            //         FAbilityDataWrapper Wrapper(*DefensiveData);
+            //         EnemyAbilityMap.Add(RowName, Wrapper);
+            //         continue;
+            //     }
+            // }
         }
-    	
     }
 }
 const FAbilityBaseData* USFGameInstance::FindAbilityData(FName AbilityID) const
 {
 	if (const FAbilityDataWrapper* Wrapper = EnemyAbilityMap.Find(AbilityID))
 	{
-		return Wrapper->Data;
+		return Wrapper->GetBaseData();
 	}
-    
+
 	return nullptr;
 }
 

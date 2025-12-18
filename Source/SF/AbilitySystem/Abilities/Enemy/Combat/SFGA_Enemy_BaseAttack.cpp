@@ -199,9 +199,45 @@ void USFGA_Enemy_BaseAttack::ApplyDamageToTarget(
 	UAbilitySystemComponent* SourceASC = GetAbilitySystemComponentFromActorInfo();
 	if (!SourceASC)
 		return;
-	
+
+	// DamageGameplayEffectClass 사용 (SFDamageEffectExecCalculation 실행)
 	FGameplayEffectSpecHandle SpecHandle =
 		MakeOutgoingGameplayEffectSpec(DamageGameplayEffectClass, GetAbilityLevel());
+
+	if (!SpecHandle.IsValid())
+		return;
+
+	SpecHandle.Data->SetContext(ContextHandle);
+
+	// SetByCaller로 BaseDamage 전달 → Calculation에서 공격력/방어력/크리티컬 계산
+	SpecHandle.Data->SetSetByCallerMagnitude(
+		SFGameplayTags::Data_Damage_BaseDamage,
+		GetBaseDamage()
+	);
+
+	SourceASC->ApplyGameplayEffectSpecToTarget(*SpecHandle.Data.Get(), TargetASC);
+}
+
+void USFGA_Enemy_BaseAttack::ApplyRawDamageToTarget(
+	AActor* Target,
+	float RawDamage,
+	const FGameplayEffectContextHandle& ContextHandle
+)
+{
+	if (!Target || !RawDamageGameplayEffectClass)
+		return;
+
+	UAbilitySystemComponent* TargetASC =
+		UAbilitySystemBlueprintLibrary::GetAbilitySystemComponent(Target);
+	if (!TargetASC)
+		return;
+
+	UAbilitySystemComponent* SourceASC = GetAbilitySystemComponentFromActorInfo();
+	if (!SourceASC)
+		return;
+	
+	FGameplayEffectSpecHandle SpecHandle =
+		MakeOutgoingGameplayEffectSpec(RawDamageGameplayEffectClass, GetAbilityLevel());
 
 	if (!SpecHandle.IsValid())
 		return;
@@ -210,11 +246,10 @@ void USFGA_Enemy_BaseAttack::ApplyDamageToTarget(
 	
 	SpecHandle.Data->SetSetByCallerMagnitude(
 		SFGameplayTags::Data_Damage_BaseDamage,
-		GetBaseDamage()
+		RawDamage
 	);
-	
-	SourceASC->ApplyGameplayEffectSpecToTarget( *SpecHandle.Data.Get(), TargetASC
-	);
+
+	SourceASC->ApplyGameplayEffectSpecToTarget(*SpecHandle.Data.Get(), TargetASC);
 }
 
 AActor* USFGA_Enemy_BaseAttack::GetCurrentTarget() const
@@ -227,6 +262,11 @@ AActor* USFGA_Enemy_BaseAttack::GetCurrentTarget() const
 		}
 	}
 	return nullptr;
+}
+
+void USFGA_Enemy_BaseAttack::CommitExecute( const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo)
+{
+	ApplyCost(Handle, ActorInfo, ActivationInfo);
 }
 
 void USFGA_Enemy_BaseAttack::ApplyCooldown(
@@ -249,12 +289,12 @@ void USFGA_Enemy_BaseAttack::ApplyCooldown(
 	ApplyGameplayEffectSpecToOwner(Handle, ActorInfo, ActivationInfo, SpecHandle);
 }
 
-void USFGA_Enemy_BaseAttack::EndAbility(
-	const FGameplayAbilitySpecHandle Handle,
-	const FGameplayAbilityActorInfo* ActorInfo,
-	const FGameplayAbilityActivationInfo ActivationInfo,
-	bool bReplicateEndAbility,
-	bool bWasCancelled)
+void USFGA_Enemy_BaseAttack::EndAbility( const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, bool bReplicateEndAbility, bool bWasCancelled)
 {
+	if (!bWasCancelled)
+	{
+		ApplyCooldown(Handle, ActorInfo, ActivationInfo);
+	}
+
 	Super::EndAbility(Handle, ActorInfo, ActivationInfo, bReplicateEndAbility, bWasCancelled);
 }

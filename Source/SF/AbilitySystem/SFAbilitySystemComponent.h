@@ -107,4 +107,5 @@ public:
 	void ProcessHitReactionEvent(float Damage,const FGameplayEffectSpec& Spec);
 	void ProcessParryEvent(float Damage,const FGameplayEffectSpec& Spec);
 	void ProcessDeathEvent(const FGameplayEffectSpec& Spec);
+	void ProcessStaggerEvent(const FGameplayEffectSpec& Spec);
 };

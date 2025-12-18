@@ -2,6 +2,7 @@
 
 #include "GameplayEffectExtension.h"
 #include "AbilitySystem/SFAbilitySystemComponent.h"
+#include "AbilitySystem/GameplayEvent/SFGameplayEventTags.h"
 #include "Net/UnrealNetwork.h"
 #include "System/SFGameInstance.h"
 #include "Character/Enemy/SFEnemy.h"
@@ -26,7 +27,6 @@ bool USFPrimarySet_Enemy::PreGameplayEffectExecute(FGameplayEffectModCallbackDat
 void USFPrimarySet_Enemy::PostGameplayEffectExecute(const FGameplayEffectModCallbackData& Data)
 {
 	
-	
 	if (Data.EvaluatedData.Attribute == GetDamageAttribute())
 	{
 		const float DamageDone = GetDamage();
@@ -34,10 +34,8 @@ void USFPrimarySet_Enemy::PostGameplayEffectExecute(const FGameplayEffectModCall
 		// 유효한 데미지가 들어왔는지 확인
 		if (DamageDone > 0.0f)
 		{
-			// 공격자(Instigator) 정보 가져오기
 			AActor* Instigator = Data.EffectSpec.GetContext().GetInstigator();
 			
-			//  Enemy의 LastAttacker 업데이트 
 			if (ASFEnemy* Enemy = Cast<ASFEnemy>(GetOwningActor()))
 			{
 				Enemy->SetLastAttacker(Instigator);
@@ -46,7 +44,27 @@ void USFPrimarySet_Enemy::PostGameplayEffectExecute(const FGameplayEffectModCall
 			OnTakeDamageDelegate.Broadcast(DamageDone, Instigator);
 		}
 	}
-	
+
+	if (Data.EffectSpec.SetByCallerTagMagnitudes.Contains(SFGameplayTags::Data_Stagger_BaseStagger))
+	{
+		const float AddedStagger =Data.EffectSpec.GetSetByCallerMagnitude(SFGameplayTags::Data_Stagger_BaseStagger, false);
+
+		if (AddedStagger > 0.f)
+		{
+			const float NewStagger =FMath::Clamp(GetStagger() + AddedStagger, 0.f, GetMaxStagger());
+
+			SetStagger(NewStagger);
+			
+			if (NewStagger >= GetMaxStagger())
+			{
+				USFAbilitySystemComponent* SFASC = GetSFAbilitySystemComponent();
+				if (SFASC)
+				{
+					SFASC->ProcessStaggerEvent(Data.EffectSpec);
+				}
+			}
+		}
+	}
 	Super::PostGameplayEffectExecute(Data);
 	
 
