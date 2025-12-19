@@ -14,6 +14,7 @@ namespace SFGameplayTags
 	UE_DEFINE_GAMEPLAY_TAG_COMMENT(Character_State_ComboWindow, "Character.State.ComboWindow", "Valid input window for next combo attack");
 	UE_DEFINE_GAMEPLAY_TAG_COMMENT(Character_State_UsingAbility, "Character.State.UsingAbility", "Character UseAbility");
 	UE_DEFINE_GAMEPLAY_TAG_COMMENT(Character_State_Skill, "Character.State.Skill", "Character Using Skill");
+	UE_DEFINE_GAMEPLAY_TAG_COMMENT(Character_State_Charging, "Character.State.Charging", "Character is currently charging an attack");
 	UE_DEFINE_GAMEPLAY_TAG_COMMENT(Character_State_Downed, "Character.State.Downed", "Character is downed");
 	UE_DEFINE_GAMEPLAY_TAG_COMMENT(Character_State_TurningInPlace, "Character.State.TurningInPlace", "Character is turning in place");
 

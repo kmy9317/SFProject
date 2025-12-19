@@ -13,6 +13,7 @@ namespace SFGameplayTags
 	SF_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(Character_State_ComboWindow);
 	SF_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(Character_State_UsingAbility);
 	SF_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(Character_State_Skill);
+	SF_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(Character_State_Charging);
 	SF_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(Character_State_Downed);
 	SF_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(Character_State_TurningInPlace);
 
