@@ -44,7 +44,9 @@ namespace SFGameplayTags
 	UE_DEFINE_GAMEPLAY_TAG_COMMENT(Ability_Cooldown_Enemy_Attack_AoE, "Ability.Cooldown.Enemy.Attack.AoE", "Cooldown for AoE Attack");
 
 	// ========== Hero Ability Tags ==========
-	UE_DEFINE_GAMEPLAY_TAG(Ability_Interact_Active, "Ability.Interact.Active");
+	UE_DEFINE_GAMEPLAY_TAG(Ability_Interact, "Ability.Interact");
+	UE_DEFINE_GAMEPLAY_TAG(Ability_Interact_Active, "Ability.Interact.Active")
+	UE_DEFINE_GAMEPLAY_TAG(Ability_Interact_Object, "Ability.Interact.Object")
 	
 	UE_DEFINE_GAMEPLAY_TAG(Ability_Hero_Dodge, "Ability.Hero.Dodge");
 	

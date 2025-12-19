@@ -78,6 +78,9 @@ public:
 
 	UFUNCTION(BlueprintCallable, Category = "SF|Ability|Movement")
 	void RestoreSlidingMode();
+
+	UFUNCTION(BlueprintCallable)
+	void FlushPressedInput(UInputAction* InputAction);
 	
 protected:
 	//~UGameplayAbility interface

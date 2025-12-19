@@ -34,4 +34,7 @@ namespace SFGameplayTags
 	SF_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(Character_State_Health);
 	SF_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(Character_State_Mana);
 	SF_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(Character_State_Stamina);
+	
+	// ========== 상호작용 ==========
+	SF_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(Character_State_Interact);
 }

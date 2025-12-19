@@ -54,6 +54,10 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly)
 	TObjectPtr<UAnimMontage> ActiveEndMontage;
 
+	/** 홀딩 중 지속적으로 재생될 게임플레이 큐 태그 (사운드, 이펙트 등) */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, meta=(Categories="GameplayCue"))
+	FGameplayTag ActiveLoopGameplayCueTag;
+
 	/** 이 상호작용을 위한 커스텀 UI 위젯 클래스 */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	TSoftClassPtr<UUserWidget> InteractionWidgetClass;
@@ -71,6 +75,7 @@ public:
 			AbilityToGrant == Other.AbilityToGrant &&
 			ActiveStartMontage == Other.ActiveStartMontage &&
 			ActiveEndMontage == Other.ActiveEndMontage &&
+			ActiveLoopGameplayCueTag == Other.ActiveLoopGameplayCueTag &&
 			InteractionWidgetClass == Other.InteractionWidgetClass;
 	}
 

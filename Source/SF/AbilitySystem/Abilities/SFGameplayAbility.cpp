@@ -6,6 +6,7 @@
 #include "Camera/SFCameraMode.h"
 #include "Character/SFCharacterBase.h"
 #include "Character/Hero/SFHeroComponent.h"
+#include "Input/SFEnhancedPlayerInput.h"
 #include "Player/SFPlayerController.h"
 
 #define ENSURE_ABILITY_IS_INSTANTIATED_OR_RETURN(FunctionName, ReturnValue)																				\
@@ -250,4 +251,18 @@ void USFGameplayAbility::RestoreSlidingMode()
 	}
 
 	bSlidingModeApplied = false;
+}
+
+void USFGameplayAbility::FlushPressedInput(UInputAction* InputAction)
+{
+	if (CurrentActorInfo)
+	{
+		if (APlayerController* PlayerController = CurrentActorInfo->PlayerController.Get())
+		{
+			if (USFEnhancedPlayerInput* PlayerInput = Cast<USFEnhancedPlayerInput>(PlayerController->PlayerInput))
+			{
+				PlayerInput->FlushPressedInput(InputAction);
+			}
+		}
+	}
 }

@@ -57,7 +57,7 @@ float USFHeroMovementComponent::GetMaxSpeed() const
 				}
 
 				MaxMoveSpeed = IsCrouching() ? CrouchMovePercent * MaxMoveSpeed : MaxMoveSpeed;	
-				GEngine->AddOnScreenDebugMessage(1, 0.1f, FColor::Red, FString::Printf(TEXT("MaxSpeed: %f"), MaxMoveSpeed));
+				//GEngine->AddOnScreenDebugMessage(1, 0.1f, FColor::Red, FString::Printf(TEXT("MaxSpeed: %f"), MaxMoveSpeed));
 				return MaxMoveSpeed;
 			}
 			case MOVE_Falling:

@@ -37,5 +37,8 @@ namespace SFGameplayTags
 	UE_DEFINE_GAMEPLAY_TAG(State_RegenPaused_Health, "State.RegenPaused.Health");
 	UE_DEFINE_GAMEPLAY_TAG(State_RegenPaused_Mana, "State.RegenPaused.Mana");
 	UE_DEFINE_GAMEPLAY_TAG(State_RegenPaused_Stamina, "State.RegenPaused.Stamina");
+
+	// ========== 상호작용 ==========
+	UE_DEFINE_GAMEPLAY_TAG(Character_State_Interact, "Character.State.Interact");
 	
 }

@@ -27,10 +27,10 @@ public:
 	}
 	
 private:
-	/** 상호작용 가능한 객체 참조 */
+	// 상호작용 가능한 객체 참조 
 	TScriptInterface<ISFInteractable> Interactable;
 
-	/** 상호작용 정보들을 저장할 배열 참조 */
+	// 상호작용 정보들을 저장할 배열 참조 
 	TArray<FSFInteractionInfo>& InteractionInfos;
 };
 
@@ -62,6 +62,7 @@ public:
 	
 		if (UAbilitySystemComponent* AbilitySystem = UAbilitySystemBlueprintLibrary::GetAbilitySystemComponent(InteractionQuery.RequestingAvatar.Get()))
 		{
+			// TODO : GE 스탯 적용 로직 추가 
 			InteractionInfo.Duration = FMath::Max<float>(0.f, InteractionInfo.Duration);
 		}
 	
