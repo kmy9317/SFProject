@@ -12,9 +12,12 @@
 #include "Character/SFCharacterGameplayTags.h"
 #include "Interaction/SFWorldInteractable.h"
 #include "Character/SFCharacterBase.h"
+#include "Equipment/SFEquipmentTags.h"
+#include "Equipment/EquipmentComponent/SFEquipmentComponent.h"
 #include "GameFramework/GameplayMessageSubsystem.h"
 #include "Messages/SFInteractionMessages.h"
 #include "Messages/SFMessageGameplayTags.h"
+#include "Weapons/Actor/SFEquipmentBase.h"
 
 USFGA_Interact_Active::USFGA_Interact_Active(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
@@ -81,7 +84,10 @@ void USFGA_Interact_Active::ActivateAbility(const FGameplayAbilitySpecHandle Han
 			CharacterMovement->StopMovementImmediately();
 		}
 
-		// TODO : 상호작용 중 장착한 장비 처리에 대해 어떻게 할지 구상 필요
+		if (USFEquipmentComponent* EquipmentComponent = SFCharacter->GetComponentByClass<USFEquipmentComponent>())
+		{
+			EquipmentComponent->HideWeapons();
+		}
 	}
 
 	// 홀딩 중 게임플레이 큐 시작 (사운드, 이펙트 등)
@@ -90,23 +96,29 @@ void USFGA_Interact_Active::ActivateAbility(const FGameplayAbilitySpecHandle Han
 	K2_AddGameplayCueWithParams(InteractionInfo.ActiveLoopGameplayCueTag, Parameters, true);
 
 	// UI에 홀딩 진행률 표시 시작 알림
-	FSFInteractionMessage Message;
-	Message.Instigator = GetAvatarActorFromActorInfo();
-	Message.bShouldRefresh = true;
-	Message.bSwitchActive = true; // 홀딩 상태로 전환
-	Message.InteractionInfo = InteractionInfo; // 홀딩 정보 (지속시간 등)
-
-	if (UGameplayMessageSubsystem::HasInstance(this))
+	if (IsLocallyControlled())
 	{
-		UGameplayMessageSubsystem& MessageSubsystem = UGameplayMessageSubsystem::Get(this);
-		MessageSubsystem.BroadcastMessage(SFGameplayTags::Message_Interaction_Progress, Message);
+		if (UGameplayMessageSubsystem::HasInstance(this))
+		{
+			FSFInteractionMessage Message;
+			Message.Instigator = GetAvatarActorFromActorInfo();
+			Message.bShouldRefresh = true;
+			Message.bSwitchActive = true; // 홀딩 상태로 전환
+			Message.InteractionInfo = InteractionInfo; // 홀딩 정보 (지속시간 등)
+			UGameplayMessageSubsystem& MessageSubsystem = UGameplayMessageSubsystem::Get(this);
+			MessageSubsystem.BroadcastMessage(SFGameplayTags::Message_Interaction_Progress, Message);
+		}
 	}
 
-	if (UAnimMontage* ActiveStartMontage = InteractionInfo.ActiveStartMontage)
+	FSFMontagePlayData MontageData = GetInteractionStartMontage();
+	if (MontageData.IsValid())
 	{
-		if (UAbilityTask_PlayMontageAndWait* PlayMontageTask = UAbilityTask_PlayMontageAndWait::CreatePlayMontageAndWaitProxy(this, TEXT("InteractMontage"), ActiveStartMontage, 1.f, NAME_None, true, 1.f, 0.f, false))
+		if (MontageData.Montage)
 		{
-			PlayMontageTask->ReadyForActivation();
+			if (UAbilityTask_PlayMontageAndWait* PlayMontageTask = UAbilityTask_PlayMontageAndWait::CreatePlayMontageAndWaitProxy(this, TEXT("InteractMontage"), MontageData.Montage, MontageData.PlayRate, MontageData.StartSection, true, 1.f, 0.f, false))
+			{
+				PlayMontageTask->ReadyForActivation();
+			}
 		}
 	}
 
@@ -197,28 +209,55 @@ bool USFGA_Interact_Active::TriggerInteraction()
 	return bCanActivate || bTriggerSuccessful;
 }
 
+FSFMontagePlayData USFGA_Interact_Active::GetInteractionStartMontage() const
+{
+	if (InteractionInfo.ActiveStartMontageTag.IsValid())
+	{
+		if (const USFHeroAnimationData* AnimData = GetHeroAnimationData())
+		{
+			return AnimData->GetSingleMontage(InteractionInfo.ActiveStartMontageTag);
+		}
+	}
+
+	return FSFMontagePlayData();
+}
+
 void USFGA_Interact_Active::EndAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, bool bReplicateEndAbility, bool bWasCancelled)
 {
 	if (ASFCharacterBase* SFCharacter = GetSFCharacterFromActorInfo())
 	{
+		if (bWasCancelled)
+		{
+			if (USFEquipmentComponent* EquipmentComp = GetEquipmentComponent())
+			{
+				EquipmentComp->ShowWeapons();
+				FSFMontagePlayData MontageData = GetMainHandEquipMontageData();
+				ExecuteMontageGameplayCue(MontageData);
+			}
+		}
+		
 		// 상호작용 대상에 홀딩 종료 알림
 		if (ASFWorldInteractable* WorldInteractable = Cast<ASFWorldInteractable>(InteractableActor))
 		{
 			WorldInteractable->OnInteractActiveEnded(SFCharacter);
 		}
 
-		// UI에 홀딩 종료 알림 (진행률 바 숨김 등)
-		FSFInteractionMessage Message;
-		Message.Instigator = SFCharacter;
-		Message.bShouldRefresh = false;
-		Message.bSwitchActive = true; // 홀딩 상태 해제
-
-		if (UGameplayMessageSubsystem::HasInstance(this))
+		if (IsLocallyControlled() && UGameplayMessageSubsystem::HasInstance(this))
 		{
+			// UI에 홀딩 종료 알림 (진행률 바 숨김 등)
+			FSFInteractionMessage Message;
+			Message.Instigator = SFCharacter;
+			Message.bShouldRefresh = false;
+			Message.bSwitchActive = true; // 홀딩 상태 해제
 			UGameplayMessageSubsystem& MessageSubsystem = UGameplayMessageSubsystem::Get(this);
 			MessageSubsystem.BroadcastMessage(SFGameplayTags::Message_Interaction_Notice, Message);
 		}
 	}
 	
 	Super::EndAbility(Handle, ActorInfo, ActivationInfo, bReplicateEndAbility, bWasCancelled);
+}
+
+void USFGA_Interact_Active::HandleCancelledCleanup(ASFCharacterBase* SFCharacter)
+{
+	
 }

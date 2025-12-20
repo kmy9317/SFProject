@@ -44,8 +44,6 @@ public:
 
 protected:
 
-	USFEquipmentComponent* GetEquipmentComponent() const;
-	
 	// ========== 슬롯 기반 접근 =========
 	
 	// 장착된 무기 액터 가져오기 (특정 슬롯)

@@ -53,21 +53,20 @@ void USFGA_Interact::ActivateAbility(const FGameplayAbilitySpecHandle Handle, co
 
 void USFGA_Interact::UpdateInteractions(const TArray<FSFInteractionInfo>& InteractionInfos)
 {
-	// UI 업데이트를 위한 메시지 구성
-	FSFInteractionMessage Message;
-	Message.Instigator = GetAvatarActorFromActorInfo(); // 상호작용 요청자 (플레이어)
-	Message.bShouldRefresh = true; // UI 새로고침 필요
-
-	// 현재 홀딩 상호작용 중이 아닐 때만 활성 상태 변경 허용
-	Message.bSwitchActive = (GetAbilitySystemComponentFromActorInfo()->HasMatchingGameplayTag(SFGameplayTags::Character_State_Interact) == false);
-
-	// 첫 번째 상호작용 정보를 사용 (우선순위가 가장 높은 것)
-	Message.InteractionInfo = InteractionInfos.Num() > 0 ? InteractionInfos[0] : FSFInteractionInfo();
-
-	if (UGameplayMessageSubsystem::HasInstance(this))
+	if (IsLocallyControlled())
 	{
-		UGameplayMessageSubsystem& MessageSystem = UGameplayMessageSubsystem::Get(GetAvatarActorFromActorInfo());
-		MessageSystem.BroadcastMessage(SFGameplayTags::Message_Interaction_Notice, Message);
+		if (UGameplayMessageSubsystem::HasInstance(this))
+		{
+			FSFInteractionMessage Message;
+			Message.Instigator = GetAvatarActorFromActorInfo(); 
+			Message.bShouldRefresh = true;
+			// 현재 홀딩 상호작용 중이 아닐 때만 활성 상태 변경 허용
+			Message.bSwitchActive = (GetAbilitySystemComponentFromActorInfo()->HasMatchingGameplayTag(SFGameplayTags::Character_State_Interact) == false);
+			// 첫 번째 상호작용 정보를 사용 (우선순위가 가장 높은 것)
+			Message.InteractionInfo = InteractionInfos.Num() > 0 ? InteractionInfos[0] : FSFInteractionInfo();
+			UGameplayMessageSubsystem& MessageSystem = UGameplayMessageSubsystem::Get(GetAvatarActorFromActorInfo());
+			MessageSystem.BroadcastMessage(SFGameplayTags::Message_Interaction_Notice, Message);
+		}
 	}
 	// 현재 상호작용 정보 캐시 업데이트
 	CurrentInteractionInfos = InteractionInfos;

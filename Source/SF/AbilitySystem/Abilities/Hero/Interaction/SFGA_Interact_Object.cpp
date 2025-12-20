@@ -3,7 +3,9 @@
 #include "Abilities/Tasks/AbilityTask_PlayMontageAndWait.h"
 #include "AbilitySystem/Abilities/SFGameplayAbilityTags.h"
 #include "AbilitySystem/Tasks/Interaction/SFAbilityTask_WaitForInvalidInteraction.h"
+#include "Character/SFCharacterBase.h"
 #include "Character/SFCharacterGameplayTags.h"
+#include "Equipment/EquipmentComponent/SFEquipmentComponent.h"
 #include "Interaction/SFInteractable.h"
 #include "Interaction/SFInteractionQuery.h"
 #include "Interaction/SFWorldInteractable.h"
@@ -71,11 +73,15 @@ void USFGA_Interact_Object::ActivateAbility(const FGameplayAbilitySpecHandle Han
 	}
 
 	// 상호작용 종료 애니메이션 몽타주 재생
-	if (UAnimMontage* ActiveEndMontage = InteractionInfo.ActiveEndMontage)
+	FSFMontagePlayData MontageData = GetInteractionEndMontage();
+	if (MontageData.IsValid())
 	{
-		if (UAbilityTask_PlayMontageAndWait* PlayMontageTask = UAbilityTask_PlayMontageAndWait::CreatePlayMontageAndWaitProxy(this, TEXT("InteractMontage"), ActiveEndMontage, 1.f, NAME_None, true, 1.f, 0.f, false))
+		if (MontageData.Montage)
 		{
-			PlayMontageTask->ReadyForActivation();
+			if (UAbilityTask_PlayMontageAndWait* PlayMontageTask = UAbilityTask_PlayMontageAndWait::CreatePlayMontageAndWaitProxy(this, TEXT("InteractMontage"), MontageData.Montage, MontageData.PlayRate, MontageData.StartSection, true, 1.f, 0.f, false))
+			{
+				PlayMontageTask->ReadyForActivation();
+			}
 		}
 	}
 }
@@ -85,8 +91,31 @@ void USFGA_Interact_Object::OnInvalidInteraction()
 	CancelAbility(CurrentSpecHandle, CurrentActorInfo, CurrentActivationInfo, true);
 }
 
+FSFMontagePlayData USFGA_Interact_Object::GetInteractionEndMontage() const
+{
+	if (InteractionInfo.ActiveEndMontageTag.IsValid())
+	{
+		if (const USFHeroAnimationData* AnimData = GetHeroAnimationData())
+		{
+			return AnimData->GetSingleMontage(InteractionInfo.ActiveEndMontageTag);
+		}
+	}
+
+	return FSFMontagePlayData();
+}
+
 void USFGA_Interact_Object::EndAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, bool bReplicateEndAbility, bool bWasCancelled)
 {
+	if (InteractionInfo.Duration > 0.f)
+	{
+		if (USFEquipmentComponent* EquipmentComp = GetEquipmentComponent())
+		{
+			EquipmentComp->ShowWeapons();
+			FSFMontagePlayData MontageData = GetMainHandEquipMontageData();
+			ExecuteMontageGameplayCue(MontageData);
+		}
+	}
+	
 	Super::EndAbility(Handle, ActorInfo, ActivationInfo, bReplicateEndAbility, bWasCancelled);
 }
 

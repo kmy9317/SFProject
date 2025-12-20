@@ -46,13 +46,13 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly)
 	TSubclassOf<UGameplayAbility> AbilityToGrant;
 
-	/** 홀딩 상호작용 시작 시 재생될 애니메이션 몽타주 */
-	UPROPERTY(EditAnywhere, BlueprintReadOnly)
-	TObjectPtr<UAnimMontage> ActiveStartMontage;
+	/** 홀딩 시작 시 재생할 몽타주 태그 (HeroAnimationData에서 조회) */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, meta = (Categories = "Interaction"))
+	FGameplayTag ActiveStartMontageTag;
 
-	/** 홀딩 상호작용 종료 시 재생될 애니메이션 몽타주 */
-	UPROPERTY(EditAnywhere, BlueprintReadOnly)
-	TObjectPtr<UAnimMontage> ActiveEndMontage;
+	/** 상호작용 완료 시 재생할 몽타주 태그 (HeroAnimationData에서 조회) */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, meta = (Categories = "Interaction"))
+	FGameplayTag ActiveEndMontageTag;
 
 	/** 홀딩 중 지속적으로 재생될 게임플레이 큐 태그 (사운드, 이펙트 등) */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, meta=(Categories="GameplayCue"))
@@ -73,8 +73,8 @@ public:
 			Content.IdenticalTo(Other.Content) &&
 			Duration == Other.Duration &&
 			AbilityToGrant == Other.AbilityToGrant &&
-			ActiveStartMontage == Other.ActiveStartMontage &&
-			ActiveEndMontage == Other.ActiveEndMontage &&
+			ActiveStartMontageTag == Other.ActiveStartMontageTag &&
+			ActiveEndMontageTag == Other.ActiveEndMontageTag &&
 			ActiveLoopGameplayCueTag == Other.ActiveLoopGameplayCueTag &&
 			InteractionWidgetClass == Other.InteractionWidgetClass;
 	}

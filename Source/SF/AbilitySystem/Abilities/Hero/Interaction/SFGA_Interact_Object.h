@@ -2,6 +2,7 @@
 
 #include "CoreMinimal.h"
 #include "SFGA_Interact_Info.h"
+#include "Animation/Hero/SFHeroAnimationData.h"
 #include "SFGA_Interact_Object.generated.h"
 
 /**
@@ -26,6 +27,8 @@ protected:
 	// 플레이어가 허용 범위를 벗어났을 때 어빌리티를 취소
 	UFUNCTION()
 	void OnInvalidInteraction();
+
+	FSFMontagePlayData GetInteractionEndMontage() const;
 
 protected:
 

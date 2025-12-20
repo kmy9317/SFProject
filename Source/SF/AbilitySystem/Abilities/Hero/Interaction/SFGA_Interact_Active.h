@@ -4,6 +4,7 @@
 
 #include "CoreMinimal.h"
 #include "SFGA_Interact_Info.h"
+#include "Animation/Hero/SFHeroAnimationData.h"
 #include "SFGA_Interact_Active.generated.h"
 
 class UInputAction;
@@ -47,6 +48,11 @@ private:
 	// 실제 상호작용을 트리거하는 함수(홀딩 완료 후 상호작용 대상의 어빌리티를 활성화)
 	UFUNCTION()
 	bool TriggerInteraction();
+
+	// 캐릭터의 HeroAnimationData에서 상호작용 시작 몽타주 조회
+	FSFMontagePlayData GetInteractionStartMontage() const;
+
+	void HandleCancelledCleanup(ASFCharacterBase* SFCharacter);
 
 protected:
 

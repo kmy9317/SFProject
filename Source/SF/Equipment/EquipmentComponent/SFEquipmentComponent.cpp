@@ -28,6 +28,7 @@ void USFEquipmentComponent::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 
 	DOREPLIFETIME(ThisClass, EquipmentList);
+	DOREPLIFETIME(ThisClass, bShouldHiddenWeaponActors);
 }
 
 void USFEquipmentComponent::ReadyForReplication()
@@ -235,12 +236,30 @@ void USFEquipmentComponent::GetAllEquippedActors(TArray<AActor*>& OutActors) con
 {
 	OutActors.Reset();
 
-	const TArray<FSFAppliedEquipmentEntry>& CurrentEquipmentList = EquipmentList.Entries;
-	for (const FSFAppliedEquipmentEntry& Entry : CurrentEquipmentList)
+	const TArray<FSFAppliedEquipmentEntry>& CurrentEquipmentListEntry = EquipmentList.Entries;
+	for (const FSFAppliedEquipmentEntry& Entry : CurrentEquipmentListEntry)
 	{
 		if (Entry.Instance)
 		{
 			OutActors.Append(Entry.Instance->GetSpawnedActors());
+		}
+	}
+}
+
+void USFEquipmentComponent::GetEquippedWeaponActors(TArray<AActor*>& OutActors) const
+{
+	OutActors.Reset();
+
+	const TArray<FSFAppliedEquipmentEntry>& CurrentEquipmentListEntry = EquipmentList.Entries;
+	for (const FSFAppliedEquipmentEntry& Entry : CurrentEquipmentListEntry)
+	{
+		if (Entry.Instance && Entry.Instance->GetEquipmentDefinition())
+		{
+			// EquipmentTag가 Weapon 태그와 매칭되는지 확인
+			if (Entry.Instance->GetEquipmentDefinition()->EquipmentTag.MatchesTag(SFGameplayTags::EquipmentTag_Weapon))
+			{
+				OutActors.Append(Entry.Instance->GetSpawnedActors());
+			}
 		}
 	}
 }
@@ -316,5 +335,41 @@ bool USFEquipmentComponent::IsSlotEquipmentMatchesTag(const FGameplayTag& SlotTa
 		}
 	}
 	return false;
+}
+
+FGameplayTag USFEquipmentComponent::GetMainHandEquipMontageTag() const
+{
+	AActor* EquippedActor = GetFirstEquippedActorBySlot(SFGameplayTags::EquipmentSlot_MainHand);
+	if (ASFEquipmentBase* Equipment = Cast<ASFEquipmentBase>(EquippedActor))
+	{
+		return Equipment->GetEquipMontageTag();
+	}
+	return FGameplayTag();
+}
+
+void USFEquipmentComponent::ShowWeapons()
+{
+	ChangeShouldHiddenWeaponActors(false);
+}
+
+void USFEquipmentComponent::HideWeapons()
+{
+	ChangeShouldHiddenWeaponActors(true);
+}
+
+void USFEquipmentComponent::ChangeShouldHiddenWeaponActors(bool bNewShouldHiddenEquipments)
+{
+	bShouldHiddenWeaponActors = bNewShouldHiddenEquipments;
+
+	TArray<AActor*> OutWeaponActors;
+	GetEquippedWeaponActors(OutWeaponActors);
+
+	for (AActor* WeaponActor : OutWeaponActors)
+	{
+		if (ASFEquipmentBase* Weapon = Cast<ASFEquipmentBase>(WeaponActor))
+		{
+			Weapon->SetActorHiddenInGame(bShouldHiddenWeaponActors);
+		}
+	}
 }
 

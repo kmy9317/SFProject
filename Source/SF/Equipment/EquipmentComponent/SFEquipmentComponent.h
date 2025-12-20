@@ -6,6 +6,7 @@
 #include "Equipment/SFEquipmentTypes.h"
 #include "SFEquipmentComponent.generated.h"
 
+class USFHeroAnimationData;
 class ASFEquipmentBase;
 class USFAbilitySystemComponent;
 class ASFCharacterBase;
@@ -44,9 +45,21 @@ public:
 
 	virtual USFEquipmentInstance* FindEquipmentInstance(FGameplayTag EquipmentTag) const;
 	virtual USFEquipmentInstance* FindEquipmentInstanceBySlot(FGameplayTag SlotTag) const;
+	
 	void GetAllEquippedActors(TArray<AActor*>& OutActors) const;
+	void GetEquippedWeaponActors(TArray<AActor*>& OutActors) const;
 	
 	bool IsSlotEquipmentMatchesTag(const FGameplayTag& SlotTag, const FGameplayTag& CheckingTag) const;
+
+
+	UFUNCTION(BlueprintCallable, Category = "SF|Equipment")
+	FGameplayTag GetMainHandEquipMontageTag() const;
+
+	UFUNCTION(BlueprintCallable, Category = "SF|Equipment") 
+	void ShowWeapons();
+
+	UFUNCTION(BlueprintCallable, Category = "SF|Equipment")
+	void HideWeapons();
 
 protected:
 
@@ -58,6 +71,8 @@ protected:
 
 	void UninitializeAllEquipment();
 	USFAbilitySystemComponent* GetAbilitySystemComponent() const;
+	
+	void ChangeShouldHiddenWeaponActors(bool bNewShouldHiddenWeaponActors);
 
 protected:
 	friend struct FSFEquipmentList;
@@ -69,4 +84,7 @@ protected:
 	TArray<TObjectPtr<USFEquipmentDefinition>> DefaultEquipmentDefinitions;
 
 	uint8 bEquipmentInitialized : 1;
+
+	UPROPERTY(Replicated)
+	bool bShouldHiddenWeaponActors = false;
 };

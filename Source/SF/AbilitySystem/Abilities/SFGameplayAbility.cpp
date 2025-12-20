@@ -3,9 +3,13 @@
 #include "AbilitySystemComponent.h"
 #include "AbilitySystemLog.h"
 #include "AbilitySystem/SFAbilitySystemComponent.h"
+#include "AbilitySystem/GameplayCues/SFGameplayCueTags.h"
 #include "Camera/SFCameraMode.h"
 #include "Character/SFCharacterBase.h"
+#include "Character/SFPawnData.h"
+#include "Character/SFPawnExtensionComponent.h"
 #include "Character/Hero/SFHeroComponent.h"
+#include "Equipment/EquipmentComponent/SFEquipmentComponent.h"
 #include "Input/SFEnhancedPlayerInput.h"
 #include "Player/SFPlayerController.h"
 
@@ -50,6 +54,43 @@ USFHeroMovementComponent* USFGameplayAbility::GetHeroMovementComponentFromActorI
 USFHeroComponent* USFGameplayAbility::GetHeroComponentFromActorInfo() const
 {
 	return (CurrentActorInfo ? USFHeroComponent::FindHeroComponent(CurrentActorInfo->AvatarActor.Get()) : nullptr);
+}
+
+USFHeroAnimationData* USFGameplayAbility::GetHeroAnimationData() const
+{
+	if (const USFPawnExtensionComponent* PawnExtComp = USFPawnExtensionComponent::FindPawnExtensionComponent(GetAvatarActorFromActorInfo()))
+	{
+		if (const USFPawnData* PawnData = PawnExtComp->GetPawnData<USFPawnData>())
+		{
+			return PawnData->HeroAnimationData;
+		}
+	}
+	return nullptr;
+}
+
+USFEquipmentComponent* USFGameplayAbility::GetEquipmentComponent() const
+{
+	if (AActor* AvatarActor = GetAvatarActorFromActorInfo())
+	{
+		return USFEquipmentComponent::FindEquipmentComponent(AvatarActor);
+	}
+	return nullptr;
+}
+
+FSFMontagePlayData USFGameplayAbility::GetMainHandEquipMontageData() const
+{
+	USFEquipmentComponent* EquipmentComp = GetEquipmentComponent();
+	USFHeroAnimationData* AnimData = GetHeroAnimationData();
+
+	if (EquipmentComp && AnimData)
+	{
+		FGameplayTag MontageTag = EquipmentComp->GetMainHandEquipMontageTag();
+		if (MontageTag.IsValid())
+		{
+			return AnimData->GetSingleMontage(MontageTag);
+		}
+	}
+	return FSFMontagePlayData();
 }
 
 ETeamAttitude::Type USFGameplayAbility::GetAttitudeTowards(AActor* Target) const
@@ -265,4 +306,25 @@ void USFGameplayAbility::FlushPressedInput(UInputAction* InputAction)
 			}
 		}
 	}
+}
+
+void USFGameplayAbility::ExecuteMontageGameplayCue(const FSFMontagePlayData& MontageData)
+{
+	if (!MontageData.IsValid())
+	{
+		return;
+	}
+
+	UAbilitySystemComponent* ASC = GetAbilitySystemComponentFromActorInfo();
+	if (!ASC)
+	{
+		return;
+	}
+
+	FGameplayCueParameters CueParams;
+	CueParams.SourceObject = MontageData.Montage;
+	CueParams.RawMagnitude = MontageData.PlayRate;
+	
+	// StartSection은 필요시 다른 파라미터에 저장
+	ASC->ExecuteGameplayCue(SFGameplayTags::GameplayCue_Animation_PlayMontage ,CueParams);
 }

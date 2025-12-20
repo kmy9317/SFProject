@@ -31,6 +31,9 @@ void USFGA_Interact_Chest::ActivateAbility(const FGameplayAbilitySpecHandle Hand
 	{
 		// TODO : 강화 선택지 위젯 생성
 	}
+
+	// TODO : 위젯 종료시 or 상호작용 하자마자 둘 중 선택 고민중
+	EndAbility(CurrentSpecHandle, CurrentActorInfo, CurrentActivationInfo, true, false);
 }
 
 void USFGA_Interact_Chest::EndAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, bool bReplicateEndAbility, bool bWasCancelled)

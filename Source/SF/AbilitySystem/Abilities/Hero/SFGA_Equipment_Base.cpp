@@ -71,15 +71,6 @@ void USFGA_Equipment_Base::ActivateAbility(const FGameplayAbilitySpecHandle Hand
 	Super::ActivateAbility(Handle, ActorInfo, ActivationInfo, TriggerEventData);
 }
 
-USFEquipmentComponent* USFGA_Equipment_Base::GetEquipmentComponent() const
-{
-	if (AActor* AvatarActor = GetAvatarActorFromActorInfo())
-	{
-		return USFEquipmentComponent::FindEquipmentComponent(AvatarActor);
-	}
-	return nullptr;
-}
-
 AActor* USFGA_Equipment_Base::GetEquippedActorBySlot(const FGameplayTag& SlotTag) const
 {
 	if (USFEquipmentComponent* EquipComp = GetEquipmentComponent())
