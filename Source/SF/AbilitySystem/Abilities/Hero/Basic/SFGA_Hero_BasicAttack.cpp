@@ -5,70 +5,118 @@
 #include "Abilities/Tasks/AbilityTask_PlayMontageAndWait.h"
 #include "Abilities/Tasks/AbilityTask_WaitGameplayEvent.h"
 #include "Abilities/Tasks/AbilityTask_WaitGameplayTag.h"
+#include "Abilities/Tasks/AbilityTask_WaitInputPress.h"
+
+// Framework Includes
 #include "GameFramework/Character.h"
 #include "GameFramework/CharacterMovementComponent.h"
+#include "MotionWarpingComponent.h" 
 
 // Project Includes
-#include "AbilitySystemBlueprintLibrary.h"
 #include "AbilitySystem/GameplayEvent/SFGameplayEventTags.h"
 #include "Character/SFCharacterGameplayTags.h"
-#include "Character/Hero/Component/SFHeroMovementComponent.h"
 #include "Input/SFInputGameplayTags.h"
 #include "SFBasicAttackData.h"
-#include "Equipment/SFEquipmentTags.h"
-#include "Equipment/EquipmentComponent/SFEquipmentComponent.h"
-#include "Weapons/Actor/SFEquipmentBase.h"
-#include "Character/SFCharacterBase.h"
 
 USFGA_Hero_BasicAttack::USFGA_Hero_BasicAttack()
 {
 	InstancingPolicy = EGameplayAbilityInstancingPolicy::InstancedPerActor;
 	NetExecutionPolicy = EGameplayAbilityNetExecutionPolicy::LocalPredicted;
 	
-	// 기본값 설정
 	ComboWindowTag = SFGameplayTags::Character_State_ComboWindow;
 	
-	DamageDataTag = SFGameplayTags::Data_Damage_BaseDamage;
+	// [중요] 부모 클래스(SFGA_Skill_Melee)의 자동 워핑 Task를 비활성화함
+	// 자식 클래스에서 독자적인 원거리 투영(Far Projection) 방식을 사용하기 위함임
+	bUseWindupWarp = false; 
+	
+	bUseEquipmentWarpSettings = false; 
+	
+	WarpTargetNameOverride = FName("AttackTarget");
+	WarpRangeOverride = 500.f;          // 안전장치 거리값임
+	RotationInterpSpeedOverride = 20.f; // 반응성을 위해 회전 속도를 20으로 설정함
 }
+
+// ----------------------------------------------------------------------------------------------------------------
+// Lifecycle Overrides
+// ----------------------------------------------------------------------------------------------------------------
 
 void USFGA_Hero_BasicAttack::ActivateAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, const FGameplayEventData* TriggerEventData)
 {
-	// 1. 데이터 에셋 로드 및 검증
-	if (AttackDataAsset)
-	{
-		AttackSteps = AttackDataAsset->AttackSteps;
-	}
+	// 데이터 에셋 로드 및 검증을 수행함
+	if (AttackDataAsset) AttackSteps = AttackDataAsset->AttackSteps;
+	if (AttackSteps.Num() == 0) { EndAbility(Handle, ActorInfo, ActivationInfo, true, true); return; }
 
-	if (AttackSteps.Num() == 0)
-	{
-		EndAbility(Handle, ActorInfo, ActivationInfo, true, true);
-		return;
-	}
-
+	// 부모 클래스 호출 (bUseWindupWarp가 false이므로 부모의 워핑 Task는 실행되지 않음)
 	Super::ActivateAbility(Handle, ActorInfo, ActivationInfo, TriggerEventData);
 
-	// 2. 이벤트 리스너 등록
-	
-	// 입력 감지 (InputTag -> GameplayEvent)
-	UAbilityTask_WaitGameplayEvent* InputTask = UAbilityTask_WaitGameplayEvent::WaitGameplayEvent(this, SFGameplayTags::InputTag_Attack);
-	if (InputTask)
+	// 첫 공격 시, 현재 캐릭터의 입력 방향 혹은 정면 방향으로 캐시를 초기화함
+	if (ACharacter* Character = Cast<ACharacter>(GetAvatarActorFromActorInfo()))
 	{
-		InputTask->EventReceived.AddDynamic(this, &ThisClass::OnInputPressedEvent);
-		InputTask->ReadyForActivation();
+		FVector MoveInput = Character->GetLastMovementInputVector();
+		CachedTargetRotation = MoveInput.IsNearlyZero() ? Character->GetActorRotation() : MoveInput.Rotation();
 	}
 
-	// 히트 판정 감지 (WeaponActor -> GameplayEvent)
+	// 히트 판정(Trace) 이벤트를 대기함
 	UAbilityTask_WaitGameplayEvent* HitTask = UAbilityTask_WaitGameplayEvent::WaitGameplayEvent(this, SFGameplayTags::GameplayEvent_Tracing);
-	// UAbilityTask_WaitGameplayEvent* HitTask = UAbilityTask_WaitGameplayEvent::WaitGameplayEvent(this, SFGameplayTags::GameplayEvent_TraceHit);
 	if (HitTask)
 	{
-		HitTask->EventReceived.AddDynamic(this, &ThisClass::OnTraceHitReceived);
+		HitTask->EventReceived.AddDynamic(this, &ThisClass::OnTrace);
 		HitTask->ReadyForActivation();
 	}
 
-	// 3. 첫 번째 공격 실행
+	// 첫 번째 공격 단계를 실행함
 	ExecuteAttackStep(CurrentStepIndex);
 }
+
+void USFGA_Hero_BasicAttack::InputReleased(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo)
+{
+	// 차징(Charging) 로직을 처리함
+	if (bIsCharging)
+	{
+		float ChargeDuration = GetWorld()->GetTimeSeconds() - ChargeStartTime;
+		bIsCharging = false;
+
+		if (AttackSteps.IsValidIndex(CurrentStepIndex))
+		{
+			const FSFBasicAttackStep& CurrentStep = AttackSteps[CurrentStepIndex];
+			
+			// 최소 차징 시간을 충족했을 경우 다음 단계로 진행함
+			if (ChargeDuration >= CurrentStep.MinChargeTime)
+			{
+				if (ActiveMontageTask)
+				{
+					ActiveMontageTask->EndTask(); 
+					ActiveMontageTask = nullptr;
+				}
+
+				CurrentStepIndex++; 
+				ExecuteAttackStep(CurrentStepIndex);
+			}
+			else
+			{
+				// 차징 실패 시 어빌리티를 종료함
+				EndAbility(Handle, ActorInfo, ActivationInfo, true, false);
+			}
+		}
+	}
+}
+
+void USFGA_Hero_BasicAttack::EndAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, bool bReplicateEndAbility, bool bWasCancelled)
+{
+	// 상태 변수를 초기화함
+	CurrentStepIndex = 0;
+	bInputReserved = false;
+	bIsCharging = false;
+	ChargeStartTime = 0.0f;
+
+	RemoveStepGameplayTags();
+
+	Super::EndAbility(Handle, ActorInfo, ActivationInfo, bReplicateEndAbility, bWasCancelled);
+}
+
+// ----------------------------------------------------------------------------------------------------------------
+// Core Execution
+// ----------------------------------------------------------------------------------------------------------------
 
 void USFGA_Hero_BasicAttack::ExecuteAttackStep(int32 StepIndex)
 {
@@ -78,22 +126,31 @@ void USFGA_Hero_BasicAttack::ExecuteAttackStep(int32 StepIndex)
 		return;
 	}
 	
-	// 스태미나 소모
 	if (!CommitAbilityCost(CurrentSpecHandle, CurrentActorInfo, CurrentActivationInfo))
 	{
-		// 스태미나 부족 시 어빌리티 종료
 		EndAbility(CurrentSpecHandle, CurrentActorInfo, CurrentActivationInfo, true, true);
 		return;
 	}
 
-	// 상태 초기화 및 설정
+	// 콤보 선입력을 위한 Input Press 대기 Task를 활성화함
+	UAbilityTask_WaitInputPress* InputTask = UAbilityTask_WaitInputPress::WaitInputPress(this, false);
+	if (InputTask)
+	{
+		InputTask->OnPress.AddDynamic(this, &ThisClass::OnInputPressed);
+		InputTask->ReadyForActivation();
+	}
+
 	RemoveStepGameplayTags();
-	UpdateWarpTargetFromInput();
 
 	const FSFBasicAttackStep& CurrentStep = AttackSteps[StepIndex];
+	CurrentDamageMultiplier = CurrentStep.DamageMultiplier;
+
+	// [중요] 입력 캐싱 및 원거리 투영을 적용하여 워핑 타겟을 갱신함
+	UpdateWarpTargetFromInput();
+
 	ApplyStepGameplayTags(CurrentStep.TempAbilityTags);
 
-	// 매 단계마다 태그 제거(콤보 윈도우 종료) 감지 태스크를 갱신
+	// 콤보 윈도우 태그 제거(입력 시간 만료)를 감지하는 Task를 활성화함
 	UAbilityTask_WaitGameplayTagRemoved* TagRemovedTask = UAbilityTask_WaitGameplayTagRemoved::WaitGameplayTagRemove(this, ComboWindowTag);
 	if (TagRemovedTask)
 	{
@@ -101,24 +158,16 @@ void USFGA_Hero_BasicAttack::ExecuteAttackStep(int32 StepIndex)
 		TagRemovedTask->ReadyForActivation();
 	}
 
-	// 차징 로직 (필요 시)
+	// 차징 단계일 경우 시작 시간을 기록함
 	if (CurrentStep.bIsChargeStep)
 	{
 		bIsCharging = true;
 		ChargeStartTime = GetWorld()->GetTimeSeconds();
 	}
 	
-	// 몽타주 재생 (BlendInTime을 0.1f로 설정하여 부드러운 전이 유도)
+	// 몽타주를 재생함
 	ActiveMontageTask = UAbilityTask_PlayMontageAndWait::CreatePlayMontageAndWaitProxy(
-		this,
-		NAME_None,
-		CurrentStep.Montage,
-		1.0f,
-		NAME_None,
-		true,
-		1.0f,
-		0.1f // BlendInTime
-	);
+		this, NAME_None, CurrentStep.Montage, 1.0f, NAME_None, true, 1.0f, 0.1f);
 	
 	if (ActiveMontageTask)
 	{
@@ -129,31 +178,136 @@ void USFGA_Hero_BasicAttack::ExecuteAttackStep(int32 StepIndex)
 	}
 }
 
-void USFGA_Hero_BasicAttack::OnInputPressedEvent(FGameplayEventData Payload)
-{
-	UAbilitySystemComponent* ASC = GetAbilitySystemComponentFromActorInfo();
-	if (!ASC) return;
+// ----------------------------------------------------------------------------------------------------------------
+// Motion Warping & Logic
+// ----------------------------------------------------------------------------------------------------------------
 
-	// 콤보 윈도우 구간(태그 보유 중)에 입력이 들어왔을 때만 예약
-	if (ASC->HasMatchingGameplayTag(ComboWindowTag))
+void USFGA_Hero_BasicAttack::UpdateWarpTargetFromInput()
+{
+	ACharacter* Character = Cast<ACharacter>(GetAvatarActorFromActorInfo());
+	if (!Character) return;
+
+	UMotionWarpingComponent* MotionWarpingComp = Character->GetComponentByClass<UMotionWarpingComponent>();
+	if (!MotionWarpingComp) return;
+
+	FRotator TargetRotation = CachedTargetRotation;
+
+	// 1. 로컬 클라이언트 처리 (실시간 입력 우선)
+	if (Character->IsLocallyControlled())
 	{
+		FVector LiveInput = Character->GetLastMovementInputVector();
+		
+		// 실시간 입력이 존재하면 캐시를 갱신하고 해당 방향을 사용함
+		if (!LiveInput.IsNearlyZero())
+		{
+			TargetRotation = LiveInput.Rotation();
+			CachedTargetRotation = TargetRotation; 
+		}
+	}
+	// 2. 서버 및 타 클라이언트 처리 (가속도 기반 추론)
+	else
+	{
+		if (auto* CMC = Character->GetCharacterMovement())
+		{
+			FVector MoveDir = CMC->GetCurrentAcceleration().GetSafeNormal2D();
+			if (!MoveDir.IsNearlyZero())
+			{
+				TargetRotation = MoveDir.Rotation();
+			}
+			else
+			{
+				// 이동 입력이 없으면 현재 캐릭터의 방향을 유지함
+				TargetRotation = Character->GetActorRotation();
+			}
+		}
+	}
+
+	TargetRotation.Pitch = 0.f;
+	TargetRotation.Roll = 0.f;
+
+	// [핵심] 캐릭터 회전(Spin) 방지를 위해 타겟을 10,000 단위(100m) 앞에 생성함 (Far Projection)
+	const float DirectionalWarpDistance = 10000.f; 
+	FVector TargetLocation = Character->GetActorLocation() + (TargetRotation.Vector() * DirectionalWarpDistance);
+
+	// 로컬 워핑 컴포넌트를 업데이트함
+	if (Character->IsLocallyControlled() || !TargetRotation.Equals(Character->GetActorRotation(), 1.0f))
+	{
+		MotionWarpingComp->AddOrUpdateWarpTargetFromLocationAndRotation(WarpTargetNameOverride, TargetLocation, TargetRotation);
+	}
+
+	// 서버로 회전값을 동기화함
+	if (Character->IsLocallyControlled() && !Character->HasAuthority())
+	{
+		ServerSetWarpRotation(WarpTargetNameOverride, TargetRotation);
+	}
+}
+
+void USFGA_Hero_BasicAttack::ServerSetWarpRotation_Implementation(FName TargetName, FRotator TargetRotation)
+{
+	ACharacter* Character = Cast<ACharacter>(GetAvatarActorFromActorInfo());
+	if (!Character) return;
+
+	UMotionWarpingComponent* MotionWarpingComp = Character->GetComponentByClass<UMotionWarpingComponent>();
+	if (!MotionWarpingComp) return;
+
+	// 서버에서도 동일한 원거리 투영 로직을 적용하여 동기화 오차를 줄임
+	const float DirectionalWarpDistance = 10000.f;
+	FVector TargetLocation = Character->GetActorLocation() + (TargetRotation.Vector() * DirectionalWarpDistance);
+
+	MotionWarpingComp->AddOrUpdateWarpTargetFromLocationAndRotation(TargetName, TargetLocation, TargetRotation);
+}
+
+bool USFGA_Hero_BasicAttack::ServerSetWarpRotation_Validate(FName TargetName, FRotator TargetRotation)
+{
+	return true;
+}
+
+// ----------------------------------------------------------------------------------------------------------------
+// Event Handlers
+// ----------------------------------------------------------------------------------------------------------------
+
+void USFGA_Hero_BasicAttack::OnInputPressed(float TimeWaited)
+{
+	// [입력 캐싱] 키를 누른 순간의 벡터를 저장함 (Input Ignore 방지)
+	if (ACharacter* Character = Cast<ACharacter>(GetAvatarActorFromActorInfo()))
+	{
+		FVector MoveInput = Character->GetLastMovementInputVector();
+		if (!MoveInput.IsNearlyZero())
+		{
+			CachedTargetRotation = MoveInput.Rotation();
+		}
+	}
+	
+	UAbilitySystemComponent* ASC = GetAbilitySystemComponentFromActorInfo();
+	if (ASC && ASC->HasMatchingGameplayTag(ComboWindowTag))
+	{
+		// 콤보 윈도우가 열려있다면 입력을 예약함
 		bInputReserved = true;
+	}
+	else
+	{
+		// 콤보 윈도우가 열리지 않았다면 다음 입력을 다시 대기함
+		UAbilityTask_WaitInputPress* RetryTask = UAbilityTask_WaitInputPress::WaitInputPress(this, false);
+		if (RetryTask)
+		{
+			RetryTask->OnPress.AddDynamic(this, &ThisClass::OnInputPressed);
+			RetryTask->ReadyForActivation();
+		}
 	}
 }
 
 void USFGA_Hero_BasicAttack::OnComboWindowTagRemoved()
 {
-	// [핵심 로직] 노티파이 종료 시점에 예약 여부를 확인하고 즉시 다음 단계 실행
+	// 입력이 예약되어 있다면 다음 콤보 단계를 실행함
 	if (bInputReserved)
 	{
 		bInputReserved = false;
 		CurrentStepIndex = (CurrentStepIndex + 1) % AttackSteps.Num();
 		
-		// 이전 태스크를 명시적으로 정리하여 콜백 충돌 방지
-		if (ActiveMontageTask)
-		{
-			ActiveMontageTask->EndTask();
-			ActiveMontageTask = nullptr;
+		if (ActiveMontageTask) 
+		{ 
+			ActiveMontageTask->EndTask(); 
+			ActiveMontageTask = nullptr; 
 		}
 		
 		ExecuteAttackStep(CurrentStepIndex);
@@ -164,200 +318,40 @@ void USFGA_Hero_BasicAttack::OnMontageFinished()
 {
 	bIsCharging = false;
 	RemoveStepGameplayTags();
-
-	// 예약된 입력이 없는 상태에서 몽타주가 자연 종료되면 어빌리티 종료
-	// (bInputReserved가 true라면 OnComboWindowTagRemoved에서 이미 처리됨)
+	
+	// 예약된 입력이 없다면 어빌리티를 종료함
 	if (!bInputReserved)
 	{
 		EndAbility(CurrentSpecHandle, CurrentActorInfo, CurrentActivationInfo, true, false);
 	}
 }
 
-void USFGA_Hero_BasicAttack::InputReleased(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo)
+void USFGA_Hero_BasicAttack::OnTrace(FGameplayEventData Payload)
 {
-	if (bIsCharging)
-	{
-		float ChargeDuration = GetWorld()->GetTimeSeconds() - ChargeStartTime;
-		bIsCharging = false;
-
-		if (AttackSteps.IsValidIndex(CurrentStepIndex))
-		{
-			const FSFBasicAttackStep& CurrentStep = AttackSteps[CurrentStepIndex];
-			
-			// 차징 성공 시 다음 단계(발사 등)로 진행
-			if (ChargeDuration >= CurrentStep.MinChargeTime)
-			{
-				CurrentStepIndex++; 
-				ExecuteAttackStep(CurrentStepIndex);
-			}
-			else
-			{
-				EndAbility(Handle, ActorInfo, ActivationInfo, true, false);
-			}
-		}
-	}
+	// 부모 클래스의 트레이스 로직을 수행함
+	Super::OnTrace(Payload);
 }
 
-void USFGA_Hero_BasicAttack::OnTraceHitReceived(FGameplayEventData Payload)
-{
-	// TargetData 확인
-	if (Payload.TargetData.Num() == 0) return;
-	
-	// 무기 가져오기 (Instigator는 유효함)
-	float WeaponBaseDamage = 0.0f;
-	if (const ASFEquipmentBase* Weapon = Cast<ASFEquipmentBase>(Payload.Instigator.Get()))
-	{
-		WeaponBaseDamage = Weapon->WeaponBaseDamage;
-	}
-	else if (ASFEquipmentBase* EquippedWeapon = GetMainHandWeapon())
-	{
-		WeaponBaseDamage = EquippedWeapon->WeaponBaseDamage;
-	}
-	// 대미지 배율 계산
-    float DamageMultiplier = 1.0f;
-    if (AttackSteps.IsValidIndex(CurrentStepIndex))
-    {
-        DamageMultiplier = AttackSteps[CurrentStepIndex].DamageMultiplier;
-    }
-    const float FinalBaseDamage = WeaponBaseDamage * DamageMultiplier;
-
-    UAbilitySystemComponent* SourceASC = GetAbilitySystemComponentFromActorInfo();
-    ASFCharacterBase* SourceCharacter = Cast<ASFCharacterBase>(GetAvatarActorFromActorInfo());
-    
-    if (!SourceASC || !SourceCharacter) return;
-
-    // TargetData 안에 있는 모든 히트 결과(HitResult)를 순회하며 처리
-    for (const TSharedPtr<FGameplayAbilityTargetData>& Data : Payload.TargetData.Data)
-    {
-        if (!Data.IsValid()) continue;
-
-        const FHitResult* Hit = Data->GetHitResult();
-        if (!Hit || !Hit->GetActor()) continue;
-
-        AActor* HitActor = Hit->GetActor();
-
-        // 아군 식별 (Team Check)
-        if (const ASFCharacterBase* TargetCharacter = Cast<ASFCharacterBase>(HitActor))
-        {
-            if (SourceCharacter->GetTeamAttitudeTowards(*TargetCharacter) != ETeamAttitude::Hostile) continue;
-        }
-        else if (const AActor* TargetOwner = HitActor->GetOwner())
-        {
-            if (const ASFCharacterBase* OwnerCharacter = Cast<ASFCharacterBase>(TargetOwner))
-            {
-                if (SourceCharacter->GetTeamAttitudeTowards(*OwnerCharacter) != ETeamAttitude::Hostile) continue;
-            }
-        }
-
-        // 실제 대미지 적용
-        if (DamageEffectClass)
-        {
-            UAbilitySystemComponent* TargetASC = UAbilitySystemBlueprintLibrary::GetAbilitySystemComponent(HitActor);
-            if (TargetASC)
-            {
-                FGameplayEffectContextHandle ContextHandle = SourceASC->MakeEffectContext();
-                ContextHandle.AddHitResult(*Hit); // 히트 위치 정보 추가
-                ContextHandle.AddSourceObject(Payload.Instigator.Get());
-
-                FGameplayEffectSpecHandle SpecHandle = SourceASC->MakeOutgoingSpec(DamageEffectClass, GetAbilityLevel(), ContextHandle);
-                if (SpecHandle.IsValid())
-                {
-                    SpecHandle.Data.Get()->SetSetByCallerMagnitude(DamageDataTag, FinalBaseDamage);
-                    SourceASC->ApplyGameplayEffectSpecToTarget(*SpecHandle.Data.Get(), TargetASC);
-                }
-            }
-        }
-    }
-}
-
-ASFEquipmentBase* USFGA_Hero_BasicAttack::GetMainHandWeapon() const
-{
-	if (UAbilitySystemComponent* ASC = GetAbilitySystemComponentFromActorInfo())
-	{
-		if (AActor* Avatar = ASC->GetAvatarActor())
-		{
-			// 컴포넌트 클래스 이름으로 찾
-			if (USFEquipmentComponent* EquipmentComp = Avatar->FindComponentByClass<USFEquipmentComponent>())
-			{
-				// 반환된 Actor*를 ASFEquipmentBase*로 캐스팅
-				return Cast<ASFEquipmentBase>(EquipmentComp->GetFirstEquippedActorBySlot(FGameplayTag::RequestGameplayTag(FName("Equipment.Slot.MainHand"))));
-			}
-		}
-	}
-	return nullptr;
-}
-
-void USFGA_Hero_BasicAttack::UpdateWarpTargetFromInput()
-{
-	ACharacter* Character = Cast<ACharacter>(GetAvatarActorFromActorInfo());
-	if (!Character) return;
-	
-	UMotionWarpingComponent* MotionWarpingComp = Character->GetComponentByClass<UMotionWarpingComponent>();
-	
-	const FVector InputVector = Character->GetLastMovementInputVector();
-	
-	FVector TargetLocation;
-	FRotator TargetRotation;
-	
-	if (!InputVector.IsNearlyZero())
-	{
-		// 입력이 있다면 입력 방향을 타겟으로 설정
-		TargetRotation = InputVector.Rotation();
-		TargetRotation.Pitch = 0.f;
-		TargetRotation.Roll = 0.f;
-		
-		TargetLocation = Character->GetActorLocation() + (InputVector.GetSafeNormal() * WarpDistance);
-	}
-	else
-	{
-		// 입력값이 없다면 현재 캐릭터 전방을 유지
-		TargetLocation = Character->GetActorLocation() + (Character->GetActorForwardVector() * WarpDistance);
-		TargetRotation = Character->GetActorRotation();
-	}
-	
-	MotionWarpingComp->AddOrUpdateWarpTargetFromLocationAndRotation(WarpTargetName, TargetLocation, TargetRotation);
-}
+// ----------------------------------------------------------------------------------------------------------------
+// Helper Functions
+// ----------------------------------------------------------------------------------------------------------------
 
 void USFGA_Hero_BasicAttack::ApplyStepGameplayTags(const FGameplayTagContainer& Tags)
 {
 	if (Tags.IsEmpty()) return;
-
-	if (UAbilitySystemComponent* ASC = GetAbilitySystemComponentFromActorInfo())
-	{
-		ASC->AddLooseGameplayTags(Tags);
-		AppliedStepTags = Tags;
+	if (UAbilitySystemComponent* ASC = GetAbilitySystemComponentFromActorInfo()) 
+	{ 
+		ASC->AddLooseGameplayTags(Tags); 
+		AppliedStepTags = Tags; 
 	}
 }
 
 void USFGA_Hero_BasicAttack::RemoveStepGameplayTags()
 {
 	if (AppliedStepTags.IsEmpty()) return;
-
-	if (UAbilitySystemComponent* ASC = GetAbilitySystemComponentFromActorInfo())
-	{
-		ASC->RemoveLooseGameplayTags(AppliedStepTags);
-		AppliedStepTags.Reset();
+	if (UAbilitySystemComponent* ASC = GetAbilitySystemComponentFromActorInfo()) 
+	{ 
+		ASC->RemoveLooseGameplayTags(AppliedStepTags); 
+		AppliedStepTags.Reset(); 
 	}
-}
-
-void USFGA_Hero_BasicAttack::EndAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, bool bReplicateEndAbility, bool bWasCancelled)
-{
-	RemoveStepGameplayTags();
-	
-	// 워핑 타겟 정리
-	if (ACharacter* Character = Cast<ACharacter>(GetAvatarActorFromActorInfo()))
-	{
-		if (USFHeroMovementComponent* SFCMC = Cast<USFHeroMovementComponent>(Character->GetCharacterMovement()))
-		{
-			SFCMC->ClearWarpTarget();
-		}
-	}
-	
-	// 상태 변수 초기화
-	CurrentStepIndex = 0;
-	bInputReserved = false;
-	bIsCharging = false;
-	ActiveMontageTask = nullptr;
-
-	Super::EndAbility(Handle, ActorInfo, ActivationInfo, bReplicateEndAbility, bWasCancelled);
 }
