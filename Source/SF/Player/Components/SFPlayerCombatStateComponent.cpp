@@ -1,5 +1,7 @@
 #include "SFPlayerCombatStateComponent.h"
 
+#include "AbilitySystem/SFAbilitySystemComponent.h"
+#include "Character/SFCharacterGameplayTags.h"
 #include "GameFramework/GameplayMessageSubsystem.h"
 #include "Messages/SFMessageGameplayTags.h"
 #include "Messages/SFPortalInfoMessages.h"
@@ -64,6 +66,22 @@ float USFPlayerCombatStateComponent::GetInitialReviveGauge() const
 
 	// 배열 범위 초과 시 0 (즉시 사망)
 	return 0.f;
+}
+
+bool USFPlayerCombatStateComponent::IsDowned() const
+{
+	// ASC에서 Downed 태그 체크
+	if (AActor* Owner = GetOwner())
+	{
+		if (ASFPlayerState* PS = Cast<ASFPlayerState>(Owner))
+		{
+			if (USFAbilitySystemComponent* ASC = PS->GetSFAbilitySystemComponent())
+			{
+				return ASC->HasMatchingGameplayTag(SFGameplayTags::Character_State_Downed);
+			}
+		}
+	}
+	return false;
 }
 
 void USFPlayerCombatStateComponent::SetIsDead(bool bNewIsDead)

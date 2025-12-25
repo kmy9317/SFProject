@@ -76,7 +76,7 @@ public:
 	 * 어빌리티 관리 헬퍼 함수
 	 */
 	
-	void CancelActiveAbilitiesExceptOnSpawn(const FGameplayTagContainer* WithTags = nullptr, const FGameplayTagContainer* WithoutTags = nullptr, UGameplayAbility* Ignore = nullptr);
+	void CancelActiveAbilities(const FGameplayTagContainer* WithTags = nullptr, const FGameplayTagContainer* WithoutTags = nullptr, UGameplayAbility* Ignore = nullptr, bool bIncludeOnSpawn = false);
 
 protected:
 

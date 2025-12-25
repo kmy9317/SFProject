@@ -6,6 +6,8 @@
 #include "SFLogChannels.h"
 #include "SFPortalManagerComponent.h"
 #include "SFStageManagerComponent.h"
+#include "AbilitySystem/SFAbilitySystemComponent.h"
+#include "AbilitySystem/Abilities/SFGameplayAbility.h"
 #include "System/SFPlayFabSubsystem.h"
 #include "Player/SFPlayerInfoTypes.h"
 #include "Player/SFPlayerState.h"
@@ -411,6 +413,141 @@ void ASFGameMode::OnAllEnemiesDefeated()
 {
 	UE_LOG(LogSF, Warning, TEXT("[GameMode] Stage cleared! Activating portal..."));
 
+	if (IsBossStage())
+	{
+		ReviveAllIncapacitatedPlayers();
+	}
+
 	NotifyStageClear();
 	ActivatePortal();
+}
+
+void ASFGameMode::ReviveAllIncapacitatedPlayers()
+{
+	for (FConstPlayerControllerIterator It = GetWorld()->GetPlayerControllerIterator(); It; ++It)
+	{
+		if (APlayerController* PC = It->Get())
+		{
+			if (ASFPlayerState* SFPS = PC->GetPlayerState<ASFPlayerState>())
+			{
+				USFPlayerCombatStateComponent* CombatComp = SFPS->FindComponentByClass<USFPlayerCombatStateComponent>();
+				if (!CombatComp)
+				{
+					continue;
+				}
+
+				if (CombatComp->IsDead())
+				{
+					ReviveDeadPlayer(SFPS);
+				}
+				else if (CombatComp->IsDowned())
+				{
+					ReviveDownedPlayer(SFPS);
+				}
+			}
+		}
+	}
+}
+
+void ASFGameMode::ReviveDeadPlayer(ASFPlayerState* PlayerState)
+{
+    if (!PlayerState || !HasAuthority())
+    {
+        return;
+    }
+
+    // CombatState 리셋
+    if (USFPlayerCombatStateComponent* CombatComp = PlayerState->FindComponentByClass<USFPlayerCombatStateComponent>())
+    {
+        CombatComp->ResetDownCount();
+        CombatComp->SetIsDead(false);
+    }
+
+	APlayerController* PC = PlayerState->GetPlayerController();
+	if (!PC)
+	{
+		return;
+	}
+
+	// SpectatorPawn 정리 (RestartPlayer가 새 Pawn을 스폰하도록)
+	if (APawn* CurrentPawn = PC->GetPawn())
+	{
+		PC->UnPossess();
+		CurrentPawn->Destroy();
+	}
+
+	// 이제 GetPawn() == nullptr이므로 새 Pawn 스폰됨
+	RestartPlayer(PC);
+	
+    if (APawn* NewPawn = PC->GetPawn())
+    {
+        if (USFPawnExtensionComponent* PawnExtComp = USFPawnExtensionComponent::FindPawnExtensionComponent(NewPawn))
+        {
+            // weak pointer로 캡처하여 prevent dangling
+            TWeakObjectPtr<ASFPlayerState> WeakPS = PlayerState;
+            PawnExtComp->OnAbilitySystemInitialized_RegisterAndCall
+            (FSimpleMulticastDelegate::FDelegate::CreateWeakLambda(this,[this, WeakPS]()
+            {
+                if (ASFPlayerState* PS = WeakPS.Get())
+                {
+                    OnResurrectionReady(PS);
+                }
+            }));
+        }
+    }
+    
+}
+
+void ASFGameMode::ReviveDownedPlayer(ASFPlayerState* PlayerState)
+{
+	if (!PlayerState || !HasAuthority())
+	{
+		return;
+	}
+
+	// CombatState 리셋 (DownCount 복구)
+	if (USFPlayerCombatStateComponent* CombatComp = PlayerState->FindComponentByClass<USFPlayerCombatStateComponent>())
+	{
+		CombatComp->ResetDownCount();
+	}
+
+	// Resurrection 어빌리티 즉시 활성화 (Downed 캔슬 + 회복)
+	if (USFAbilitySystemComponent* ASC = PlayerState->GetSFAbilitySystemComponent())
+	{
+		if (ResurrectionAbilityClass)
+		{
+			ASC->TryActivateAbilityByClass(ResurrectionAbilityClass);
+		}
+	}
+}
+
+void ASFGameMode::OnResurrectionReady(ASFPlayerState* PlayerState)
+{
+    if (!PlayerState)
+    {
+        return;
+    }
+
+    USFAbilitySystemComponent* ASC = PlayerState->GetSFAbilitySystemComponent();
+    if (!ASC || !ResurrectionAbilityClass)
+    {
+        return;
+    }
+
+    UE_LOG(LogSF, Warning, TEXT("[GameMode] OnResurrectionReady: %s"), *PlayerState->GetPlayerName());
+	
+    // 부활 어빌리티 활성화 
+    ASC->TryActivateAbilityByClass(ResurrectionAbilityClass);
+}
+
+bool ASFGameMode::IsBossStage() const
+{
+	if (ASFGameState* SFGS = GetGameState<ASFGameState>())
+	{
+		if (USFStageManagerComponent* StageManager = SFGS->GetStageManager())
+		{
+			return StageManager->GetCurrentStageInfo().IsBossStage();
+		}
+	}
+	return false;
 }

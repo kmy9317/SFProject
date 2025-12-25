@@ -2,6 +2,7 @@
 
 #include "Abilities/Tasks/AbilityTask_PlayMontageAndWait.h"
 #include "AbilitySystem/SFAbilitySystemComponent.h"
+#include "AbilitySystem/Abilities/SFGameplayAbilityTags.h"
 #include "AbilitySystem/Attributes/Hero/SFCombatSet_Hero.h"
 #include "AbilitySystem/Attributes/Hero/SFPrimarySet_Hero.h"
 #include "AbilitySystem/GameplayEvent/SFGameplayEventTags.h"
@@ -20,6 +21,8 @@ USFGA_Hero_Downed::USFGA_Hero_Downed(const FObjectInitializer& ObjectInitializer
 	InstancingPolicy = EGameplayAbilityInstancingPolicy::InstancedPerActor;
 	NetExecutionPolicy = EGameplayAbilityNetExecutionPolicy::ServerInitiated;
 
+	AbilityTags.AddTag(SFGameplayTags::Ability_Hero_Downed);
+	
 	ActivationOwnedTags.AddTag(SFGameplayTags::Character_State_Downed);
 	ActivationBlockedTags.AddTag(SFGameplayTags::Character_State_Downed);
 
@@ -45,7 +48,7 @@ void USFGA_Hero_Downed::ActivateAbility(const FGameplayAbilitySpecHandle Handle,
 
 	if (USFAbilitySystemComponent* ASC = GetSFAbilitySystemComponentFromActorInfo())
 	{
-		ASC->CancelActiveAbilitiesExceptOnSpawn(nullptr, nullptr, this);
+		ASC->CancelActiveAbilities(nullptr, nullptr, this);
 	}
 
 	if (USFEquipmentComponent* EquipmentComp = GetEquipmentComponent())
@@ -272,8 +275,12 @@ void USFGA_Hero_Downed::EndAbility(const FGameplayAbilitySpecHandle Handle, cons
 		World->GetTimerManager().ClearTimer(GaugeTickTimerHandle);
 	}
 
-	// 부활(정상 종료) 시에만 복구
-	if (!bWasCancelled)
+	SetReviveGauge(0.f);
+
+	// Death에 의한 캔슬이 아니면 복원
+	bool bShouldRestore = !bWasCancelled || (CachedCombatStateComponent.IsValid() && !CachedCombatStateComponent->IsDead());
+
+	if (bShouldRestore)
 	{
 		if (USFEquipmentComponent* EquipmentComp = GetEquipmentComponent())
 		{
@@ -282,9 +289,9 @@ void USFGA_Hero_Downed::EndAbility(const FGameplayAbilitySpecHandle Handle, cons
 
 		FSFMontagePlayData MontageData = GetMainHandEquipMontageData();
 		ExecuteMontageGameplayCue(MontageData);
-        
-		RestorePlayerInput();
+		
 	}
+	RestorePlayerInput();
 	
 	Super::EndAbility(Handle, ActorInfo, ActivationInfo, bReplicateEndAbility, bWasCancelled);
 }

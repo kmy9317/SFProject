@@ -590,7 +590,7 @@ void USFAbilitySystemComponent::RestoreGameplayEffectsFromData(const FSFSavedAbi
 		RestoredCount, InData.SavedGameplayEffects.Num());
 }
 
-void USFAbilitySystemComponent::CancelActiveAbilitiesExceptOnSpawn(const FGameplayTagContainer* WithTags, const FGameplayTagContainer* WithoutTags, UGameplayAbility* Ignore)
+void USFAbilitySystemComponent::CancelActiveAbilities(const FGameplayTagContainer* WithTags, const FGameplayTagContainer* WithoutTags, UGameplayAbility* Ignore, bool bIncludeOnSpawn)
 {
 	ABILITYLIST_SCOPE_LOCK();
 	
@@ -606,7 +606,11 @@ void USFAbilitySystemComponent::CancelActiveAbilitiesExceptOnSpawn(const FGamepl
 		{
 			if (SFAbility->GetActivationPolicy() == ESFAbilityActivationPolicy::OnSpawn)
 			{
-				continue;
+				// bIncludeOnSpawn이 false면 스킵
+				if (!bIncludeOnSpawn)
+				{
+					continue;
+				}
 			}
 		}
 

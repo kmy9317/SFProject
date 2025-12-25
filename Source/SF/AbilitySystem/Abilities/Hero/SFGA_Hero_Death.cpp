@@ -2,13 +2,13 @@
 
 #include "Abilities/Tasks/AbilityTask_PlayMontageAndWait.h"
 #include "AbilitySystem/SFAbilitySystemComponent.h"
+#include "AbilitySystem/Abilities/SFGameplayAbilityTags.h"
 #include "AbilitySystem/GameplayEvent/SFGameplayEventTags.h"
 #include "Animation/SFAnimationGameplayTags.h"
 #include "Character/SFCharacterGameplayTags.h"
 #include "Character/Hero/SFHero.h"
 #include "Equipment/EquipmentComponent/SFEquipmentComponent.h"
 #include "Player/SFPlayerController.h"
-#include "Player/SFPlayerState.h"
 #include "Player/Components/SFPlayerCombatStateComponent.h"
 
 
@@ -18,6 +18,8 @@ USFGA_Hero_Death::USFGA_Hero_Death(const FObjectInitializer& ObjectInitializer)
 	ActivationPolicy = ESFAbilityActivationPolicy::Manual;
 	InstancingPolicy = EGameplayAbilityInstancingPolicy::InstancedPerActor;
 	NetExecutionPolicy = EGameplayAbilityNetExecutionPolicy::ServerInitiated;
+
+	AbilityTags.AddTag(SFGameplayTags::Ability_Hero_Death);
 
 	ActivationOwnedTags.AddTag(SFGameplayTags::Character_State_Dead);
 	ActivationBlockedTags.AddTag(SFGameplayTags::Character_State_Dead);
@@ -59,7 +61,7 @@ void USFGA_Hero_Death::CancelAllActiveAbilities()
 		ASC->CancelAbilities(&DownedTag);
 
 		// 나머지 어빌리티 취소 
-		ASC->CancelActiveAbilitiesExceptOnSpawn(nullptr, nullptr, this);
+		ASC->CancelActiveAbilities(nullptr, nullptr, this, true);
 	}
 }
 
@@ -97,6 +99,22 @@ void USFGA_Hero_Death::DisablePlayerInput()
 	}
 }
 
+void USFGA_Hero_Death::RestorePlayerInput()
+{
+	if (ASFHero* Hero = Cast<ASFHero>(GetAvatarActorFromActorInfo()))
+	{
+		if (UCharacterMovementComponent* MovementComp = Hero->GetCharacterMovement())
+		{
+			MovementComp->SetMovementMode(MOVE_Walking);
+		}
+	}
+
+	if (ASFPlayerController* PC = GetSFPlayerControllerFromActorInfo())
+	{
+		PC->SetIgnoreMoveInput(false);
+	}
+}
+
 void USFGA_Hero_Death::PlayDeathMontage()
 {
 	if (const USFHeroAnimationData* AnimData = GetHeroAnimationData())
@@ -127,4 +145,14 @@ void USFGA_Hero_Death::PlayDeathMontage()
 void USFGA_Hero_Death::HandlePostDeath()
 {
 	// TODO : 사망 후 처리 (사망 UI Fade in/out, 관전 모드 등)
+}
+
+void USFGA_Hero_Death::EndAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, bool bReplicateEndAbility, bool bWasCancelled)
+{
+	if (bWasCancelled)
+	{
+		RestorePlayerInput();
+	}
+
+	Super::EndAbility(Handle, ActorInfo, ActivationInfo, bReplicateEndAbility, bWasCancelled);
 }

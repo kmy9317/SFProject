@@ -75,6 +75,9 @@ public:
 	UFUNCTION(BlueprintPure, Category = "SF|Combat")
 	bool IsDead() const { return CombatInfo.bIsDead; }
 
+	UFUNCTION(BlueprintPure, Category = "SF|Combat")
+	bool IsDowned() const;
+
 	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "SF|Combat")
 	void SetIsDead(bool bNewIsDead);
 

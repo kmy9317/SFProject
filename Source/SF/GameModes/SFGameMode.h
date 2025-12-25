@@ -4,6 +4,8 @@
 #include "GameFramework/GameModeBase.h"
 #include "SFGameMode.generated.h"
 
+class USFGameplayAbility;
+class ASFPlayerState;
 class ASFPortal;
 class USFHeroDefinition;
 class USFPawnData;
@@ -45,13 +47,29 @@ public:
 	/** GameState에서 호출하는 Travel 요청 */
 	void RequestTravelToNextStage(TSoftObjectPtr<UWorld> NextStageLevel);
 
+	/** 보스 스테이지 클리어 시 Dead/Downed 플레이어 모두 회복 */
+	void ReviveAllIncapacitatedPlayers();
+
 protected:
+	void ReviveDeadPlayer(ASFPlayerState* PlayerState);
+
+	void ReviveDownedPlayer(ASFPlayerState* PlayerState);
+
+	UFUNCTION()
+	void OnResurrectionReady(ASFPlayerState* PlayerState);
+	
 	UFUNCTION()
 	void OnAllEnemiesDefeated();
+
+	bool IsBossStage() const;
 
 private:
 	void SetupPlayerPawnDataLoading(APlayerController* PC);
 	void OnPlayerPawnDataLoaded(APlayerController* PC, const USFPawnData* PawnData);
+
+protected:
+	UPROPERTY(EditDefaultsOnly, Category = "SF|Resurrection")
+	TSubclassOf<USFGameplayAbility> ResurrectionAbilityClass;
 
 private:
 	/** PawnData 로드 대기 중인 플레이어들*/

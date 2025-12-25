@@ -201,21 +201,16 @@ void USFSpectatorComponent::Server_DestroySpectatorPawn_Implementation()
     APlayerController* PC = GetController<APlayerController>();
     if (SpectatorPawn)
     {
-        // UnPossess
         if (PC && PC->GetPawn() == SpectatorPawn)
         {
             PC->UnPossess();
-
-            // 원래 Pawn으로 복귀
-            if (APawn* OriginalPawnPtr = OriginalPawn.Get())
-            {
-                PC->Possess(OriginalPawnPtr);
-            }
         }
 
         SpectatorPawn->Destroy();
         SpectatorPawn = nullptr;
     }
+
+    OriginalPawn.Reset();
 }
 
 void USFSpectatorComponent::Server_SetViewTarget_Implementation(APawn* NewTarget)
