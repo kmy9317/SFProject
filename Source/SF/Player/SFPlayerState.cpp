@@ -36,6 +36,8 @@ ASFPlayerState::ASFPlayerState(const FObjectInitializer& ObjectInitializer)
 	CombatStateComponent = CreateDefaultSubobject<USFPlayerCombatStateComponent>(TEXT("CombatStateComponent"));
 	
 	SetNetUpdateFrequency(100.f);
+
+
 }
 
 void ASFPlayerState::EndPlay(const EEndPlayReason::Type EndPlayReason)

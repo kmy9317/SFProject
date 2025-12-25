@@ -116,11 +116,10 @@ ETeamAttitude::Type USFGameplayAbility::GetAttitudeTowards(AActor* Target) const
 	if (!TargetTeamAgent)
 		return ETeamAttitude::Neutral;
 	// 적대 관계 확인
-	ETeamAttitude::Type Attitude = FGenericTeamId::GetAttitude(
-		SourceTeamAgent->GetGenericTeamId(),
-		TargetTeamAgent->GetGenericTeamId()
-	);
-	return Attitude;
+	return FGenericTeamId::GetAttitude(
+	   SourceTeamAgent->GetGenericTeamId(),
+	   TargetTeamAgent->GetGenericTeamId()
+   );
 }
 
 void USFGameplayAbility::OnGiveAbility(const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilitySpec& Spec)

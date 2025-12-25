@@ -5,6 +5,8 @@
 #include "Interface/SFEnemyAbilityInterface.h"
 #include "SFGA_Enemy_BaseAttack.generated.h"
 
+enum class EAIRotationMode : uint8;
+
 UENUM(BlueprintType)
 enum class EAttackType : uint8
 {
@@ -35,18 +37,29 @@ class SF_API USFGA_Enemy_BaseAttack : public USFGameplayAbility, public ISFEnemy
 
 public:
     USFGA_Enemy_BaseAttack(const FObjectInitializer& ObjectInitializer = FObjectInitializer::Get());
-    
-    // 공격 가능 거리 체크
+
+    virtual void ActivateAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, const FGameplayEventData* TriggerEventData) override;
+    virtual void EndAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, bool bReplicateEndAbility, bool bWasCancelled) override;
+    // 공격 가능 거리 체크 (Actor 버전 - 런타임 계산)
     UFUNCTION(BlueprintCallable, Category = "Attack")
     virtual bool IsWithinAttackRange(const AActor* Target) const;
 
-    // 공격 가능 각도 체크
+   
+    virtual bool IsWithinAttackRange(const FEnemyAbilitySelectContext& Context) const;
+
+    // 공격 가능 각도 체크 
     UFUNCTION(BlueprintCallable, Category = "Attack")
     virtual bool IsWithinAttackAngle(const AActor* Target) const;
 
-    // 공격 가능 여부 종합 체크
+  
+    virtual bool IsWithinAttackAngle(const FEnemyAbilitySelectContext& Context) const;
+
+    // 공격 가능 여부 종합 체크 
     UFUNCTION(BlueprintCallable, Category = "Attack")
     virtual bool CanAttackTarget(const AActor* Target) const;
+
+  
+    virtual bool CanAttackTarget(const FEnemyAbilitySelectContext& Context) const;
 
     
     UFUNCTION(BlueprintPure, Category = "Attack")
@@ -69,6 +82,11 @@ public:
 
     virtual float CalcAIScore(const FEnemyAbilitySelectContext& Context) const override;
 
+    virtual float CalcScoreModifier(const FEnemyAbilitySelectContext& Context) const override;
+
+    virtual void ApplyKnockBackToTarget(AActor* Target, const FVector& HitLocation) const;
+    
+    virtual void ApplyLaunchToTarget(AActor* Target, const FVector& LaunchDirection , float Magnitude = 1.0f) const;
 
 protected:
     // 계산 있는 데미지 적용
@@ -85,8 +103,6 @@ protected:
     virtual void CommitExecute(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo) override;
 
     virtual void ApplyCooldown(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo) const override;
-
-    virtual void EndAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, bool bReplicateEndAbility, bool bWasCancelled) override;
 
 protected:
     
@@ -106,6 +122,22 @@ protected:
     // Raw 데미지 GameplayEffect 클래스 (Calculation 없음: 순수 데미지)
     UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Attack|Damage")
     TSubclassOf<UGameplayEffect> RawDamageGameplayEffectClass;
+
+    // 쿨타임이 존재하는지 
+    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Attack|Cooldown")
+    bool bHasCooldown = true;
+
+//Save
+private:
+    TEnumAsByte<EMovementMode> SavedMovementMode;
+    EAIRotationMode SavedAiRotationMode;
+
+
+protected:
+    void SaveRotationSettings();
+    void RestoreRotationSettings();
+    
+    
 
 private:
     // SetByCaller 값 가져오기 헬퍼 함수

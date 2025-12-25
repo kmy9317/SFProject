@@ -10,6 +10,8 @@
 class ASFCharacterBase;
 class UCharacterMovementComponent;
 class UAbilitySystemComponent;
+class ASFBaseAIController;
+enum class EAIRotationMode : uint8;
 
 UENUM(BlueprintType)
 enum class AE_CardinalDirection : uint8
@@ -24,9 +26,11 @@ UENUM(BlueprintType)
 enum class ERootYawOffsetMode : uint8
 {
     Accumulate,  // 누적: RootYawOffset에 회전값 계속 쌓기
-    Hold,        // 유지: 현재 값 그대로
-    BlendOut     // 감쇠: 0으로 서서히 줄이기
+    Hold,        // 유지: 현재 값 그대로 (Turn 애니메이션 재생 중)
+    BlendOut     // 감쇠: 0으로 서서히 줄이기 (Turn 완료 후)
 };
+
+
 UCLASS(Abstract)
 class SF_API USFEnemyAnimInstance : public UAnimInstance
 {
@@ -36,6 +40,11 @@ public:
     USFEnemyAnimInstance(const FObjectInitializer& ObjectInitializer);
 
     virtual void InitializeWithAbilitySystem(UAbilitySystemComponent* ASC);
+
+    //Helper
+public:
+    UFUNCTION(BlueprintCallable, Category = "Animation|TurnInPlace")
+    bool RequestTurnInPlace(float TargetYaw, bool bForceImmediate = true);
 
 protected:
     virtual void NativeInitializeAnimation() override;
@@ -70,29 +79,42 @@ protected:
     UFUNCTION(BlueprintCallable, Category = "Thread Safe Function", meta = (BlueprintThreadSafe))
     AE_CardinalDirection GetCardinalDirectionFromAngle(float Angle, float DeadZone, AE_CardinalDirection CurrentDirection, bool bUseCurrentDirection) const;
 
-    // Turn In Place
+    // Turn In Place (RootMotion 전용)
     void UpdateTurnInPlace(float DeltaSeconds);
-    ;
+
     // RootYawOffset 모드별 처리
     void ProcessAccumulateMode(float DeltaYaw);
     void ProcessHoldMode();
     void ProcessBlendOutMode(float DeltaSeconds);
 
-    // 각도 정규화 (-180 ~ 180)
-    float NormalizeAxis(float Angle);
+    // RemainingTurnYaw 커브 처리
+    void ProcessRemainingTurnYaw(float DeltaTurnYaw);
 
-    // Spring 시뮬레이션 함수
-    float SpringInterpolate(float Current, float Target, float DeltaTime, float& Velocity,
-                           float Stiffness, float DampingRatio, float Mass);
+    // Turn 완료 처리
+    void OnTurnInPlaceAnimationComplete();
+
+
 
 public:
-    // 애니메이션 그래프에서 RemainingTurnYaw 커브 값을 받아서 처리
-    UFUNCTION(BlueprintCallable, Category = "Turn In Place")
-    void ProcessRemainingTurnYaw(float RemainingTurnYaw);
-
-    // Turn In Place 애니메이션이 끝났을 때 호출 
+    // Turn In Place 애니메이션이 끝났을 때 호출 (AnimNotify에서 호출 가능)
     UFUNCTION(BlueprintCallable, Category = "Turn In Place")
     void OnTurnInPlaceCompleted();
+
+    // TurnInPlace 중인지 확인 (BT Task에서 사용)
+    UFUNCTION(BlueprintPure, Category = "Turn In Place")
+    bool IsTurningInPlace() const { return bIsTurningInPlace; }
+
+    // 현재 RootYawOffset 값 반환 (BT Task에서 남은 회전량 판단용)
+    UFUNCTION(BlueprintPure, Category = "Turn In Place")
+    float GetRootYawOffset() const { return RootYawOffset; }
+
+    // 남은 회전량 절대값 반환 (BT Task에서 완료 판단용)
+    UFUNCTION(BlueprintPure, Category = "Turn In Place")
+    float GetRemainingTurnYaw() const { return FMath::Abs(RootYawOffset); }
+
+    // TurnInPlace 상태 완전 리셋 (RotationMode 전환 시 호출)
+    UFUNCTION(BlueprintCallable, Category = "Turn In Place")
+    void ResetTurnInPlaceState();
 
 
 
@@ -107,29 +129,36 @@ protected:
 
     UPROPERTY(Transient, BlueprintReadOnly, Category = "Character")
     TObjectPtr<UCharacterMovementComponent> CachedMovementComponent;
+    
+    UPROPERTY(Transient, BlueprintReadOnly, Category = "Character")
+    TObjectPtr<ASFBaseAIController> CachedAIController;
+
+    UPROPERTY(Transient, BlueprintReadOnly, Category = "Character")
+    TObjectPtr<UAbilitySystemComponent> CachedAbilitySystemComponent;
 
 private:
-    
-    // Location Cache
+
     FVector CachedLocation;
     FVector PreviousWorldLocation;
     bool bIsFirstUpdate;
-    
-    // Rotation Cache
+
     FRotator CachedRotation;
-    
-    // Velocity Cache
+
     FVector CachedWorldVelocity;
     FVector CachedWorldVelocity2D;
-    
-    // Acceleration Cache
+
     FVector CachedWorldAcceleration2D;
 
     FVector PreviousWorldVelocity2D;
-    // Turn Cache
-    FRotator PreviousRotation;  // 이전 프레임의 회전값
+    FRotator PreviousRotation;
+
+    float CachedDeltaSeconds;
+    float CachedControlRotationYaw;
+    EAIRotationMode CachedRotationMode;
 
 protected:
+    UPROPERTY(BlueprintReadOnly, Category = "Character")
+    bool bUsingAbility = false;
     
     //  Location Data
     UPROPERTY(BlueprintReadOnly, Category = "Location Data")
@@ -179,22 +208,24 @@ protected:
     FVector LocalAcceleration2D;
 
 
-    //Turn In Place Data
+    // ========== Turn In Place Data (RootMotion 전용) ==========
+
     // RootYawOffset 모드
     UPROPERTY(BlueprintReadWrite, Category = "Turn In Place")
     ERootYawOffsetMode RootYawOffsetMode = ERootYawOffsetMode::Accumulate;
 
-    // 루트 본 Yaw 오프셋 (스켈레탈 메시 반대 회전용)
+    // RootYawOffset: 애니메이션 각도와 실제 필요 각도의 차이를 보정
+    // 예: 실제 85도 필요, 애니메이션 90도 → RootYawOffset = -5도
     UPROPERTY(BlueprintReadWrite, Category = "Turn In Place")
     float RootYawOffset = 0.0f;
 
-    // Turn In Place 트리거 임계값
+    // 90도 Turn 트리거 임계값
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Turn In Place")
-    float TurnInPlaceThreshold = 90.0f;
+    float TurnInPlaceThreshold = 65.0f;
 
     // 180도 Turn 트리거 임계값
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Turn In Place")
-    float TurnInPlaceThreshold_180 = 135.0f;
+    float TurnInPlaceThreshold_180 = 130.0f;
 
     // BlendOut 속도
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Turn In Place")
@@ -208,38 +239,17 @@ protected:
     UPROPERTY(BlueprintReadOnly, Category = "Turn In Place")
     float TurnDirection = 0.0f;
 
-    // Turn 각도 (90.0 or 180.0)
+    // Turn 각도 (90.0 or 180.0) - 애니메이션이 회전하는 각도
     UPROPERTY(BlueprintReadOnly, Category = "Turn In Place")
     float TurnAngle = 90.0f;
 
-    // 그래프 관련 변수들
+    // 실제 필요한 회전 각도 (예: 85도, 95도 등)
+    UPROPERTY(BlueprintReadOnly, Category = "Turn In Place")
+    float ActualTurnYaw = 0.0f;
+
+    // RemainingTurnYaw 커브 추적용
     UPROPERTY(BlueprintReadWrite, Category = "Turn In Place")
-    float TurnYawCurveValue = 0.0f;
+    float PreviousRemainingTurnYaw = 90.0f;
 
-    UPROPERTY(BlueprintReadWrite, Category = "Turn In Place")
-    float PreviousTurnYawCurveValue = 0.0f;
-
-    UPROPERTY(BlueprintReadWrite, Category = "Turn In Place")
-    float PreviousRemainingTurnYaw;
-
-    UPROPERTY(BlueprintReadWrite, Category = "Turn In Place")
-    float YawDeltaSinceLastUpdate = 0.0f;
-
-    UPROPERTY(BlueprintReadWrite, Category = "Turn In Place")
-    bool bEnableRootYawOffset = true;
-    UPROPERTY(BlueprintReadWrite, Category = "Turn In Place")
-    float SmoothedRootYawOffset;
-    // Spring 시뮬레이션 파라미터
-    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Turn In Place|Spring")
-    float SpringStiffness = 10.0f;
-
-    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Turn In Place|Spring")
-    float SpringDampingRatio = 1.0f;
-
-    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Turn In Place|Spring")
-    float SpringMass = 1.0f;
-
-    // Spring 시뮬레이션 상태
-    float SpringVelocity = 0.0f;
-    float SpringCurrentValue = 0.0f;
+    bool bIsForcedTurn;
 };

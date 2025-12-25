@@ -7,13 +7,19 @@
 #include "Abilities/Tasks/AbilityTask_WaitGameplayEvent.h"
 #include "AbilitySystem/GameplayEvent/SFGameplayEventTags.h"
 #include "Character/SFCharacterBase.h"
+#include "Character/Enemy/Component/Boss_Dragon/SFDragonGameplayTags.h"
+#include "Components/CapsuleComponent.h"
 
 USFGA_Dragon_Bite::USFGA_Dragon_Bite()
 {
-	
 	AbilityID = FName("Dragon_Bite");
-	
 	AttackType = EAttackType::Melee;
+
+	// Ability Tags
+	AbilityTags.AddTag(SFGameplayTags::Ability_Dragon_Bite);
+
+	// Cooldown Tag
+	CoolDownTag = SFGameplayTags::Ability_Cooldown_Dragon_Bite;
 }
 
 void USFGA_Dragon_Bite::ActivateAbility( const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, const FGameplayEventData* TriggerEventData)
@@ -25,39 +31,21 @@ void USFGA_Dragon_Bite::ActivateAbility( const FGameplayAbilitySpecHandle Handle
 		EndAbility(Handle, ActorInfo, ActivationInfo, true, true);
 		return;
 	}
-	
-	if (BiteMontage)
-	{
-		UAbilityTask_PlayMontageAndWait* MontageTask = UAbilityTask_PlayMontageAndWait::CreatePlayMontageAndWaitProxy(
-			this,
-			NAME_None,
-			BiteMontage,
-			1.0f,
-			NAME_None,
-			true
-		);
 
-		if (MontageTask)
-		{
-			MontageTask->OnCompleted.AddDynamic(this, &USFGA_Dragon_Bite::OnBiteMontageCompleted);
-			MontageTask->OnInterrupted.AddDynamic(this, &USFGA_Dragon_Bite::OnMontageInterrupted);
-			MontageTask->OnCancelled.AddDynamic(this, &USFGA_Dragon_Bite::OnMontageCancelled);
-			MontageTask->ReadyForActivation();
-			CurrentBiteCount = 0;
-		}
-	}
+	CurrentBiteCount = 0;
 
-	// Event는 서버에서 
+	StartBiteAttack();
+
 	if (!ActorInfo->IsNetAuthority())
 	{
 		return;
 	}
-	
+
 	UAbilityTask_WaitGameplayEvent* WaitEventTask = UAbilityTask_WaitGameplayEvent::WaitGameplayEvent(
 		this,
 		SFGameplayTags::GameplayEvent_Tracing,
 		nullptr,
-		true,  
+		true,
 		true
 	);
 
@@ -68,45 +56,97 @@ void USFGA_Dragon_Bite::ActivateAbility( const FGameplayAbilitySpecHandle Handle
 	}
 }
 
+void USFGA_Dragon_Bite::StartBiteAttack()
+{
+	ASFCharacterBase* Dragon = GetSFCharacterFromActorInfo();
+	if (!Dragon || !Dragon->GetMesh() || !BiteMontage)
+	{
+		EndAbility(CurrentSpecHandle, CurrentActorInfo, CurrentActivationInfo, true, true);
+		return;
+	}
+
+	UAnimInstance* AnimInst = Dragon->GetMesh()->GetAnimInstance();
+	if (!AnimInst)
+	{
+		EndAbility(CurrentSpecHandle, CurrentActorInfo, CurrentActivationInfo, true, true);
+		return;
+	}
+
+	// Play BiteMontage
+	UAbilityTask_PlayMontageAndWait* MontageTask = UAbilityTask_PlayMontageAndWait::CreatePlayMontageAndWaitProxy(
+		this,
+		NAME_None,
+		BiteMontage,
+		1.0f,
+		FName("BiteStart"),
+		true
+	);
+
+	if (MontageTask)
+	{
+		MontageTask->OnCompleted.AddDynamic(this, &USFGA_Dragon_Bite::OnBiteMontageCompleted);
+		MontageTask->OnInterrupted.AddDynamic(this, &USFGA_Dragon_Bite::OnMontageInterrupted);
+		MontageTask->OnCancelled.AddDynamic(this, &USFGA_Dragon_Bite::OnMontageCancelled);
+		MontageTask->ReadyForActivation();
+	}
+}
+
 
 
 void USFGA_Dragon_Bite::OnBiteMontageCompleted()
 {
-	
-	if (GrabbedTarget.IsValid() && GrabMontage)
+
+	if (GrabbedTarget.IsValid())
 	{
 		PlayGrabMontage();
+		return;
+	}
+
+	CurrentBiteCount++;
+
+	if (CurrentBiteCount < BiteCount)
+	{
+		PlayBiteLoop();
 	}
 	else
 	{
 
-		CurrentBiteCount++;
+		EndAbility(CurrentSpecHandle, CurrentActorInfo, CurrentActivationInfo, true, false);
+	}
+}
 
+void USFGA_Dragon_Bite::PlayBiteLoop()
+{
+	ASFCharacterBase* Dragon = GetSFCharacterFromActorInfo();
+	if (!Dragon || !Dragon->GetMesh() || !BiteMontage)
+	{
+		EndAbility(CurrentSpecHandle, CurrentActorInfo, CurrentActivationInfo, true, false);
+		return;
+	}
 
-		if (CurrentBiteCount < BiteCount)
-		{
-			UAbilityTask_PlayMontageAndWait* MontageTask = UAbilityTask_PlayMontageAndWait::CreatePlayMontageAndWaitProxy(
-				this,
-				NAME_None,
-				BiteMontage,
-				1.0f,
-				NAME_None,
-				true
-			);
+	UAnimInstance* AnimInst = Dragon->GetMesh()->GetAnimInstance();
+	if (!AnimInst)
+	{
+		EndAbility(CurrentSpecHandle, CurrentActorInfo, CurrentActivationInfo, true, false);
+		return;
+	}
 
-			if (MontageTask)
-			{
-				MontageTask->OnCompleted.AddDynamic(this, &USFGA_Dragon_Bite::OnBiteMontageCompleted);
-				MontageTask->OnInterrupted.AddDynamic(this, &USFGA_Dragon_Bite::OnMontageInterrupted);
-				MontageTask->OnCancelled.AddDynamic(this, &USFGA_Dragon_Bite::OnMontageCancelled);
-				MontageTask->ReadyForActivation();
-			}
-		}
-		else
-		{
+	// Play BiteLoop section
+	UAbilityTask_PlayMontageAndWait* MontageTask = UAbilityTask_PlayMontageAndWait::CreatePlayMontageAndWaitProxy(
+		this,
+		NAME_None,
+		BiteMontage,
+		1.0f,
+		FName("BiteLoop"),
+		false
+	);
 
-			EndAbility(CurrentSpecHandle, CurrentActorInfo, CurrentActivationInfo, true, false);
-		}
+	if (MontageTask)
+	{
+		MontageTask->OnCompleted.AddDynamic(this, &USFGA_Dragon_Bite::OnBiteMontageCompleted);
+		MontageTask->OnInterrupted.AddDynamic(this, &USFGA_Dragon_Bite::OnMontageInterrupted);
+		MontageTask->OnCancelled.AddDynamic(this, &USFGA_Dragon_Bite::OnMontageCancelled);
+		MontageTask->ReadyForActivation();
 	}
 }
 
@@ -135,7 +175,7 @@ void USFGA_Dragon_Bite::OnBiteHit(FGameplayEventData Payload)
 {
     const FHitResult* HitResult = Payload.ContextHandle.GetHitResult();
     if (!HitResult) return;
-
+	
     AActor* HitActor = HitResult->GetActor();
     if (!HitActor) return;
 
@@ -158,6 +198,9 @@ void USFGA_Dragon_Bite::OnBiteHit(FGameplayEventData Payload)
     AttachTargetToJaw(HitActor);
 
     GrabbedTarget = HitActor;
+
+    // Pressure 적용 (ISFDragonPressureInterface)
+    ApplyPressureToTarget(HitActor);
 }
 
 
@@ -178,13 +221,13 @@ void USFGA_Dragon_Bite::ApplyGrabEffect(AActor* Target)
 
     if (GrabSpec.IsValid())
     {
-        GetAbilitySystemComponentFromActorInfo()->ApplyGameplayEffectSpecToTarget(
+        ActiveGrabEffectHandle = GetAbilitySystemComponentFromActorInfo()->ApplyGameplayEffectSpecToTarget(
             *GrabSpec.Data.Get(),
             TargetASC
         );
     }
 
-	CurrentBiteCount = 0;
+	CurrentHitCount = 0;
 	LastDamageTime = -999.0f;
 
 	OnDamageRecivedHandle = GetAbilitySystemComponentFromActorInfo()
@@ -198,75 +241,104 @@ void USFGA_Dragon_Bite::AttachTargetToJaw(AActor* Target)
 {
     if (!Target)
         return;
-    
+
     ASFCharacterBase* Dragon = GetSFCharacterFromActorInfo();
     if (!Dragon)
         return;
-    
+
     USkeletalMeshComponent* DragonMesh = Dragon->GetMesh();
     if (!DragonMesh)
         return;
-    
-    
-    FAttachmentTransformRules AttachRules(
-        EAttachmentRule::SnapToTarget,  
-        EAttachmentRule::SnapToTarget,  
-        EAttachmentRule::KeepWorld,     
-        true                             
-    );
-    
-    Target->AttachToComponent(
-        DragonMesh,
-        AttachRules,
-        JawSocketName
-    );
-    
-    // 플레이어 입력 차단
-    if (APlayerController* PC = Cast<APlayerController>(Target->GetInstigatorController()))
-    {
-        PC->SetIgnoreMoveInput(true);
-        PC->SetIgnoreLookInput(true);
-    }
+
+	// --> TODO GrabbedAbiltiy에서 하도록 수정
+	if (ACharacter* Char = Cast<ACharacter>(Target))
+	{
+		Char->GetCapsuleComponent()->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+	}
 	
+	// 플레이어 입력 차단 -> 이건 아마 Grab태그를 Player한테 주는 방향으로 수정할 듯
+	if (APlayerController* PC = Cast<APlayerController>(Target->GetInstigatorController()))
+	{
+		PC->SetIgnoreMoveInput(true);
+		PC->SetIgnoreLookInput(true);
+	}
+
+	// 
+	
+
+	Target->AttachToComponent(
+	 DragonMesh,
+	 FAttachmentTransformRules::SnapToTargetNotIncludingScale,
+	 JawSocketName
+ );
+
+
+
 }
 
 void USFGA_Dragon_Bite::DetachTarget(AActor* Target)
 {
-    if (!Target)
-        return;
-	
-    FDetachmentTransformRules DetachRules(
-        EDetachmentRule::KeepWorld,  
-        EDetachmentRule::KeepWorld,  
-        EDetachmentRule::KeepWorld,  
-        true                         
-    );
-    
-    Target->DetachFromActor(DetachRules);
-    
-    // 플레이어 입력 복구
-    if (APlayerController* PC = Cast<APlayerController>(Target->GetInstigatorController()))
-    {
-        PC->SetIgnoreMoveInput(false);
-        PC->SetIgnoreLookInput(false);
-    }
+	if (!Target)
+		return;
 
+	ACharacter* Char = Cast<ACharacter>(Target);
+
+	
+	if (ActiveGrabEffectHandle.IsValid())
+	{
+		if (UAbilitySystemComponent* TargetASC =
+			UAbilitySystemBlueprintLibrary::GetAbilitySystemComponent(Target))
+		{
+			TargetASC->RemoveActiveGameplayEffect(ActiveGrabEffectHandle);
+		}
+		ActiveGrabEffectHandle.Invalidate();
+	}
+	
+	Target->DetachFromActor(
+		FDetachmentTransformRules::KeepWorldTransform
+	);
+
+	// 이것도 Ability End 쪽에서 
+	if (Char)
+	{
+		UCapsuleComponent* Capsule = Char->GetCapsuleComponent();
+		Capsule->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics);
+		
+		Char->GetCharacterMovement()->SetMovementMode(MOVE_Falling);
+	}
+	
+	if (APlayerController* PC = Cast<APlayerController>(Target->GetInstigatorController()))
+	{
+		PC->SetIgnoreMoveInput(false);
+		PC->SetIgnoreLookInput(false);
+	}
+	// 
 }
+
 
 void USFGA_Dragon_Bite::PlayGrabMontage()
 {
-	if (!GrabMontage)
+	ASFCharacterBase* Dragon = GetSFCharacterFromActorInfo();
+	if (!Dragon || !Dragon->GetMesh() || !BiteMontage)
 	{
 		EndAbility(CurrentSpecHandle, CurrentActorInfo, CurrentActivationInfo, true, false);
 		return;
 	}
-	
+
+	UAnimInstance* AnimInst = Dragon->GetMesh()->GetAnimInstance();
+	if (!AnimInst)
+	{
+		EndAbility(CurrentSpecHandle, CurrentActorInfo, CurrentActivationInfo, true, false);
+		return;
+	}
+
+	// Play GrabLoop section from BiteMontage (loop until duration expires or rescue succeeds)
 	UAbilityTask_PlayMontageAndWait* GrabMontageTask = UAbilityTask_PlayMontageAndWait::CreatePlayMontageAndWaitProxy(
 		this,
 		NAME_None,
-		GrabMontage,
+		BiteMontage,  // Use BiteMontage
 		1.0f,
-		NAME_None,
+		FName("GrabLoop"),  // Start from GrabLoop section
 		true
 	);
 
@@ -276,10 +348,11 @@ void USFGA_Dragon_Bite::PlayGrabMontage()
 		GrabMontageTask->OnCancelled.AddDynamic(this, &USFGA_Dragon_Bite::OnMontageCancelled);
 		GrabMontageTask->ReadyForActivation();
 
+		// Set timer for GrabDuration (5 seconds)
 		GetWorld()->GetTimerManager().SetTimer(
 			GrabDurationTimerHandle,
 			this,
-			&USFGA_Dragon_Bite::OnGrabMontageCompleted,
+			&USFGA_Dragon_Bite::OnGrabMontageCompleted,  // Directly call OnGrabMontageCompleted
 			GrabDuration,
 			false
 		);
@@ -305,11 +378,27 @@ void USFGA_Dragon_Bite::OnDamageRecieved(UAbilitySystemComponent* Source, const 
 		if (Modifier.Attribute.AttributeName == "Damage")
 		{
 			LastDamageTime = CurrentTime;
-			CurrentBiteCount++;
+			CurrentHitCount++;
 
-			if (CurrentBiteCount >= RescueCount)
+			if (CurrentHitCount >= RescueCount)
 			{
+				
+				if (GrabDurationTimerHandle.IsValid())
+				{
+					GetWorld()->GetTimerManager().ClearTimer(GrabDurationTimerHandle);
+				}
+				
 				ApplyStaggerToSelf();
+				
+				ASFCharacterBase* Dragon = GetSFCharacterFromActorInfo();
+				if (Dragon && Dragon->GetMesh())
+				{
+					UAnimInstance* AnimInst = Dragon->GetMesh()->GetAnimInstance();
+					if (AnimInst && BiteMontage)
+					{
+						AnimInst->Montage_Stop(0.2f, BiteMontage);
+					}
+				}
 
 				EndAbility(CurrentSpecHandle, CurrentActorInfo, CurrentActivationInfo, true, false);
 			}
@@ -332,13 +421,13 @@ void USFGA_Dragon_Bite::ApplyExecutionDamage(AActor* Target)
 	UAbilitySystemComponent* SourceASC = GetAbilitySystemComponentFromActorInfo();
 	if (!SourceASC)
 		return;
-	
+
 	FGameplayEffectSpecHandle SpecHandle =
 		MakeOutgoingGameplayEffectSpec(DamageGameplayEffectClass, GetAbilityLevel());
 
 	if (!SpecHandle.IsValid())
 		return;
-	
+
 	SpecHandle.Data->SetSetByCallerMagnitude(
 		SFGameplayTags::Data_Damage_BaseDamage,
 		ExecutionDamage
@@ -390,4 +479,42 @@ void USFGA_Dragon_Bite::EndAbility(const FGameplayAbilitySpecHandle Handle, cons
 	}
 
 	Super::EndAbility(Handle, ActorInfo, ActivationInfo, bReplicateEndAbility, bWasCancelled);
+}
+
+
+float USFGA_Dragon_Bite::CalcScoreModifier(const FEnemyAbilitySelectContext& Context) const
+{
+	float Modifier = 0.f;
+
+	const FBossEnemyAbilitySelectContext* BossContext =
+		static_cast<const FBossEnemyAbilitySelectContext*>(&Context);
+
+	// Melee Zone이면 보너스 점수
+	if (BossContext && BossContext->Zone == EBossAttackZone::Melee)
+	{
+		Modifier += 1000.f;
+	}
+
+	if (!Context.Target)
+		return Modifier;
+
+	UAbilitySystemComponent* TargetASC =
+		UAbilitySystemBlueprintLibrary::GetAbilitySystemComponent(Context.Target);
+
+	if (!TargetASC)
+		return Modifier;
+
+	// 플레이어가 Pressure_Back 상태면 점수 증가
+	if (TargetASC->HasMatchingGameplayTag(SFGameplayTags::Dragon_Pressure_Back))
+	{
+		Modifier += 500.f;
+	}
+
+	// 이미 Forward Pressure 중이면 감소
+	if (TargetASC->HasMatchingGameplayTag(SFGameplayTags::Dragon_Pressure_Forward))
+	{
+		Modifier -= 300.f;
+	}
+
+	return Modifier;
 }

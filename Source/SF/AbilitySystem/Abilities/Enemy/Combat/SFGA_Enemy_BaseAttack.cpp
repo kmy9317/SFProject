@@ -8,6 +8,7 @@
 #include "AbilitySystem/GameplayEvent/SFGameplayEventTags.h"
 #include "AI/Controller/SFEnemyCombatComponent.h"
 #include "AI/Controller/SFEnemyController.h"
+#include "Animation/Enemy/SFEnemyAnimInstance.h"
 #include "Character/SFCharacterBase.h"
 #include "Character/SFCharacterGameplayTags.h"
 
@@ -21,6 +22,7 @@ USFGA_Enemy_BaseAttack::USFGA_Enemy_BaseAttack(const FObjectInitializer& ObjectI
 	ReplicationPolicy  = EGameplayAbilityReplicationPolicy::ReplicateYes;
 
 	ActivationOwnedTags.AddTag(SFGameplayTags::Character_State_Attacking);
+	ActivationOwnedTags.AddTag(SFGameplayTags::Character_State_UsingAbility);
 
 	ActivationBlockedTags.AddTag(SFGameplayTags::Character_State_Attacking);
 	ActivationBlockedTags.AddTag(SFGameplayTags::Character_State_Dead);
@@ -31,6 +33,37 @@ USFGA_Enemy_BaseAttack::USFGA_Enemy_BaseAttack(const FObjectInitializer& ObjectI
 	ActivationBlockedTags.AddTag(SFGameplayTags::Character_State_Parried);
 
 	bIsCancelable = true;
+}
+
+void USFGA_Enemy_BaseAttack::ActivateAbility(const FGameplayAbilitySpecHandle Handle,
+	const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo,
+	const FGameplayEventData* TriggerEventData)
+{
+	Super::ActivateAbility(Handle, ActorInfo, ActivationInfo, TriggerEventData);
+
+	if (HasAuthority(&ActivationInfo))
+	{
+		SaveRotationSettings();
+
+		if (ASFBaseAIController* AIC =
+			Cast<ASFBaseAIController>(GetControllerFromActorInfo()))
+		{
+			AIC->SetRotationMode(EAIRotationMode::None);
+		}
+	}
+
+	
+	
+}
+void USFGA_Enemy_BaseAttack::EndAbility( const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, bool bReplicateEndAbility, bool bWasCancelled)
+{
+	if (!bWasCancelled)
+	{
+		ApplyCooldown(Handle, ActorInfo, ActivationInfo);
+	}
+	RestoreRotationSettings();
+
+	Super::EndAbility(Handle, ActorInfo, ActivationInfo, bReplicateEndAbility, bWasCancelled);
 }
 
 float USFGA_Enemy_BaseAttack::GetSetByCallerValue(const FGameplayTag& Tag, float DefaultValue) const
@@ -98,89 +131,214 @@ bool USFGA_Enemy_BaseAttack::CanAttackTarget(const AActor* Target) const
 	return IsWithinAttackRange(Target) && IsWithinAttackAngle(Target);
 }
 
-// [수정] AI 점수 계산 로직 전면 개편
-// - 사거리 밖이면 0점 반환 (필터링)
-// - 거리가 유효 사거리에 적합할수록 높은 점수
-// - 데미지/쿨타임 비중 조정
-float USFGA_Enemy_BaseAttack::CalcAIScore(const FEnemyAbilitySelectContext& Context) const
-{
-	if (!Context.Self || !Context.Target || !Context.AbilitySpec)
-		return -FLT_MAX;
 
+bool USFGA_Enemy_BaseAttack::IsWithinAttackRange(const FEnemyAbilitySelectContext& Context) const
+{
+	if (!Context.AbilitySpec) return false;
+
+	
 	auto GetValueFromSpec = [&](const FGameplayTag& Tag, float DefaultValue) -> float
 	{
 		const float* ValuePtr = Context.AbilitySpec->SetByCallerTagMagnitudes.Find(Tag);
 		return ValuePtr ? *ValuePtr : DefaultValue;
 	};
 
-	// 데이터 가져오기
-	const float BaseDamage = GetValueFromSpec(SFGameplayTags::Data_EnemyAbility_BaseDamage, 10.f);
 	const float AttackRange = GetValueFromSpec(SFGameplayTags::Data_EnemyAbility_AttackRange, 200.f);
 	const float MinAttackRange = GetValueFromSpec(SFGameplayTags::Data_EnemyAbility_MinAttackRange, 0.f);
-	const float Cooldown = GetValueFromSpec(SFGameplayTags::Data_EnemyAbility_Cooldown, 1.f);
+
+
+	const float Dist = Context.DistanceToTarget;
+	return (Dist <= AttackRange && Dist > MinAttackRange);
+}
+
+bool USFGA_Enemy_BaseAttack::IsWithinAttackAngle(const FEnemyAbilitySelectContext& Context) const
+{
+	if (!Context.AbilitySpec) return false;
+
+	
+	auto GetValueFromSpec = [&](const FGameplayTag& Tag, float DefaultValue) -> float
+	{
+		const float* ValuePtr = Context.AbilitySpec->SetByCallerTagMagnitudes.Find(Tag);
+		return ValuePtr ? *ValuePtr : DefaultValue;
+	};
+
 	const float AttackAngle = GetValueFromSpec(SFGameplayTags::Data_EnemyAbility_AttackAngle, 45.f);
+	
+	const float Angle = Context.AngleToTarget;
+	return Angle <= (AttackAngle * 0.5f);
+}
 
-	const float Dist = Context.Self->GetDistanceTo(Context.Target);
+bool USFGA_Enemy_BaseAttack::CanAttackTarget(const FEnemyAbilitySelectContext& Context) const
+{
+	return IsWithinAttackRange(Context) && IsWithinAttackAngle(Context);
+}
 
-	// 1. [최소 거리 체크] 너무 가까워서 공격 불가능한 무기인 경우 (창 등)
+// [수정] AI 점수 계산 로직 전면 개편
+// - 사거리 밖이면 0점 반환 (필터링)
+// - 거리가 유효 사거리에 적합할수록 높은 점수
+// - 데미지/쿨타임 비중 조정
+float USFGA_Enemy_BaseAttack::CalcAIScore(const FEnemyAbilitySelectContext& Context) const
+{
+	// Validation
+	if (!Context.Self || !Context.Target || !Context.AbilitySpec)
+		return -FLT_MAX;
+
+	// Helper lambda to get SetByCaller values
+	auto GetValueFromSpec = [&](const FGameplayTag& Tag, float DefaultValue) -> float
+	{
+		const float* ValuePtr = Context.AbilitySpec->SetByCallerTagMagnitudes.Find(Tag);
+		return ValuePtr ? *ValuePtr : DefaultValue;
+	};
+
+	// Get ability data from Spec
+	const float BaseDamage = GetValueFromSpec(SFGameplayTags::Data_EnemyAbility_BaseDamage, 0.f);
+	const float AttackRange = GetValueFromSpec(SFGameplayTags::Data_EnemyAbility_AttackRange, 0.f);
+	const float MinAttackRange = GetValueFromSpec(SFGameplayTags::Data_EnemyAbility_MinAttackRange, 0.f);
+	const float Cooldown = GetValueFromSpec(SFGameplayTags::Data_EnemyAbility_Cooldown, 1.f);
+	const float AttackAngle = GetValueFromSpec(SFGameplayTags::Data_EnemyAbility_AttackAngle, 0.f);
+
+	
+	const float Dist = Context.DistanceToTarget;
+	const float Angle = Context.AngleToTarget;
+
+	
 	if (Dist <= MinAttackRange)
 	{
 		return 0.f;
 	}
 
-	// ==============================================================================
-	// [수정] 각도 체크 예외 처리 (Blind Check)
-	// ==============================================================================
-	// 거리가 300(혹은 AttackRange) 이내라면, 등 뒤에 있어도 공격 시도 (회전해서 때림)
-	// 거리가 멀 때만 각도를 엄격하게 체크
-	const float BlindCheckRange = 300.0f; 
+	// 2. Angle Check with Blind Spot Exception
+	// If target is very close (< 300), allow attack even from behind (AI will rotate)
+	// If target is far, strictly check angle
+	const float BlindCheckRange = 300.0f;
 
 	if (Dist > BlindCheckRange)
 	{
-		// 2. [각도 체크] (멀리 있는데 각도 안 맞으면 0점)
-		if (ASFCharacterBase* Owner = Cast<ASFCharacterBase>(Context.Self))
+		// ✅ Use helper function with Context
+		if (!IsWithinAttackAngle(Context))
 		{
-			const FVector ToTarget = (Context.Target->GetActorLocation() - Owner->GetActorLocation()).GetSafeNormal();
-			const float Dot = FVector::DotProduct(Owner->GetActorForwardVector(), ToTarget);
-			const float Angle = FMath::RadiansToDegrees(FMath::Acos(FMath::Clamp(Dot, -1.f, 1.f)));
-
-			if (Angle > (AttackAngle * 0.5f))
-			{
-				return 0.f;
-			}
+			return 0.f;
 		}
 	}
-	// (거리가 가까우면 위 if문을 건너뛰므로, 등 뒤에 있어도 점수가 계산됨!)
+	// Close targets: skip angle check (AI can rotate quickly)
 
+	// 3. Calculate Base Score
 	float Score = 0.f;
-	bool bIsInRange = (Dist <= AttackRange);
 
-	// 상태별 점수 부여 (Ready vs Chase)
+	// ✅ Use helper function with Context
+	bool bIsInRange = IsWithinAttackRange(Context);
+
 	if (bIsInRange)
 	{
-		// [공격 가능] 사거리 안 -> 높은 점수
+		// In Range: High base score
 		Score = 1500.f;
 
-		// 거리 적합성 보너스 (끝자락일수록 높게 주어 카이팅 유도 등)
-		const float Span = FMath::Max(AttackRange - MinAttackRange, 1.f);
-		const float DistRatio = (Dist - MinAttackRange) / Span; 
-		Score += DistRatio * 500.f;
+		// Optimal Distance Bonus (prefer middle of range)
+		const float OptimalDistance = (AttackRange + MinAttackRange) * 0.5f;
+		const float DistFromOptimal = FMath::Abs(Dist - OptimalDistance);
+		const float MaxDeviation = FMath::Max((AttackRange - MinAttackRange) * 0.5f, 1.f);
+
+		// Closer to optimal = higher score (0.0 ~ 1.0)
+		const float DistanceScore = FMath::Clamp(1.0f - (DistFromOptimal / MaxDeviation), 0.f, 1.f);
+		Score += DistanceScore * 500.f;
 	}
 	else
 	{
-		// [추격 필요] 사거리 밖 -> 낮은 점수 (하지만 0점은 아님, 접근 유도)
+		// Out of Range: Low score (but not 0, to encourage approach)
 		Score = 500.f;
 	}
 
-	// 3. [공통] DPS(데미지/쿨타임) 가중치
+	// 4. DPS Weighting (Damage / Cooldown)
 	const float CooldownSafe = FMath::Max(Cooldown, 0.1f);
 	Score += (BaseDamage / CooldownSafe) * 10.f;
 
-	// 4. [우선권]
+	// 5. Apply ability-specific modifier (for Boss abilities)
+	float Modifier = CalcScoreModifier(Context);
+
+
+
+	Score += Modifier;  // 양수 Modifier만 더함
+
+	// 6. Priority Flag (must execute first)
 	if (Context.bMustFirst)
 		Score += 100000.f;
 
 	return Score;
+}
+
+float USFGA_Enemy_BaseAttack::CalcScoreModifier(const FEnemyAbilitySelectContext& Context) const
+{
+	return 0.f;
+}
+
+void USFGA_Enemy_BaseAttack::ApplyKnockBackToTarget(AActor* Target, const FVector& HitLocation) const
+{
+	if (!Target)
+	{
+		return;
+	}
+
+	ASFCharacterBase* Dragon = GetSFCharacterFromActorInfo();
+	if (!Dragon)
+	{
+		return;
+	}
+
+	FVector KnockBackDirection = FVector::UpVector;
+
+	// GameplayEvent 데이터 생성
+	FGameplayEventData EventData;
+	EventData.Instigator = Dragon;
+	EventData.Target = Target;
+	EventData.EventMagnitude = 1.0f; // 넉백 강도 배율
+
+	// KnockBack 방향을 ContextHandle에 저장
+	FHitResult HitResult;
+	HitResult.ImpactPoint = Target->GetActorLocation();
+	HitResult.ImpactNormal = KnockBackDirection;
+	EventData.ContextHandle.AddHitResult(HitResult, true);
+
+	UAbilitySystemComponent* TargetASC =
+		UAbilitySystemBlueprintLibrary::GetAbilitySystemComponent(Target);
+
+	if (TargetASC)
+	{
+		TargetASC->HandleGameplayEvent(
+			SFGameplayTags::GameplayEvent_Knockback,
+			&EventData
+		);
+	}
+}
+
+void USFGA_Enemy_BaseAttack::ApplyLaunchToTarget(AActor* Target, const FVector& LaunchDirection, float Magnitude) const
+{
+	if (!Target)
+	{
+		return;
+	}
+	ASFCharacterBase* Instigator = GetSFCharacterFromActorInfo();
+	if (!Instigator)
+	{
+		return;
+	}
+	FGameplayEventData EventData;
+	EventData.Instigator = Instigator;
+	EventData.Target = Target;
+	EventData.EventMagnitude = Magnitude;
+
+	FHitResult HitResult;
+	HitResult.ImpactPoint = Target->GetActorLocation();
+	HitResult.ImpactNormal = LaunchDirection;
+	EventData.ContextHandle.AddHitResult(HitResult, true);
+	UAbilitySystemComponent* TargetASC =
+		UAbilitySystemBlueprintLibrary::GetAbilitySystemComponent(Target);
+	if (TargetASC)
+	{
+		TargetASC->HandleGameplayEvent(
+			SFGameplayTags::GameplayEvent_Launched,
+			&EventData
+		);
+	}
 }
 
 void USFGA_Enemy_BaseAttack::ApplyDamageToTarget(
@@ -274,6 +432,9 @@ void USFGA_Enemy_BaseAttack::ApplyCooldown(
 	const FGameplayAbilityActorInfo* ActorInfo,
 	const FGameplayAbilityActivationInfo ActivationInfo) const
 {
+	if (!bHasCooldown)
+		return;
+	
 	if (!CooldownGameplayEffectClass)
 		return;
 
@@ -289,12 +450,51 @@ void USFGA_Enemy_BaseAttack::ApplyCooldown(
 	ApplyGameplayEffectSpecToOwner(Handle, ActorInfo, ActivationInfo, SpecHandle);
 }
 
-void USFGA_Enemy_BaseAttack::EndAbility( const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, bool bReplicateEndAbility, bool bWasCancelled)
+void USFGA_Enemy_BaseAttack::SaveRotationSettings()
 {
-	if (!bWasCancelled)
+	if (ASFCharacterBase* Character = GetSFCharacterFromActorInfo())
 	{
-		ApplyCooldown(Handle, ActorInfo, ActivationInfo);
-	}
+		// MovementMode 저장
+		if (UCharacterMovementComponent* MoveComp = Character->GetCharacterMovement())
+		{
+			SavedMovementMode = MoveComp->MovementMode;
+		}
 
-	Super::EndAbility(Handle, ActorInfo, ActivationInfo, bReplicateEndAbility, bWasCancelled);
+		// RotationMode 저장
+		if (ASFBaseAIController* AIC = Cast<ASFBaseAIController>(Character->GetController()))
+		{
+			SavedAiRotationMode = AIC->GetCurrentRotationMode();
+		}
+
+		// ⭐ AnimInstance는 Controller의 SetRotationMode(None)에서 자동 처리됨
+		// 여기서 직접 호출하지 않음
+	}
 }
+
+void USFGA_Enemy_BaseAttack::RestoreRotationSettings()
+{
+	if (ASFCharacterBase* Character = GetSFCharacterFromActorInfo())
+	{
+		// MovementMode 복원
+		if (UCharacterMovementComponent* MoveComp = Character->GetCharacterMovement())
+		{
+			if (MoveComp->MovementMode != SavedMovementMode)
+			{
+				MoveComp->SetMovementMode(SavedMovementMode);
+			}
+		}
+
+		// RotationMode 복원 (이 때 Controller의 SetRotationMode가 AnimInstance 처리)
+		if (ASFBaseAIController* AIC = Cast<ASFBaseAIController>(Character->GetController()))
+		{
+			if (AIC->GetCurrentRotationMode() != SavedAiRotationMode)
+			{
+				AIC->SetRotationMode(SavedAiRotationMode);
+			}
+		}
+
+		// ⭐ AnimInstance는 Controller의 SetRotationMode에서 자동 처리됨
+		// 여기서 직접 호출하지 않음
+	}
+}
+

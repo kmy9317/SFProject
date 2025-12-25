@@ -26,6 +26,7 @@ namespace SFGameplayTags
 	UE_DEFINE_GAMEPLAY_TAG_COMMENT(Character_State_Knockdown, "Character.State.Knockdown", "Character is knocked down");
 	UE_DEFINE_GAMEPLAY_TAG_COMMENT(Character_State_Knockback, "Character.State.Knockback", "Character is knocked back");
 	UE_DEFINE_GAMEPLAY_TAG_COMMENT(Character_State_Launched, "Character.State.Launched", "Character is launched upward or outward");
+	UE_DEFINE_GAMEPLAY_TAG_COMMENT(Character_State_Grabbed, "Character.State.Grabbed", "Character is Grabbed ");
 
 	// ========== 패링/그로기 ==========
 	UE_DEFINE_GAMEPLAY_TAG_COMMENT(Character_State_Parried, "Character.State.Parried", "Character is parried (staggered due to parry)");

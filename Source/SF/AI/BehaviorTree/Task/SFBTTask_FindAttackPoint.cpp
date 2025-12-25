@@ -31,7 +31,7 @@ EBTNodeResult::Type USFBTTask_FindAttackPoint::ExecuteTask(UBehaviorTreeComponen
 	UBlackboardComponent* BlackboardComp = OwnerComp.GetBlackboardComponent();
 	if (!BlackboardComp) return EBTNodeResult::Failed;
 
-	ASFEnemyController* AIController = Cast<ASFEnemyController>(OwnerComp.GetAIOwner());
+	ASFBaseAIController* AIController = Cast<ASFBaseAIController>(OwnerComp.GetAIOwner());
 	if (!AIController) return EBTNodeResult::Failed;
 
 	FName SelectedAbilityTagName = BlackboardComp->GetValueAsName(AbilityTagKeyName);
@@ -95,10 +95,13 @@ EBTNodeResult::Type USFBTTask_FindAttackPoint::ExecuteTask(UBehaviorTreeComponen
 	if (!EnvQueryManager) return EBTNodeResult::Failed;
 
 	CachedOwnerComp = &OwnerComp;
+	
+	const float OptimalDistance = (MinDist + MaxDist) * 0.5f;
 
 	FEnvQueryRequest QueryRequest(QueryTemplate, AIController);
 	QueryRequest.SetFloatParam(FName("MinDistance"), MinDist);
 	QueryRequest.SetFloatParam(FName("MaxDistance"), MaxDist);
+	QueryRequest.SetFloatParam(FName("OptimalDistance"), OptimalDistance); // 최적 거리 파라미터
 
 	QueryID = QueryRequest.Execute(
 		RunMode,
@@ -114,7 +117,7 @@ EBTNodeResult::Type USFBTTask_FindAttackPoint::ExecuteTask(UBehaviorTreeComponen
 	return EBTNodeResult::InProgress;
 }
 
-// [추가] AbortTask 구현
+//  AbortTask 구현
 EBTNodeResult::Type USFBTTask_FindAttackPoint::AbortTask(UBehaviorTreeComponent& OwnerComp, uint8* NodeMemory)
 {
 	if (QueryID != INDEX_NONE)
@@ -154,7 +157,7 @@ void USFBTTask_FindAttackPoint::OnQueryFinished(TSharedPtr<FEnvQueryResult> Resu
 		if (NavSys)
 		{
 			FNavLocation NavLocation;
-            // [수정] Z축 범위 500.f로 넉넉하게 확장 (언덕/계단 문제 해결)
+            
 			const bool bOnNavMesh = NavSys->ProjectPointToNavigation(
 				ResultLocation,
 				NavLocation,

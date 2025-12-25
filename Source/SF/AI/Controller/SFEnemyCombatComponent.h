@@ -37,7 +37,7 @@ public:
 	void HandleTargetPerceptionUpdated(AActor* Actor, bool bSuccessfullySensed);
 
 	// (기존 함수 유지) 어빌리티 선택 로직
-	bool SelectAbility(const FEnemyAbilitySelectContext& Context, const FGameplayTagContainer& SearchTags, FGameplayTag& OutSelectedTag);
+	virtual bool SelectAbility(const FEnemyAbilitySelectContext& Context, const FGameplayTagContainer& SearchTags, FGameplayTag& OutSelectedTag);
 	
 
 protected:

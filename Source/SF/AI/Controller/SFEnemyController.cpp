@@ -92,13 +92,11 @@ void ASFEnemyController::OnTargetPerceptionUpdated(AActor* Actor, FAIStimulus St
         if (!bIsInCombat)
         {
             bIsInCombat = true;
+            SightConfig->PeripheralVisionAngleDegrees = 180.f;
+            AIPerception->ConfigureSense(*SightConfig);
 
-            // [수정] 크래시 방지: 포인터가 유효한지 반드시 확인!
-            if (SightConfig && AIPerception)
-            {
-                SightConfig->PeripheralVisionAngleDegrees = 180.f; // 360도 시야 개방
-                AIPerception->ConfigureSense(*SightConfig);
-            }
+            // 전투 시작 시 ControllerYaw 모드로 전환 (부드러운 회전)
+            SetRotationMode(EAIRotationMode::ControllerYaw);
         }
 
         if (CachedBlackboardComponent)
@@ -111,8 +109,10 @@ void ASFEnemyController::OnTargetPerceptionUpdated(AActor* Actor, FAIStimulus St
     }
     else
     {
-        // 시야 상실 로직 (필요 시 주석 해제)
-        // UE_LOG(LogTemp, Log, TEXT("Lost Sight: %s"), *Actor->GetName());
+        UE_LOG(LogTemp, Log, TEXT("[%s] 시야 상실: %s"), *GetName(), *GetNameSafe(Actor));
+
+        // 시야 상실 시 MovementDirection으로 복귀
+        SetRotationMode(EAIRotationMode::MovementDirection);
     }
 }
 

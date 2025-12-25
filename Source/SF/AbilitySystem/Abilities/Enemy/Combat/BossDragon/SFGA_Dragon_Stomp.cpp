@@ -11,10 +11,18 @@
 #include "AbilitySystem/GameplayEvent/SFGameplayEventTags.h"
 #include "Character/SFCharacterBase.h"
 #include "Engine/OverlapResult.h"
+#include "Character/Enemy/Component/Boss_Dragon/SFDragonGameplayTags.h"
 
 USFGA_Dragon_Stomp::USFGA_Dragon_Stomp()
 {
-	
+	AbilityID = FName("Dragon_Stomp");
+	AttackType = EAttackType::Melee;
+
+	// Ability Tags
+	AbilityTags.AddTag(SFGameplayTags::Ability_Dragon_Stomp);
+
+	// Cooldown Tag
+	CoolDownTag = SFGameplayTags::Ability_Cooldown_Dragon_Stomp;
 }
 
 void USFGA_Dragon_Stomp::ActivateAbility(const FGameplayAbilitySpecHandle Handle,
@@ -28,7 +36,7 @@ void USFGA_Dragon_Stomp::ActivateAbility(const FGameplayAbilitySpecHandle Handle
 		EndAbility(Handle, ActorInfo, ActivationInfo, true, true);
 		return;
 	}
-	
+
 	if (StompMontage)
 	{
 
@@ -50,7 +58,7 @@ void USFGA_Dragon_Stomp::ActivateAbility(const FGameplayAbilitySpecHandle Handle
 			MontageTask->ReadyForActivation();
 		}
 	}
-	
+
 	if (!ActorInfo->IsNetAuthority())
 	{
 		return;
@@ -60,7 +68,7 @@ void USFGA_Dragon_Stomp::ActivateAbility(const FGameplayAbilitySpecHandle Handle
 			this,
 			SFGameplayTags::GameplayEvent_Tracing,
 			nullptr,
-			true,
+			false,
 			true
 			);
 
@@ -69,7 +77,7 @@ void USFGA_Dragon_Stomp::ActivateAbility(const FGameplayAbilitySpecHandle Handle
 		WaitEventTask->EventReceived.AddDynamic(this, &USFGA_Dragon_Stomp::EmitShockWave);
 		WaitEventTask->ReadyForActivation();
 	}
-	
+
 }
 
 
@@ -133,7 +141,10 @@ void USFGA_Dragon_Stomp::EmitShockWave(FGameplayEventData Payload)
 			if (HitActor && GetAttitudeTowards(HitActor) == ETeamAttitude::Hostile)
 			{
 				ApplyDamageToTarget(HitActor, EffectContext);
-				ApplyKnockBackToTarget(HitActor, StompLoc);
+				ApplyLaunchToTarget(HitActor, FVector::UpVector, 1.0f);
+
+				// Pressure 적용
+				ApplyPressureToTarget(HitActor);
 
 				// 디버그: 히트된 액터 표시
 				if (bIsDebug)
@@ -154,45 +165,6 @@ void USFGA_Dragon_Stomp::EmitShockWave(FGameplayEventData Payload)
 	}
 }
 
-void USFGA_Dragon_Stomp::ApplyKnockBackToTarget(AActor* Target, const FVector& StompLocation)
-{
-    if (!Target)
-    {
-        return;
-    }
-
-    ASFCharacterBase* Dragon = GetSFCharacterFromActorInfo();
-    if (!Dragon)
-    {
-        return;
-    }
-	
-    FVector KnockBackDirection = FVector::UpVector;
-    
-    // GameplayEvent 데이터 생성
-    FGameplayEventData EventData;
-    EventData.Instigator = Dragon;
-    EventData.Target = Target;
-    EventData.EventMagnitude = 1.0f; // 넉백 강도 배율 
-    
-    // KnockBack 방향을 ContextHandle에 저장
-    FHitResult HitResult;
-    HitResult.ImpactPoint = Target->GetActorLocation();
-    HitResult.ImpactNormal = KnockBackDirection;
-    EventData.ContextHandle.AddHitResult(HitResult, true);
-	
-    UAbilitySystemComponent* TargetASC = 
-        UAbilitySystemBlueprintLibrary::GetAbilitySystemComponent(Target);
-    
-    if (TargetASC)
-    {
-        TargetASC->HandleGameplayEvent(
-            SFGameplayTags::GameplayEvent_Knockback, 
-            &EventData
-        );
-    }
-}
-
 void USFGA_Dragon_Stomp::OnMontageCompleted()
 {
 	EndAbility(CurrentSpecHandle, CurrentActorInfo, CurrentActivationInfo, true, false);
@@ -206,5 +178,42 @@ void USFGA_Dragon_Stomp::OnMontageInterrupted()
 void USFGA_Dragon_Stomp::OnMontageCancelled()
 {
 	EndAbility(CurrentSpecHandle, CurrentActorInfo, CurrentActivationInfo, true, true);
+}
+
+float USFGA_Dragon_Stomp::CalcScoreModifier(const FEnemyAbilitySelectContext& Context) const
+{
+	float Modifier = 0.f;
+
+	const FBossEnemyAbilitySelectContext* BossContext =
+		static_cast<const FBossEnemyAbilitySelectContext*>(&Context);
+
+	// Melee Zone이면 보너스 점수
+	if (BossContext && BossContext->Zone == EBossAttackZone::Melee)
+	{
+		Modifier += 700.f;
+	}
+
+	if (!Context.Target)
+		return Modifier;
+
+	UAbilitySystemComponent* TargetASC =
+		UAbilitySystemBlueprintLibrary::GetAbilitySystemComponent(Context.Target);
+
+	if (!TargetASC)
+		return Modifier;
+
+	// 플레이어가 측면/후방에 있을 때 유용 (360도 공격)
+	if (Context.AngleToTarget > 90.f)
+	{
+		Modifier += 400.f;
+	}
+
+	// 이미 All Pressure 중이면 우선순위 감소 (중복 압박 방지)
+	if (TargetASC->HasMatchingGameplayTag(SFGameplayTags::Dragon_Pressure_All))
+	{
+		Modifier -= 200.f;
+	}
+
+	return Modifier;
 }
 

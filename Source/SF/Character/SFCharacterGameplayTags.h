@@ -27,6 +27,8 @@ namespace SFGameplayTags
 	SF_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(Character_State_Launched);
 	SF_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(Character_State_Parried);
 	SF_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(Character_State_Groggy);
+	SF_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(Character_State_Grabbed);
+	
 
 	// ========== 이펙트 ==========
 	SF_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(Character_State_Invulnerable);

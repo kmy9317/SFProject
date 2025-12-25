@@ -11,9 +11,18 @@
 #include "AbilitySystem/GameplayEvent/SFGameplayEventTags.h"
 #include "Character/SFCharacterBase.h"
 #include "DrawDebugHelpers.h"
+#include "Character/Enemy/Component/Boss_Dragon/SFDragonGameplayTags.h"
 
 USFGA_Dragon_TailSwipe::USFGA_Dragon_TailSwipe()
 {
+	AbilityID = FName("Dragon_TailSwipe");
+	AttackType = EAttackType::Melee;
+
+	// Ability Tags
+	AbilityTags.AddTag(SFGameplayTags::Ability_Dragon_TailSwipe);
+
+	// Cooldown Tag
+	CoolDownTag = SFGameplayTags::Ability_Cooldown_Dragon_TailSwipe;
 }
 
 void USFGA_Dragon_TailSwipe::ActivateAbility(const FGameplayAbilitySpecHandle Handle,
@@ -95,21 +104,24 @@ void USFGA_Dragon_TailSwipe::OnTailHit(FGameplayEventData Payload)
 	{
 		return;
 	}
-	
+
 	if (GetAttitudeTowards(HitActor) != ETeamAttitude::Hostile)
 	{
 		return;
 	}
-	
+
 	FGameplayEffectContextHandle EffectContext = MakeEffectContext(CurrentSpecHandle, CurrentActorInfo);
 	EffectContext.AddHitResult(*HitResult);
 
 	ApplyDamageToTarget(HitActor, EffectContext);
-	
-	ApplyKnockBackToTarget(HitActor, HitResult->ImpactPoint);
+
+	TailLaunchToTarget(HitActor, HitResult->ImpactPoint);
+
+	// Pressure 적용 
+	ApplyPressureToTarget(HitActor);
 }
 
-void USFGA_Dragon_TailSwipe::ApplyKnockBackToTarget(AActor* Target, const FVector& HitLocation)
+void USFGA_Dragon_TailSwipe::TailLaunchToTarget(AActor* Target, const FVector& HitLocation)
 {
 	if (!Target)
 	{
@@ -121,43 +133,34 @@ void USFGA_Dragon_TailSwipe::ApplyKnockBackToTarget(AActor* Target, const FVecto
 	{
 		return;
 	}
+	
+	FVector ToTarget = HitLocation - Dragon->GetActorLocation();
+	ToTarget.Z = 0.f;
+	ToTarget.Normalize();
+	
+	float SideSign = FVector::DotProduct(ToTarget,Dragon->GetActorRightVector()) >= 0.f ? 1.f : -1.f;
 
-	// 꼬리 휘두르는 방향으로 넉백 (Dragon의 오른쪽 방향)
-	FVector KnockBackDirection = Dragon->GetActorRightVector();
+	FVector HorizontalDir = Dragon->GetActorRightVector() * SideSign;
+	HorizontalDir.Normalize();
 
-	// GameplayEvent 데이터 생성
-	FGameplayEventData EventData;
-	EventData.Instigator = Dragon;
-	EventData.Target = Target;
-	EventData.EventMagnitude = 1.0f; // 넉백 강도 배율
+	const float VerticalBias = 0.6f;
 
-	// KnockBack 방향을 ContextHandle에 저장
-	FHitResult HitResult;
-	HitResult.ImpactPoint = Target->GetActorLocation();
-	HitResult.ImpactNormal = KnockBackDirection;
-	EventData.ContextHandle.AddHitResult(HitResult, true);
+	FVector DiagonalDir = (HorizontalDir + FVector::UpVector * VerticalBias).GetSafeNormal();
 
-	UAbilitySystemComponent* TargetASC =
-		UAbilitySystemBlueprintLibrary::GetAbilitySystemComponent(Target);
+	ApplyLaunchToTarget(Target, DiagonalDir, 1.0f);
 
-	if (TargetASC)
-	{
-		TargetASC->HandleGameplayEvent(
-			SFGameplayTags::GameplayEvent_Knockback,
-			&EventData
-		);
-	}
+
 }
 
 void USFGA_Dragon_TailSwipe::OnMontageCompleted()
 {
-	
+
 	EndAbility(CurrentSpecHandle, CurrentActorInfo, CurrentActivationInfo, true, false);
 }
 
 void USFGA_Dragon_TailSwipe::OnMontageInterrupted()
 {
-	
+
 	EndAbility(CurrentSpecHandle, CurrentActorInfo, CurrentActivationInfo, true, true);
 }
 
@@ -175,6 +178,41 @@ void USFGA_Dragon_TailSwipe::EndAbility(const FGameplayAbilitySpecHandle Handle,
 		WaitEventTask->EndTask();
 		WaitEventTask = nullptr;
 	}
-	
+
 	Super::EndAbility(Handle, ActorInfo, ActivationInfo, bReplicateEndAbility, bWasCancelled);
+}
+
+
+float USFGA_Dragon_TailSwipe::CalcScoreModifier(const FEnemyAbilitySelectContext& Context) const
+{
+	float Modifier = 800.f;
+
+	// 플레이어가 뒤쪽에 있을 때 매우 높은 점수
+	if (Context.AngleToTarget > 120.f)
+	{
+		Modifier += 600.f;
+	}
+
+	if (!Context.Target)
+		return Modifier;
+
+	UAbilitySystemComponent* TargetASC =
+		UAbilitySystemBlueprintLibrary::GetAbilitySystemComponent(Context.Target);
+
+	if (!TargetASC)
+		return Modifier;
+
+	// Forward Pressure 중이면 증가 (앞 압박 후 뒤로 도망가는 플레이어 견제)
+	if (TargetASC->HasMatchingGameplayTag(SFGameplayTags::Dragon_Pressure_Forward))
+	{
+		Modifier += 300.f;
+	}
+
+	// 이미 Back Pressure 중이면 우선순위 감소 (중복 압박 방지)
+	if (TargetASC->HasMatchingGameplayTag(SFGameplayTags::Dragon_Pressure_Back))
+	{
+		Modifier -= 200.f;
+	}
+
+	return Modifier;
 }

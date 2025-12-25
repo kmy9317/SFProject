@@ -2,129 +2,145 @@
 #include "AIController.h"
 #include "BehaviorTree/BlackboardComponent.h"
 #include "GameFramework/Actor.h"
-#include "AbilitySystemComponent.h"
-#include "AbilitySystemGlobals.h"
-#include "AbilitySystem/Abilities/Enemy/Combat/SFGA_Enemy_BaseAttack.h" // [중요] 헤더 추가
+#include "AbilitySystem/Abilities/Enemy/Combat/SFGA_Enemy_BaseAttack.h"
+#include "AI/Controller/SFBaseAIController.h"
+#include "Animation/Enemy/SFEnemyAnimInstance.h"
+#include "GameFramework/Character.h"
+
 
 USFBTTask_FaceTarget::USFBTTask_FaceTarget()
 {
-	NodeName = "SF Rotate to Target (Use Ability)";
-	bNotifyTick = true;
+    NodeName = "SF Face Target";
+    bNotifyTick = true;
+    bNotifyTaskFinished = true;
+
+    AngleKey.AddFloatFilter(this, GET_MEMBER_NAME_CHECKED(USFBTTask_FaceTarget, AngleKey));
 }
 
-// [핵심 로직] 어빌리티 인스턴스를 찾아 함수 호출
-bool USFBTTask_FaceTarget::CheckAbilityAttackAngle(UBehaviorTreeComponent& OwnerComp, AActor* Target) const
+float USFBTTask_FaceTarget::CalculateAngleToTarget(APawn* InPawn, AActor* InTarget, UBehaviorTreeComponent& OwnerComp)
 {
-	UBlackboardComponent* BB = OwnerComp.GetBlackboardComponent();
-	if (!BB) return false;
+    if (bUseAngleKey && AngleKey.IsSet())
+    {
+        return OwnerComp.GetBlackboardComponent()->GetValueAsFloat(AngleKey.SelectedKeyName);
+    }
 
-	// 1. 블랙보드에서 태그 이름 가져오기
-	FName TagName = BB->GetValueAsName(AbilityTagKey.SelectedKeyName);
+    if (!InPawn || !InTarget)
+        return 0.0f;
 
-	// 이름이 없으면(None) 변환 시도조차 하지 않고 리턴 (여기서 터지는 것 방지)
-	if (TagName.IsNone())
-	{
-		return false;
-	}
+    FVector Forward = InPawn->GetActorForwardVector().GetSafeNormal2D();
+    FVector ToTarget = (InTarget->GetActorLocation() - InPawn->GetActorLocation()).GetSafeNormal2D();
 
-	// 두 번째 인자에 false 전달 (존재하지 않는 태그여도 에러 내지 않고 조용히 처리)
-	FGameplayTag AbilityTag = FGameplayTag::RequestGameplayTag(TagName, false);
+    if (ToTarget.IsNearlyZero())
+        return 0.0f;
 
-	// 태그가 없으면 -> 기본 정밀도(DefaultPrecision)로 직접 계산
-	if (!AbilityTag.IsValid()) 
-	{
-		return false;
-	}
+    float Dot = FVector::DotProduct(Forward, ToTarget);
+    float CalculatedAngle = FMath::RadiansToDegrees(FMath::Acos(FMath::Clamp(Dot, -1.f, 1.f)));
 
-	// 2. ASC 가져오기
-	AAIController* AIC = OwnerComp.GetAIOwner();
-	if (!AIC) return false;
+    return CalculatedAngle;
+}
 
-	UAbilitySystemComponent* ASC = UAbilitySystemGlobals::GetAbilitySystemComponentFromActor(AIC->GetPawn());
-	if (!ASC) return false;
+float USFBTTask_FaceTarget::CalculateAngleToTarget_Control(APawn* InPawn, AActor* InTarget, AAIController* AIC)
+{
+    if (!InPawn || !InTarget || !AIC)
+        return 0.0f;
 
-	// 3. 해당 태그를 가진 '활성화 가능한 어빌리티' 찾기
-	for (const FGameplayAbilitySpec& Spec : ASC->GetActivatableAbilities())
-	{
-		if (Spec.Ability && Spec.Ability->AbilityTags.HasTag(AbilityTag))
-		{
-			// 4. 어빌리티 인스턴스(Instance) 가져오기
-			USFGA_Enemy_BaseAttack* EnemyAttack = Cast<USFGA_Enemy_BaseAttack>(Spec.GetPrimaryInstance());
-			
-			// 인스턴스가 없으면 라도 사용 시도
-			if (!EnemyAttack) 
-			{
-				EnemyAttack = Cast<USFGA_Enemy_BaseAttack>(Spec.Ability);
-			}
+    FVector ToTarget = (InTarget->GetActorLocation() - InPawn->GetActorLocation()).GetSafeNormal2D();
+    if (ToTarget.IsNearlyZero())
+        return 0.0f;
 
-			if (EnemyAttack)
-			{
-				// 어빌리티가 직접 판단
-				return EnemyAttack->IsWithinAttackAngle(Target);
-			}
-		}
-	}
+    const FRotator ControlRot = AIC->GetControlRotation();
+    const FVector ControlForward = FRotationMatrix(ControlRot).GetUnitAxis(EAxis::X).GetSafeNormal2D();
 
-	return false;
+    float Dot = FVector::DotProduct(ControlForward, ToTarget);
+    return FMath::RadiansToDegrees(FMath::Acos(FMath::Clamp(Dot, -1.f, 1.f)));
+}
+
+void USFBTTask_FaceTarget::SyncControlRotationToPawn(ASFBaseAIController* AIC)
+{
+    if (!AIC)
+        return;
+
+    ACharacter* Character = AIC->GetCharacter();
+    if (Character)
+    {
+        FRotator CurrentRot = Character->GetActorRotation();
+        AIC->SetControlRotation(FRotator(0.f, CurrentRot.Yaw, 0.f));
+    }
 }
 
 EBTNodeResult::Type USFBTTask_FaceTarget::ExecuteTask(UBehaviorTreeComponent& OwnerComp, uint8* NodeMemory)
 {
-	AAIController* AIC = OwnerComp.GetAIOwner();
-	AActor* Target = Cast<AActor>(OwnerComp.GetBlackboardComponent()->GetValueAsObject(BlackboardKey.SelectedKeyName));
+    ASFBaseAIController* AIC = Cast<ASFBaseAIController>(OwnerComp.GetAIOwner());
+    if (!AIC || !AIC->GetPawn())
+        return EBTNodeResult::Failed;
 
-	if (!AIC || !Target) return EBTNodeResult::Failed;
+    AActor* Target = Cast<AActor>(OwnerComp.GetBlackboardComponent()->GetValueAsObject(BlackboardKey.SelectedKeyName));
+    if (!Target)
+        return EBTNodeResult::Failed;
 
-	// 1. 회전 명령 (엔진 기능)
-	AIC->SetFocus(Target);
+    AIC->StopMovement();
+    AIC->SetFocus(Target, EAIFocusPriority::Gameplay);
+    AIC->TargetActor = Target;
 
-	// 2. 어빌리티에게 "지금 쏴도 되니?" 물어보기
-	if (CheckAbilityAttackAngle(OwnerComp, Target))
-	{
-		return EBTNodeResult::Succeeded;
-	}
+    if (AIC->GetCurrentRotationMode() != EAIRotationMode::ControllerYaw)
+    {
+        AIC->SetRotationMode(EAIRotationMode::ControllerYaw);
+    }
 
-	// 3. 어빌리티가 없거나 아직 각도가 안 맞으면 -> 기본 정밀도로 백업 체크
-	// (만약 어빌리티가 없는 평타 공격 등일 경우를 대비)
-	FVector MyLoc = AIC->GetPawn()->GetActorLocation();
-	FVector Dir = (Target->GetActorLocation() - MyLoc).GetSafeNormal2D();
-	FVector Forward = AIC->GetPawn()->GetActorForwardVector();
-	float Angle = FMath::RadiansToDegrees(FMath::Acos(FMath::Clamp(FVector::DotProduct(Forward, Dir), -1.f, 1.f)));
+    float ControlAngle = CalculateAngleToTarget_Control(AIC->GetPawn(), Target, AIC);
+    if (ControlAngle <= AcceptableAngle)
+    {
+        return EBTNodeResult::Succeeded;
+    }
 
-	if (Angle <= DefaultPrecision)
-	{
-		return EBTNodeResult::Succeeded;
-	}
-
-	return EBTNodeResult::InProgress;
+    return EBTNodeResult::InProgress;
 }
 
 void USFBTTask_FaceTarget::TickTask(UBehaviorTreeComponent& OwnerComp, uint8* NodeMemory, float DeltaSeconds)
 {
-	AAIController* AIC = OwnerComp.GetAIOwner();
-	AActor* Target = Cast<AActor>(OwnerComp.GetBlackboardComponent()->GetValueAsObject(BlackboardKey.SelectedKeyName));
+    ASFBaseAIController* AIC = Cast<ASFBaseAIController>(OwnerComp.GetAIOwner());
+    if (!AIC || !AIC->TargetActor || !AIC->GetPawn())
+    {
+        FinishLatentTask(OwnerComp, EBTNodeResult::Failed);
+        return;
+    }
 
-	if (!AIC || !Target)
-	{
-		FinishLatentTask(OwnerComp, EBTNodeResult::Failed);
-		return;
-	}
+    // ControlRotation 기준으로 논리적 회전 완료 판단
+    float ControlAngle = CalculateAngleToTarget_Control(AIC->GetPawn(), AIC->TargetActor, AIC);
+    bool bControlAligned = (ControlAngle <= AcceptableAngle);
 
-	// 1. 어빌리티 체크 (우선순위 1)
-	if (CheckAbilityAttackAngle(OwnerComp, Target))
-	{
-		FinishLatentTask(OwnerComp, EBTNodeResult::Succeeded);
-		return;
-	}
+    // AnimInstance에서 시각적 회전 완료 판단
+    bool bAnimComplete = true;
+    float RemainingYaw = 0.0f;
 
-	// 2. 기본 정밀도 체크 (우선순위 2 - 백업)
-	FVector MyLoc = AIC->GetPawn()->GetActorLocation();
-	FVector Dir = (Target->GetActorLocation() - MyLoc).GetSafeNormal2D();
-	FVector Forward = AIC->GetPawn()->GetActorForwardVector();
-	float Angle = FMath::RadiansToDegrees(FMath::Acos(FMath::Clamp(FVector::DotProduct(Forward, Dir), -1.f, 1.f)));
+    if (ACharacter* Character = Cast<ACharacter>(AIC->GetPawn()))
+    {
+        if (USFEnemyAnimInstance* AnimInstance = Cast<USFEnemyAnimInstance>(Character->GetMesh()->GetAnimInstance()))
+        {
+            bAnimComplete = !AnimInstance->IsTurningInPlace();
+            RemainingYaw = AnimInstance->GetRemainingTurnYaw();
 
-	if (Angle <= DefaultPrecision)
-	{
-		FinishLatentTask(OwnerComp, EBTNodeResult::Succeeded);
-	}
+            if (RemainingYaw > AcceptableAngle)
+            {
+                bAnimComplete = false;
+            }
+        }
+    }
+
+    // 논리적 완료 + 시각적 완료 둘 다 만족해야 성공
+    if (bControlAligned && bAnimComplete)
+    {
+        FinishLatentTask(OwnerComp, EBTNodeResult::Succeeded);
+    }
+}
+
+
+void USFBTTask_FaceTarget::OnTaskFinished(UBehaviorTreeComponent& OwnerComp, uint8* NodeMemory, EBTNodeResult::Type TaskResult)
+{
+    Super::OnTaskFinished(OwnerComp, NodeMemory, TaskResult);
+}
+
+EBTNodeResult::Type USFBTTask_FaceTarget::AbortTask(UBehaviorTreeComponent& OwnerComp, uint8* NodeMemory)
+{
+    return EBTNodeResult::Aborted;
 }

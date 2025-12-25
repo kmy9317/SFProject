@@ -112,9 +112,13 @@ void USFBTS_FindAttackPoint::TickNode(UBehaviorTreeComponent& OwnerComp, uint8* 
     UEnvQueryManager* QueryManager = UEnvQueryManager::GetCurrent(AIController->GetWorld());
     if (!QueryManager) return;
 
+    // [추가] 최적 거리 계산 (MinRange와 MaxRange의 중간 지점)
+    const float OptimalDistance = (MinDist + MaxDist) * 0.5f;
+
     FEnvQueryRequest QueryRequest(QueryTemplate, AIController);
     QueryRequest.SetFloatParam(FName("MinDistance"), MinDist);
     QueryRequest.SetFloatParam(FName("MaxDistance"), MaxDist);
+    QueryRequest.SetFloatParam(FName("OptimalDistance"), OptimalDistance); // [추가] 최적 거리 파라미터
 
     MyMemory->QueryID = QueryRequest.Execute(
         RunMode,

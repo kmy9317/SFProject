@@ -11,6 +11,7 @@
 #include "Perception/AIPerceptionComponent.h"
 #include "Perception/AISenseConfig_Sight.h"
 #include "AI/SFAIGameplayTags.h"
+#include "Character/SFCharacterBase.h"
 
 USFEnemyCombatComponent::USFEnemyCombatComponent(const FObjectInitializer& ObjectInitializer)
     : Super(ObjectInitializer)
@@ -72,6 +73,25 @@ bool USFEnemyCombatComponent::SelectAbility(
     {
         return false;
     }
+	
+    FEnemyAbilitySelectContext ContextWithSpatialData = Context;
+
+    if (Context.Self && Context.Target)
+    {
+        if (Context.DistanceToTarget == 0.f)
+        {
+			ContextWithSpatialData.DistanceToTarget = Context.Self->GetDistanceTo(Context.Target);
+        }
+    	if (Context.AngleToTarget == 0.f)
+    	{
+	        if (ASFCharacterBase* Owner = Cast<ASFCharacterBase>(Context.Self))
+	        {
+	            const FVector ToTarget = (Context.Target->GetActorLocation() - Owner->GetActorLocation()).GetSafeNormal();
+	            const float Dot = FVector::DotProduct(Owner->GetActorForwardVector(), ToTarget);
+	            ContextWithSpatialData.AngleToTarget = FMath::RadiansToDegrees(FMath::Acos(FMath::Clamp(Dot, -1.f, 1.f)));
+	        }
+    	}
+    }
 
     // [수정] 후보군과 가중치를 저장할 배열 선언
     TArray<FGameplayTag> Candidates;
@@ -116,8 +136,8 @@ bool USFEnemyCombatComponent::SelectAbility(
             continue;
         }
 
-        // Context에 Spec 전달
-        FEnemyAbilitySelectContext ContextWithSpec = Context;
+        // Context에 Spec 전달 (spatial data already calculated)
+        FEnemyAbilitySelectContext ContextWithSpec = ContextWithSpatialData;
         ContextWithSpec.AbilitySpec = &Spec;
 
         float Score = AIInterface->CalcAIScore(ContextWithSpec);
@@ -167,17 +187,12 @@ bool USFEnemyCombatComponent::SelectAbility(
 
     // [추가] 가중치 랜덤 선택 (Weighted Random)
     float RandomValue = FMath::FRandRange(0.f, TotalWeight);
-    
+
     for (int32 i = 0; i < Candidates.Num(); ++i)
     {
         if (RandomValue <= Weights[i])
         {
             OutSelectedTag = Candidates[i];
-            
-            // 디버그 로그 (필요시 주석 해제)
-            // UE_LOG(LogTemp, Log, TEXT("Selected Ability: %s (Score: %.1f, Prob: %.1f%%)"), 
-            //     *OutSelectedTag.ToString(), Weights[i], (Weights[i] / TotalWeight) * 100.f);
-            
             return true;
         }
         RandomValue -= Weights[i];
@@ -198,6 +213,7 @@ void USFEnemyCombatComponent::UpdatePerceptionConfig()
     {
         return;
     }
+	
 
     float SightRadius = CachedCombatSet->GetSightRadius();
     float LoseSightRadius = CachedCombatSet->GetLoseSightRadius();

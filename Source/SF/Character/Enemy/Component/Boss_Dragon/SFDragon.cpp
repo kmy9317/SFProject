@@ -16,11 +16,13 @@ ASFDragon::ASFDragon()
 	GetCapsuleComponent()->SetCollisionResponseToChannel(ECC_WorldStatic, ECR_Block);
 	GetCapsuleComponent()->SetCollisionResponseToChannel(ECC_WorldDynamic, ECR_Block);
 
-	//모든 충돌 Collision은 메시 컴포넌트로
-	GetMesh()->SetCollisionEnabled(ECollisionEnabled::Type::QueryOnly);
-	GetMesh()->SetCollisionResponseToChannel(ECollisionChannel::ECC_Pawn, ECollisionResponse::ECR_Overlap);
-	GetMesh()->SetCollisionResponseToChannel(ECollisionChannel::ECC_WorldStatic, ECollisionResponse::ECR_Ignore);
-	GetMesh()->SetCollisionResponseToChannel(ECollisionChannel::ECC_WorldDynamic, ECollisionResponse::ECR_Ignore);
+	//모든 충돌 Collision은 메시 컴포넌트
+	GetMesh()->SetCollisionEnabled(ECollisionEnabled::QueryOnly);
+	GetMesh()->SetCollisionObjectType(ECC_Pawn); 
+	GetMesh()->SetCollisionResponseToAllChannels(ECR_Ignore);
+	GetMesh()->SetCollisionResponseToChannel(ECC_Pawn, ECR_Overlap); 
+	GetMesh()->SetGenerateOverlapEvents(true); 
+	
 	
 	DragonMovementComponent = CreateDefaultSubobject<USFDragonMovementComponent>(TEXT("DragonMovementComponent"));
 	DragonMovementComponent->SetIsReplicated(true);

@@ -31,7 +31,7 @@ void USFPrimarySet_Enemy::PostGameplayEffectExecute(const FGameplayEffectModCall
 	if (Data.EvaluatedData.Attribute == GetDamageAttribute())
 	{
 		const float DamageDone = GetDamage();
-	
+		
 		// 유효한 데미지가 들어왔는지 확인
 		if (DamageDone > 0.0f)
 		{
@@ -45,6 +45,7 @@ void USFPrimarySet_Enemy::PostGameplayEffectExecute(const FGameplayEffectModCall
 			OnTakeDamageDelegate.Broadcast(DamageDone, Instigator);
 		}
 	}
+	Super::PostGameplayEffectExecute(Data);
 
 	if (Data.EffectSpec.SetByCallerTagMagnitudes.Contains(SFGameplayTags::Data_Stagger_BaseStagger))
 	{
@@ -66,7 +67,7 @@ void USFPrimarySet_Enemy::PostGameplayEffectExecute(const FGameplayEffectModCall
 			}
 		}
 	}
-	Super::PostGameplayEffectExecute(Data);
+	
 	
 
 }

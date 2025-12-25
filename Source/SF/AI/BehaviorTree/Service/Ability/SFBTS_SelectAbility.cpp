@@ -8,6 +8,7 @@
 #include "BehaviorTree/BlackboardComponent.h"
 #include "Interface/SFEnemyAbilityInterface.h"
 #include "Character/SFCharacterGameplayTags.h" // [필수 추가] Attacking 태그 확인용
+#include "Navigation/PathFollowingComponent.h" // [추가] 이동 상태 체크용
 
 USFBTS_SelectAbility::USFBTS_SelectAbility()
 {
@@ -46,7 +47,7 @@ void USFBTS_SelectAbility::TickNode(UBehaviorTreeComponent& OwnerComp, uint8* No
     // ==============================================================================
     // [수정] 무한 정지 방지 로직
     // AI가 현재 '공격 중(Attacking)'이라면, 스킬 선택 로직을 돌리지 않고 리턴합니다.
-    // 이유: 공격 중에 SelectAbility가 실패(쿨타임 등)해서 키를 지워버리면, 
+    // 이유: 공격 중에 SelectAbility가 실패(쿨타임 등)해서 키를 지워버리면,
     //       데코레이터가 이를 감지하고 공격을 강제 취소(Abort)시켜버리기 때문입니다.
     // ==============================================================================
     if (APawn* Pawn = AIController->GetPawn())
@@ -55,8 +56,21 @@ void USFBTS_SelectAbility::TickNode(UBehaviorTreeComponent& OwnerComp, uint8* No
         // Character.State.Attacking 태그가 있다면(공격 중이라면) 블랙보드 유지
         if (ASC && ASC->HasMatchingGameplayTag(SFGameplayTags::Character_State_Attacking))
         {
-            return; 
+            return;
         }
+    }
+    // ==============================================================================
+
+    // ==============================================================================
+    // [추가] 이동 중 블랙보드 유지 로직
+    // AI가 현재 '이동 중(Moving)'이라면, 스킬 선택 로직을 돌리지 않고 리턴합니다.
+    // 이유: 이동 중에 SelectAbility가 실패(사거리 밖)해서 키를 지워버리면,
+    //       데코레이터가 이를 감지하고 이동을 강제 취소(Abort)시켜버리기 때문입니다.
+    //       이렇게 되면 AI가 영원히 목적지에 도달하지 못하고 제자리에서 멈춥니다.
+    // ==============================================================================
+    if (AIController->GetMoveStatus() != EPathFollowingStatus::Idle)
+    {
+        return; // 이동 중에는 블랙보드 유지
     }
     // ==============================================================================
 
@@ -77,7 +91,7 @@ void USFBTS_SelectAbility::TickNode(UBehaviorTreeComponent& OwnerComp, uint8* No
     Context.Target = Cast<AActor>(BB->GetValueAsObject(TargetKey.SelectedKeyName));
 
     FGameplayTag SelectedTag;
-    
+
     // 스킬 선택 시도
     if (CombatComp->SelectAbility(Context, AbilitySearchTags, SelectedTag))
     {

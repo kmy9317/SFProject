@@ -4,6 +4,7 @@
 #include "SFAnimNotify_SendGameplayEventWithSocket.h"
 
 #include "AbilitySystemBlueprintLibrary.h"
+#include "AbilitySystemComponent.h"
 #include "Components/SkeletalMeshComponent.h"
 
 USFAnimNotify_SendGameplayEventWithSocket::USFAnimNotify_SendGameplayEventWithSocket(const FObjectInitializer& ObjectInitializer)
@@ -27,41 +28,47 @@ void USFAnimNotify_SendGameplayEventWithSocket::Notify(
 		return;
 	}
 
-	FGameplayEventData Payload = FGameplayEventData();
+	AActor* Owner = MeshComp->GetOwner();
+	if (!Owner)
+	{
+		return;
+	}
+	
+	UAbilitySystemComponent* ASC = Owner->FindComponentByClass<UAbilitySystemComponent>();
+	if (!ASC)
+	{
+		return;
+	}
 
-	// Socket 위치를 HitResult에 저장하여 전달
+	
+	FGameplayEffectContextHandle ContextHandle = ASC->MakeEffectContext();
+	
+	ContextHandle.AddInstigator(Owner, Owner);
+    
+	FVector SocketLocation = FVector::ZeroVector;
 	if (SocketName != NAME_None)
 	{
-		FVector SocketLocation = MeshComp->GetSocketLocation(SocketName);
-		
-		// HitResult 생성
-		FHitResult HitResult;
-		HitResult.ImpactPoint = SocketLocation;
-		HitResult.Location = SocketLocation;
-		HitResult.ImpactNormal = FVector::UpVector; // 기본값: 위쪽
-		
-		// Context에 HitResult 추가
-		Payload.ContextHandle.AddHitResult(HitResult, true);
+		SocketLocation = MeshComp->GetSocketLocation(SocketName);
 	}
 	else
 	{
-		// Socket이 없으면 Actor 위치 사용
-		if (AActor* Owner = MeshComp->GetOwner())
-		{
-			FVector ActorLocation = Owner->GetActorLocation();
-			
-			FHitResult HitResult;
-			HitResult.ImpactPoint = ActorLocation;
-			HitResult.Location = ActorLocation;
-			HitResult.ImpactNormal = FVector::UpVector;
-			
-			Payload.ContextHandle.AddHitResult(HitResult, true);
-		}
+		SocketLocation = Owner->GetActorLocation();
 	}
+    
+	FHitResult HitResult;
+	HitResult.ImpactPoint = SocketLocation;
+	HitResult.Location = SocketLocation;
+	HitResult.ImpactNormal = FVector::UpVector;
+    
+	ContextHandle.AddHitResult(HitResult, true);
 
-	// Gameplay Event 전송
+	
+	FGameplayEventData Payload;
+	Payload.ContextHandle = ContextHandle;
+
+	
 	UAbilitySystemBlueprintLibrary::SendGameplayEventToActor(
-		MeshComp->GetOwner(),
+		Owner,
 		EventTag,
 		Payload
 	);
