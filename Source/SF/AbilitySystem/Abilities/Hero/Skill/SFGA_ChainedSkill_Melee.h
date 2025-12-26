@@ -72,4 +72,18 @@ protected:
 
 private:
 	TArray<FActiveGameplayEffectHandle> AppliedChainEffectHandles;
+
+private:
+	// 🔥 ASC에 쿨타임 GE가 "추가되는 순간" 감지
+	FDelegateHandle CooldownGEAddedHandle;
+
+	void OnCooldownGEAdded(
+		UAbilitySystemComponent* TargetASC,
+		const FGameplayEffectSpec& Spec,
+		FActiveGameplayEffectHandle ActiveHandle);
+
+	// Ability 컨텍스트 없이 ASC 기준 쿨초
+	void TryProcCooldownReset_FromASC(UAbilitySystemComponent* ASC);
+
+	virtual const FGameplayTagContainer* GetCooldownTags() const override;
 };

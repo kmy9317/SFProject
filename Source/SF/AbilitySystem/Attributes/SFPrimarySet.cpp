@@ -97,6 +97,26 @@ void USFPrimarySet::PostGameplayEffectExecute(const FGameplayEffectModCallbackDa
             {
                 if (OwnerActor->HasAuthority())
                 {
+                    //1회 부활 기능(색욕 30레벨) 로직
+                    const FGameplayTag LastStandAvailableTag =
+                    FGameplayTag::RequestGameplayTag(TEXT("Ability.Skill.Passive.LastStand"));
+                    const FGameplayTag LastStandUsedTag =
+                    FGameplayTag::RequestGameplayTag(TEXT("Ability.Skill.Passive.LastStand.Use"));
+                    if (SFASC->HasMatchingGameplayTag(LastStandAvailableTag) &&
+                        !SFASC->HasMatchingGameplayTag(LastStandUsedTag))
+                    {
+                        FGameplayEventData EventData;
+                        EventData.EventTag = SFGameplayTags::GameplayEvent_PlayerAbility_LastStand;
+
+                        SFASC->HandleGameplayEvent(
+                        EventData.EventTag,
+                        &EventData
+                        );
+
+                        return;
+                    }
+                    
+                    //사망 이벤트
                     if (!SFASC->HasMatchingGameplayTag(SFGameplayTags::Character_State_Dead))
                     {
                         HandleZeroHealth(SFASC, Data);

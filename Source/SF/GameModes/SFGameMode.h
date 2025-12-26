@@ -2,6 +2,7 @@
 
 #include "CoreMinimal.h"
 #include "GameFramework/GameModeBase.h"
+#include "GameFramework/PlayerStart.h"
 #include "SFGameMode.generated.h"
 
 class USFGameplayAbility;

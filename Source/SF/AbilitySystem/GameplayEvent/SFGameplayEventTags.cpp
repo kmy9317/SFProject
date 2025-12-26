@@ -74,4 +74,10 @@ namespace SFGameplayTags
 
 	// Cost
 	UE_DEFINE_GAMEPLAY_TAG(Data_Cost_DodgeStamina, "Data.Cost.DodgeStamina");
+
+	// Stage
+	UE_DEFINE_GAMEPLAY_TAG(GameplayEvent_Stage_Clear, "GameplayEvent.Stage.Clear");
+
+	// Player Buff
+	UE_DEFINE_GAMEPLAY_TAG(GameplayEvent_PlayerAbility_LastStand, "GameplayEvent.PlayerAbility.LastStand");
 }

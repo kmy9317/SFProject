@@ -172,14 +172,18 @@ void USFGA_Hero_Parrying::OnParryEventReceived(FGameplayEventData Payload)
 void USFGA_Hero_Parrying::OnChainMontageCompleted()
 {
 	UAbilitySystemComponent* ASC = GetAbilitySystemComponentFromActorInfo();
-    
-	bool bSuccess = ASC->HasMatchingGameplayTag(ParryEventTag);
 
-	if (!bSuccess)
+	const int32 CurrentChainIndex = GetCurrentChain(); 
+	const int32 LastChainIndex = GetChainConfigs().Num() - 1;
+	
+	if (!ASC->HasMatchingGameplayTag(ParryEventTag))
 	{
-		// 실패 → 쿨타임 강제 적용
-		ApplyCooldown(CurrentSpecHandle, CurrentActorInfo, CurrentActivationInfo);
-		UE_LOG(LogTemp, Warning, TEXT("[Parry] FAILED → Apply Cooldown"));
+		if (CurrentChainIndex < LastChainIndex)
+		{
+			// 실패 → 쿨타임 강제 적용
+			ApplyCooldown(CurrentSpecHandle, CurrentActorInfo, CurrentActivationInfo);
+			UE_LOG(LogTemp, Warning, TEXT("[Parry] FAILED → Apply Cooldown"));
+		}
 	}
 	else
 	{

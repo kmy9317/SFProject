@@ -136,17 +136,6 @@ void ASFHero::OnAbilitySystemInitialized()
 			OnDownedTagChanged(SFGameplayTags::Character_State_Downed, 1);
 		}
 	}
-	
-	if (ASFPlayerState* PS = GetPlayerState<ASFPlayerState>())
-	{
-		UE_LOG(
-			LogTemp,
-			Warning,
-			TEXT("[PermanentUpgrade] SFHero OnAbilitySystemInitialized -> Notify PlayerState")
-		);
-
-		PS->OnPawnReadyForPermanentUpgrade();
-	}
 }
 
 void ASFHero::OnAbilitySystemUninitialized()

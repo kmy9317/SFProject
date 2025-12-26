@@ -8,11 +8,11 @@
 UENUM(BlueprintType)
 enum class ESFUpgradeCategory : uint8
 {
-	Wrath UMETA(DisplayName = "분노 - 치명타"),
-	Pride UMETA(DisplayName = "교만 - 마나 회복"),
-	Lust  UMETA(DisplayName = "색욕 - 체력"),
-	Sloth UMETA(DisplayName = "나태 - 스태미나 회복"),
-	Greed UMETA(DisplayName = "탐욕 - 행운"),
+	Wrath UMETA(DisplayName = "Wrath[분노]"),
+	Pride UMETA(DisplayName = "Pride[교만]"),
+	Lust  UMETA(DisplayName = "Lust[색욕]"),
+	Sloth UMETA(DisplayName = "Sloth[나태]"),
+	Greed UMETA(DisplayName = "Greed[탐욕]"),
 
 	MAX UMETA(Hidden)
 };

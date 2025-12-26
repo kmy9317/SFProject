@@ -150,8 +150,6 @@ public:
 	UPROPERTY(BlueprintAssignable, Category = "SF|Events")
 	FOnPlayerInfoChangedDelegate OnPlayerInfoChanged;
 
-	void OnPawnReadyForPermanentUpgrade();
-
 private:
 	// 어빌리티 시스템 컴포넌트에서 PawnData를 참조해서 능력을 부여하기 위해 캐싱을 해놓음
 	UPROPERTY(ReplicatedUsing = OnRep_PawnData)
@@ -216,9 +214,4 @@ private:
 	
 
 	//======================
-
-protected:
-	// Permanent Upgrade
-	UFUNCTION()
-	void OnAbilitySystemInitialized();
 };

@@ -12,6 +12,7 @@
 #include "Equipment/EquipmentComponent/SFEquipmentComponent.h"
 #include "Input/SFEnhancedPlayerInput.h"
 #include "Player/SFPlayerController.h"
+#include "AbilitySystem/Abilities/Hero/Skill/SFHeroSkillTags.h"
 #include "Player/SFPlayerState.h"
 
 #define ENSURE_ABILITY_IS_INSTANTIATED_OR_RETURN(FunctionName, ReturnValue)																				\
@@ -297,6 +298,83 @@ void USFGameplayAbility::RestoreSlidingMode()
 	}
 
 	bSlidingModeApplied = false;
+}
+
+void USFGameplayAbility::TryProcCooldownReset()
+{
+	// 서버에서만
+	if (!HasAuthority(&CurrentActivationInfo))
+	{
+		return;
+	}
+
+	UAbilitySystemComponent* ASC = GetAbilitySystemComponentFromActorInfo();
+	if (!ASC)
+	{
+		return;
+	}
+
+	// 패시브 없으면 패스
+	if (!ASC->HasMatchingGameplayTag(SFGameplayTags::Ability_Skill_Passive_CooldownReset))
+	{
+		return;
+	}
+
+	// 확률 체크
+	const float ProcChance = 0.25f;
+	if (FMath::FRand() > ProcChance)
+	{
+		return;
+	}
+
+	// 이 Ability가 사용하는 쿨다운 태그 얻기
+	const FGameplayTagContainer* CooldownTags = GetCooldownTags();
+	if (!CooldownTags || CooldownTags->IsEmpty())
+	{
+		return;
+	}
+
+	// 이 Ability의 쿨다운 GE 제거
+	ASC->RemoveActiveEffectsWithGrantedTags(*CooldownTags);
+}
+
+bool USFGameplayAbility::CommitAbility(
+	const FGameplayAbilitySpecHandle Handle,
+	const FGameplayAbilityActorInfo* ActorInfo,
+	const FGameplayAbilityActivationInfo ActivationInfo,
+	FGameplayTagContainer* OptionalRelevantTags
+)
+{
+	// 기존 GAS 커밋 로직 그대로 수행
+	const bool bCommitted = Super::CommitAbility(
+		Handle,
+		ActorInfo,
+		ActivationInfo,
+		OptionalRelevantTags
+	);
+
+	// 커밋 성공한 경우에만 후처리
+	if (bCommitted)
+	{
+		TryProcCooldownReset();
+	}
+
+	return bCommitted;
+}
+
+bool USFGameplayAbility::CommitAbility(
+	const FGameplayAbilitySpecHandle Handle,
+	const FGameplayAbilityActorInfo* ActorInfo,
+	const FGameplayAbilityActivationInfo ActivationInfo
+)
+{
+	// 모든 기존 스킬 호출은 여기로
+	return CommitAbility(
+		Handle,
+		ActorInfo,
+		ActivationInfo,
+		nullptr
+	);
 }
 
 void USFGameplayAbility::FlushPressedInput(UInputAction* InputAction)

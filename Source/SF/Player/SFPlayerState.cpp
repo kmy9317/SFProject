@@ -303,10 +303,11 @@ void ASFPlayerState::SetPawnData(const USFPawnData* InPawnData)
 				AbilitySet->GiveToAbilitySystem(AbilitySystemComponent, nullptr);
 			}
 		}
-	}
 
-	// 강화는 "서버가 PlayFab 데이터를 수신한 이후"에만 적용되어야 함
-	TryApplyPermanentUpgrade();
+		// 강화는 "서버가 PlayFab 데이터를 수신한 이후"에만 적용되어야 함
+		TryApplyPermanentUpgrade();
+	}
+	
 
 	ForceNetUpdate();
 }
@@ -466,23 +467,6 @@ void ASFPlayerState::OnRep_IsReadyForTravel()
 	MessageSubsystem.BroadcastMessage(SFGameplayTags::Message_Player_TravelReadyChanged, Message);
 }
 
-void ASFPlayerState::OnAbilitySystemInitialized()
-{
-	UE_LOG(LogTemp, Warning, TEXT("[PermanentUpgrade] OnAbilitySystemInitialized CALLED"));
-	
-	if (!HasAuthority())
-	{
-		return;
-	}
-
-	UE_LOG(
-		LogTemp,
-		Warning,
-		TEXT("[PermanentUpgrade] OnAbilitySystemInitialized -> TryApply")
-	);
-
-	TryApplyPermanentUpgrade();
-}
 
 void ASFPlayerState::SetPermanentUpgradeData(const FSFPermanentUpgradeData& InData)
 {
@@ -499,7 +483,7 @@ void ASFPlayerState::SetPermanentUpgradeData(const FSFPermanentUpgradeData& InDa
 	// 값이 0이어도 "데이터 수신 완료"로 취급해야 함
 	bPermanentUpgradeDataReceived = true;
 
-	TryApplyPermanentUpgrade();
+	//TryApplyPermanentUpgrade();
 }
 void ASFPlayerState::Server_SubmitPermanentUpgradeData_Implementation(const FSFPermanentUpgradeData& InData)
 {
@@ -542,12 +526,6 @@ void ASFPlayerState::TryApplyPermanentUpgrade()
 		return;
 	}
 
-	// ASC가 아직 Pawn/Avatar에 바인딩 안되었으면 적용해도 효과가 씹히거나, 이후 재적용이 막힐 수 있음
-	if (!AbilitySystemComponent->GetAvatarActor())
-	{
-		return;
-	}
-
 	if (bHasLastAppliedPermanentUpgradeData && ArePermanentUpgradeDataEqual(LastAppliedPermanentUpgradeData, PermanentUpgradeData))
 	{
 		return;
@@ -564,20 +542,4 @@ void ASFPlayerState::TryApplyPermanentUpgrade()
 
 	bHasLastAppliedPermanentUpgradeData = true;
 	LastAppliedPermanentUpgradeData = PermanentUpgradeData;
-}
-
-void ASFPlayerState::OnPawnReadyForPermanentUpgrade()
-{
-	if (!HasAuthority())
-	{
-		return;
-	}
-
-	UE_LOG(
-		LogTemp,
-		Warning,
-		TEXT("[PermanentUpgrade] OnPawnReadyForPermanentUpgrade")
-	);
-
-	TryApplyPermanentUpgrade();
 }

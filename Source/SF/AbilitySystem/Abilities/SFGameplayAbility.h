@@ -110,7 +110,19 @@ protected:
 
 	// 스킬이 발동될 때 실행되는 함수 (언리얼 BP상의 Event ActivateAbility와 동일)
 	virtual void ActivateAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, const FGameplayEventData* TriggerEventData) override;
-
+	
+	virtual bool CommitAbility(
+	const FGameplayAbilitySpecHandle Handle,
+	const FGameplayAbilityActorInfo* ActorInfo,
+	const FGameplayAbilityActivationInfo ActivationInfo,
+	FGameplayTagContainer* OptionalRelevantTags
+) override;
+	
+	bool CommitAbility(
+		const FGameplayAbilitySpecHandle Handle,
+		const FGameplayAbilityActorInfo* ActorInfo,
+		const FGameplayAbilityActivationInfo ActivationInfo
+	);
 protected:
 	
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "SF|AbilityActivation")
@@ -150,4 +162,8 @@ private:
 
 	// 적용 여부 (복원 필요 체크용)
 	bool bSlidingModeApplied = false;
+
+protected:
+	// 쿨타임 초기화 패시브 처리
+	void TryProcCooldownReset();
 };

@@ -13,12 +13,12 @@ namespace
 {
 	struct FAccStats
 	{
-		float MaxHealthPct = 0.f;
-		float MaxManaPct = 0.f;
-		float MaxStaminaPct = 0.f;
+		float MaxHealthPct = FMath::Clamp(MaxHealthPct,  1.f, 20.f);
+		float MaxManaPct = FMath::Clamp(MaxManaPct,    1.f, 20.f);
+		float MaxStaminaPct = FMath::Clamp(MaxStaminaPct, 1.f, 20.f);
 		float CritDamagePct = 0.f;
 		float AttackPowerPct = 0.f;
-
+		
 		float MaxHealth = 0.f;
 		float MaxMana = 0.f;
 		float MaxStamina = 0.f;

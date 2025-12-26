@@ -58,6 +58,7 @@ void USFPlayFabSubsystem::LoginToPlayFab()
 				PlayFab::FPlayFabErrorDelegate Error;
 				Success.BindUObject(this, &USFPlayFabSubsystem::OnLoginSuccess);
 				Error.BindUObject(this, &USFPlayFabSubsystem::OnLoginError);
+
 				PlayFab::UPlayFabClientAPI().LoginWithSteam(Request, Success, Error);
 				return;
 			}
@@ -134,9 +135,11 @@ void USFPlayFabSubsystem::OnDataLoaded(const PlayFab::ClientModels::FGetUserData
 {
 	bHasLoadedPlayerData = true;
 
-	if (const PlayFab::ClientModels::FUserDataRecord* Record = Result.Data.Find(TEXT("SaveJson")))
+	const PlayFab::ClientModels::FUserDataRecord* Record = Result.Data.Find(TEXT("SaveJson"));
+	if (Record && !Record->Value.IsEmpty())
 	{
-		FString JsonString = Record->Value;
+		const FString JsonString = Record->Value;
+
 		UE_LOG(LogTemp, Warning, TEXT("[PlayFabSubsystem] Raw SaveJson: %s"), *JsonString);
 
 		if (!FJsonObjectConverter::JsonObjectStringToUStruct(JsonString, &PlayerStats, 0, 0))
@@ -149,13 +152,29 @@ void USFPlayFabSubsystem::OnDataLoaded(const PlayFab::ClientModels::FGetUserData
 		UE_LOG(LogTemp, Warning, TEXT("[PlayFabSubsystem] No Save Data (use defaults)"));
 	}
 
-	// ★ 핵심: PlayFab 로드값은 "클라이언트"에서만 확실히 존재한다.
-	// 서버(GameMode 등)에서 GI->Subsystem 값을 읽으면 각 플레이어별 값이 구분되지 않는다.
-	StartRetrySendPermanentUpgradeDataToServer();
+	// 여기서 "한 번" 보내는 것만으로 충분한 경우도 있지만,
+	// 멀티/SeamlessTravel/재진입에서 클라이언트가 안 보내는 케이스가 생기므로
+	// 실제 트리거는 SFHero(로컬)에서 한 번 더 보장해주는 게 안전함.
 }
 //====================================================================
 
 //========================업그레이드 데이터 서버 전송======================
+void USFPlayFabSubsystem::ResetPermanentUpgradeSendState()
+{
+	UWorld* World = GetWorld();
+	if (!World)
+	{
+		return;
+	}
+
+	UE_LOG(LogTemp, Warning, TEXT("[PlayFabSubsystem] ResetPermanentUpgradeSendState"));
+
+	RetrySendUpgradeAttempts = 0;
+	bPermanentUpgradeSent = false;
+
+	World->GetTimerManager().ClearTimer(RetrySendUpgradeTimerHandle);
+}
+
 void USFPlayFabSubsystem::StartRetrySendPermanentUpgradeDataToServer()
 {
 	UWorld* World = GetWorld();
@@ -169,13 +188,19 @@ void USFPlayFabSubsystem::StartRetrySendPermanentUpgradeDataToServer()
 		return;
 	}
 
+	// 이미 이번 판에 보냈으면 끝
+	if (bPermanentUpgradeSent)
+	{
+		return;
+	}
+
 	RetrySendUpgradeAttempts = 0;
 	World->GetTimerManager().ClearTimer(RetrySendUpgradeTimerHandle);
 
 	// 즉시 1회 시도 후, 실패하면 타이머로 재시도
 	TrySendPermanentUpgradeDataToServer();
 
-	if (!World->GetTimerManager().IsTimerActive(RetrySendUpgradeTimerHandle))
+	if (!World->GetTimerManager().IsTimerActive(RetrySendUpgradeTimerHandle) && !bPermanentUpgradeSent)
 	{
 		World->GetTimerManager().SetTimer(
 			RetrySendUpgradeTimerHandle,
@@ -201,7 +226,6 @@ void USFPlayFabSubsystem::TrySendPermanentUpgradeDataToServer()
 		return;
 	}
 
-	// ✅ 이미 이번 매치에서 전송 성공했으면 추가 전송/재시도 중단
 	if (bPermanentUpgradeSent)
 	{
 		World->GetTimerManager().ClearTimer(RetrySendUpgradeTimerHandle);
@@ -216,7 +240,12 @@ void USFPlayFabSubsystem::TrySendPermanentUpgradeDataToServer()
 		return;
 	}
 
-	// ✅ 로컬 플레이어 기준으로 PC를 확정 (PC0 레이스 제거)
+	// 아직 PlayFab 로드가 안 됐으면 기다린다(타이머가 재호출)
+	if (!bHasLoadedPlayerData)
+	{
+		return;
+	}
+
 	UGameInstance* GI = World->GetGameInstance();
 	if (!GI)
 	{
@@ -248,17 +277,8 @@ void USFPlayFabSubsystem::TrySendPermanentUpgradeDataToServer()
 	UpgradeData.Sloth = PlayerStats.Sloth;
 	UpgradeData.Greed = PlayerStats.Greed;
 
-	UE_LOG(
-		LogTemp,
-		Warning,
-		TEXT("[PlayFabSubsystem] SendUpgradeData | NetMode=%d Wrath=%d Pride=%d Lust=%d Sloth=%d Greed=%d"),
-		(int32)World->GetNetMode(),
-		UpgradeData.Wrath,
-		UpgradeData.Pride,
-		UpgradeData.Lust,
-		UpgradeData.Sloth,
-		UpgradeData.Greed
-	);
+	UE_LOG(LogTemp, Warning, TEXT("[PlayFabSubsystem] SendUpgradeData | NetMode=%d Wrath=%d Pride=%d Lust=%d Sloth=%d Greed=%d"),
+		(int32)World->GetNetMode(), UpgradeData.Wrath, UpgradeData.Pride, UpgradeData.Lust, UpgradeData.Sloth, UpgradeData.Greed);
 
 	// Standalone/ListenServer(로컬)에서는 바로 세팅 가능, Client에서는 Server RPC로 전송
 	if (PS->HasAuthority())
@@ -270,23 +290,32 @@ void USFPlayFabSubsystem::TrySendPermanentUpgradeDataToServer()
 		PS->Server_SubmitPermanentUpgradeData(UpgradeData);
 	}
 
-	// ✅ 성공 처리: 이후 타이머 재시도/중복 전송 방지
 	bPermanentUpgradeSent = true;
 	World->GetTimerManager().ClearTimer(RetrySendUpgradeTimerHandle);
 }
 //====================================================================
-void USFPlayFabSubsystem::ResetPermanentUpgradeSendState()
+
+void USFPlayFabSubsystem::SetPlayerStats(const FPlayerStats& NewStats)
 {
-	UWorld* World = GetWorld();
-	if (!World)
-	{
-		return;
-	}
+	PlayerStats = NewStats;
+	UE_LOG(LogTemp, Warning, TEXT("[PlayFabSubsystem] SetPlayerStats | Gold=%d Wrath=%d Pride=%d Lust=%d Sloth=%d Greed=%d"),
+		PlayerStats.Gold, PlayerStats.Wrath, PlayerStats.Pride, PlayerStats.Lust, PlayerStats.Sloth, PlayerStats.Greed);
+}
 
-	UE_LOG(LogTemp, Warning, TEXT("[PlayFabSubsystem] ResetPermanentUpgradeSendState"));
+void USFPlayFabSubsystem::SetPermanentUpgradeLevels(int32 InWrath, int32 InPride, int32 InLust, int32 InSloth, int32 InGreed)
+{
+	PlayerStats.Wrath = InWrath;
+	PlayerStats.Pride = InPride;
+	PlayerStats.Lust = InLust;
+	PlayerStats.Sloth = InSloth;
+	PlayerStats.Greed = InGreed;
 
-	RetrySendUpgradeAttempts = 0;
-	bPermanentUpgradeSent = false;
+	UE_LOG(LogTemp, Warning, TEXT("[PlayFabSubsystem] SetPermanentUpgradeLevels | Wrath=%d Pride=%d Lust=%d Sloth=%d Greed=%d"),
+		PlayerStats.Wrath, PlayerStats.Pride, PlayerStats.Lust, PlayerStats.Sloth, PlayerStats.Greed);
+}
 
-	World->GetTimerManager().ClearTimer(RetrySendUpgradeTimerHandle);
+void USFPlayFabSubsystem::SetGold(int32 NewGold)
+{
+	PlayerStats.Gold = NewGold;
+	UE_LOG(LogTemp, Warning, TEXT("[PlayFabSubsystem] SetGold | Gold=%d"), PlayerStats.Gold);
 }

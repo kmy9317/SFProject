@@ -75,4 +75,10 @@ namespace SFGameplayTags
 
 	// Cost
 	SF_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(Data_Cost_DodgeStamina);
+
+	// Stage
+	SF_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(GameplayEvent_Stage_Clear);
+
+	// Player Buff
+	SF_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(GameplayEvent_PlayerAbility_LastStand);
 }
