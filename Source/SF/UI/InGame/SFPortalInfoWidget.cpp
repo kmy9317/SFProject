@@ -31,7 +31,7 @@ void USFPortalInfoWidget::NativeConstruct()
         SFGameState->OnPlayerAdded.AddDynamic(this, &USFPortalInfoWidget::HandlePlayerAdded);
         SFGameState->OnPlayerRemoved.AddDynamic(this, &USFPortalInfoWidget::HandlePlayerRemoved);
 
-        // 이미 접속해 있는 플레이어 Entry 등록
+        // 초기 플레이어들 추가 (순서는 나중에 OnRep으로 정렬됨)
         for (APlayerState* PS : SFGameState->PlayerArray)
         {
             HandlePlayerAdded(PS);
@@ -55,7 +55,7 @@ void USFPortalInfoWidget::NativeConstruct()
 
     // Dead 상태 변경 리스너 등록
     DeadStateListenerHandle = MessageSubsystem.RegisterListener(
-        SFGameplayTags::Message_Player_DeadStateChanged,
+        SFGameplayTags::Message_Player_DeadStateChangedUI,
         this,
         &USFPortalInfoWidget::HandlePlayerDeadStateChanged);
 }
@@ -109,6 +109,7 @@ void USFPortalInfoWidget::HandlePlayerAdded(APlayerState* PlayerState)
     if (!PortalEntryClass)
     {
         UE_LOG(LogSF, Warning, TEXT("USFPortalInfoWidget: PortalEntryClass is not set."));
+        return;
     }
 
     ASFPlayerState* SFPlayerState = Cast<ASFPlayerState>(PlayerState);
@@ -120,28 +121,50 @@ void USFPortalInfoWidget::HandlePlayerAdded(APlayerState* PlayerState)
     USFPortalInfoEntryWidget* NewPortalEntry = CreateWidget<USFPortalInfoEntryWidget>(this, PortalEntryClass);
     if (NewPortalEntry)
     {
-        // Entry 위젯에 플레이어별 초기화 (닉네임, 아이콘, 초기 준비상태)
-        NewPortalEntry->InitializeRow(SFPlayerState); 
-
+        // Entry가 자체적으로 PlayerState에 바인딩 (정보 갱신용)
+        NewPortalEntry->InitializeRow(SFPlayerState);
+        
         PortalEntryBox->AddChild(NewPortalEntry);
         PortalEntryMap.Add(PlayerState, NewPortalEntry);
+
+        // 정렬용 바인딩 (Entry의 바인딩과 별개)
+        SFPlayerState->OnPlayerInfoChanged.AddDynamic(this, &USFPortalInfoWidget::HandlePlayerInfoChangedForReorder);
+
+        // Add 시점에 즉시 정렬
+        ReorderAllEntries();
     }
 }
 
 void USFPortalInfoWidget::HandlePlayerRemoved(APlayerState* PlayerState)
 {
-    if (!PlayerState || !PortalEntryMap.Contains(PlayerState))
+    if (!PlayerState)
     {
         return;
     }
 
-    USFPortalInfoEntryWidget* EntryToRemove = PortalEntryMap.FindRef(PlayerState);
+    // 델리게이트 해제
+    if (ASFPlayerState* SFPS = Cast<ASFPlayerState>(PlayerState))
+    {
+        SFPS->OnPlayerInfoChanged.RemoveAll(this);
+    }
+
+    USFPortalInfoEntryWidget* EntryToRemove = nullptr;
+    TWeakObjectPtr<APlayerState> KeyToRemove;
     
-    // PortalEntryBox에서 Entry 제거
+    for (auto& Pair : PortalEntryMap)
+    {
+        if (Pair.Key.Get() == PlayerState)
+        {
+            EntryToRemove = Pair.Value;
+            KeyToRemove = Pair.Key;
+            break;
+        }
+    }
+    
     if (EntryToRemove)
     {
         EntryToRemove->RemoveFromParent();
-        PortalEntryMap.Remove(PlayerState);
+        PortalEntryMap.Remove(KeyToRemove);
     }
 }
 
@@ -197,11 +220,42 @@ void USFPortalInfoWidget::HandlePlayerDeadStateChanged(FGameplayTag Channel, con
     }
 }
 
+void USFPortalInfoWidget::HandlePlayerInfoChangedForReorder(const FSFPlayerSelectionInfo& NewPlayerSelection)
+{
+    ReorderAllEntries();
+}
+
 void USFPortalInfoWidget::UpdateCountdownText()
 {
     if (Text_Countdown)
     {
         int32 DisplayTime = FMath::CeilToInt(CurrentCountdownTime);
         Text_Countdown->SetText(FText::AsNumber(DisplayTime));
+    }
+}
+
+void USFPortalInfoWidget::ReorderAllEntries()
+{
+    TArray<TPair<uint8, USFPortalInfoEntryWidget*>> SortedEntries;
+    
+    for (auto& Pair : PortalEntryMap)
+    {
+        if (ASFPlayerState* SFPS = Cast<ASFPlayerState>(Pair.Key.Get()))
+        {
+            uint8 SlotId = SFPS->GetPlayerSelection().GetPlayerSlot();
+            SortedEntries.Add(TPair<uint8, USFPortalInfoEntryWidget*>(SlotId, Pair.Value));
+        }
+    }
+
+    SortedEntries.Sort([](const auto& A, const auto& B)
+    {
+        return A.Key < B.Key;
+    });
+
+    PortalEntryBox->ClearChildren();
+    
+    for (auto& Entry : SortedEntries)
+    {
+        PortalEntryBox->AddChild(Entry.Value);
     }
 }

@@ -15,6 +15,8 @@ namespace SFGameplayTags
 	SF_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(Message_Interaction_Interacting);
 	SF_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(Message_RewardSelection_Complete);
 	SF_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(Message_Player_DeadStateChanged);
+	SF_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(Message_Player_DeadStateChangedUI);
 	SF_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(Message_Player_DownedStateChanged);
+	SF_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(Message_Player_DownedStateChangedUI);
 	SF_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(Message_Game_GameOver);
 }

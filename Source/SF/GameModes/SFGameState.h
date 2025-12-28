@@ -9,6 +9,7 @@
 class USFPortalManagerComponent;
 class USFEnemyManagerComponent;
 class USFStageManagerComponent;
+class USFGameOverManagerComponent;
 
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnPlayerStateChangedDelegate, APlayerState*, PlayerState);
 
@@ -33,6 +34,12 @@ public:
 
 	UFUNCTION(BlueprintPure, Category = "SF|GameState")
 	USFStageManagerComponent* GetStageManager() const { return StageManager; }
+
+	UFUNCTION(BlueprintPure, Category = "SF|GameState")
+	USFGameOverManagerComponent* GetGameOverManager() const { return GameOverManager; }
+
+	UFUNCTION(BlueprintPure, Category = "SF|GameState")
+	bool IsGameOver() const;
 	
 protected:
 
@@ -51,7 +58,7 @@ public:
 	FOnPlayerStateChangedDelegate OnPlayerRemoved;
 	
 private:
-	/** Portal 관리 컴포넌트 */
+
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "SF|Components", meta = (AllowPrivateAccess = "true"))
 	TObjectPtr<USFPortalManagerComponent> PortalManager;
 
@@ -60,4 +67,7 @@ private:
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "SF|Components", meta = (AllowPrivateAccess = "true"))
 	TObjectPtr<USFStageManagerComponent> StageManager;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "SF|Components", meta = (AllowPrivateAccess = "true"))
+	TObjectPtr<USFGameOverManagerComponent> GameOverManager;
 };

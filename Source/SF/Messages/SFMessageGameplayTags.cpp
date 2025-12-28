@@ -13,6 +13,8 @@ namespace SFGameplayTags
 	UE_DEFINE_GAMEPLAY_TAG(Message_Interaction_Interacting, "Message.Interaction.Interacting");
 	UE_DEFINE_GAMEPLAY_TAG(Message_RewardSelection_Complete, "Message.RewardSelection.Complete");
 	UE_DEFINE_GAMEPLAY_TAG(Message_Player_DeadStateChanged, "Message.Player.DeadStateChanged");
+	UE_DEFINE_GAMEPLAY_TAG(Message_Player_DeadStateChangedUI, "Message.Player.DeadStateChangedUI");
 	UE_DEFINE_GAMEPLAY_TAG(Message_Player_DownedStateChanged, "Message.Player.DownedStateChanged");
+	UE_DEFINE_GAMEPLAY_TAG(Message_Player_DownedStateChangedUI, "Message.Player.DownedStateChangedUI");
 	UE_DEFINE_GAMEPLAY_TAG(Message_Game_GameOver, "Message.Game.GameOver");
 }

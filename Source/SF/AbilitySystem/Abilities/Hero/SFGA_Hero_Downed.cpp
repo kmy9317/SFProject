@@ -71,6 +71,7 @@ void USFGA_Hero_Downed::ActivateAbility(const FGameplayAbilitySpecHandle Handle,
 		return;
 	}
 
+	CachedCombatStateComponent->SetIsDowned(true);
 	float InitialGauge = CachedCombatStateComponent->GetInitialReviveGauge();
 	
 	// 즉시 사망 체크
@@ -159,6 +160,11 @@ void USFGA_Hero_Downed::HandleDeath()
 
 	SetReviveGauge(0.f);
 
+	if (CachedCombatStateComponent.IsValid())
+	{
+		CachedCombatStateComponent->SetIsDowned(false);
+	}
+	
 	if (UAbilitySystemComponent* ASC = GetAbilitySystemComponentFromActorInfo())
 	{
 		USFAbilitySystemLibrary::SendDeathEvent(ASC);
@@ -182,6 +188,11 @@ void USFGA_Hero_Downed::HandleRevive()
 
 	// ReviveGauge 리셋
 	SetReviveGauge(0.f);
+
+	if (CachedCombatStateComponent.IsValid())
+	{
+		CachedCombatStateComponent->SetIsDowned(false);
+	}
 
 	// 부활자들에게 이벤트 발송
 	if (CachedDownedHero.IsValid())
@@ -276,6 +287,14 @@ void USFGA_Hero_Downed::EndAbility(const FGameplayAbilitySpecHandle Handle, cons
 	}
 
 	SetReviveGauge(0.f);
+
+	if (HasAuthority(&ActivationInfo) && CachedCombatStateComponent.IsValid())
+	{
+		if (CachedCombatStateComponent->IsDowned())
+		{
+			CachedCombatStateComponent->SetIsDowned(false);
+		}
+	}
 
 	// Death에 의한 종료가 아니면 복원
 	bool bShouldRestore = !bWasCancelled || (CachedCombatStateComponent.IsValid() && !CachedCombatStateComponent->IsDead());

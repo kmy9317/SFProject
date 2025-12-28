@@ -64,6 +64,9 @@ protected:
 
 	bool IsBossStage() const;
 
+	UFUNCTION()
+	void OnGameOver();
+
 private:
 	void SetupPlayerPawnDataLoading(APlayerController* PC);
 	void OnPlayerPawnDataLoaded(APlayerController* PC, const USFPawnData* PawnData);
@@ -83,6 +86,10 @@ private:
 	/** PIE 테스트 모드 활성화 여부*/
 	UPROPERTY(EditDefaultsOnly, Category = "SF|Test")
 	bool bUsePIETestMode = false;
+
+	/** PIE 테스트 부활 모드 활성화 여부(스테이지 유무x)*/
+	UPROPERTY(EditDefaultsOnly, Category = "SF|Test")
+	bool bUsePIETestResurrectionInAnyStage = false;
 	
 	UPROPERTY()
 	TArray<APlayerStart*> AssignedPlayerStarts;

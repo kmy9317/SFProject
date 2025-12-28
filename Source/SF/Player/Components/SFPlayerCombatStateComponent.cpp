@@ -1,7 +1,5 @@
 #include "SFPlayerCombatStateComponent.h"
 
-#include "AbilitySystem/SFAbilitySystemComponent.h"
-#include "Character/SFCharacterGameplayTags.h"
 #include "GameFramework/GameplayMessageSubsystem.h"
 #include "Messages/SFMessageGameplayTags.h"
 #include "Messages/SFPortalInfoMessages.h"
@@ -68,22 +66,6 @@ float USFPlayerCombatStateComponent::GetInitialReviveGauge() const
 	return 0.f;
 }
 
-bool USFPlayerCombatStateComponent::IsDowned() const
-{
-	// ASC에서 Downed 태그 체크
-	if (AActor* Owner = GetOwner())
-	{
-		if (ASFPlayerState* PS = Cast<ASFPlayerState>(Owner))
-		{
-			if (USFAbilitySystemComponent* ASC = PS->GetSFAbilitySystemComponent())
-			{
-				return ASC->HasMatchingGameplayTag(SFGameplayTags::Character_State_Downed);
-			}
-		}
-	}
-	return false;
-}
-
 void USFPlayerCombatStateComponent::SetIsDead(bool bNewIsDead)
 {
 	if (!GetOwner() || !GetOwner()->HasAuthority())
@@ -98,6 +80,22 @@ void USFPlayerCombatStateComponent::SetIsDead(bool bNewIsDead)
         BroadcastCombatInfoChanged();
         BroadcastDeadStateChanged();
     }
+}
+
+void USFPlayerCombatStateComponent::SetIsDowned(bool bNewIsDowned)
+{
+	if (!GetOwner() || !GetOwner()->HasAuthority())
+	{
+		return;
+	}
+
+	if (CombatInfo.bIsDowned != bNewIsDowned)
+	{
+		CombatInfo.bIsDowned = bNewIsDowned;
+
+		BroadcastCombatInfoChanged();
+		BroadcastDownedStateChanged();
+	}
 }
 
 void USFPlayerCombatStateComponent::DecrementDownCount()
@@ -144,39 +142,36 @@ void USFPlayerCombatStateComponent::OnRep_CombatInfo()
 	bHasReceivedInitialCombatInfo = true;
 	
 	const bool bDeadChanged = (CachedCombatInfo.bIsDead != CombatInfo.bIsDead);
+	const bool bDownedChanged = (CachedCombatInfo.bIsDowned != CombatInfo.bIsDowned);
 
 	BroadcastCombatInfoChanged();
-	// Dead 상태 변경 감지에 따라 추가적인 Message 전달 처리
 	if (bDeadChanged)
 	{
 		BroadcastDeadStateChanged();
 	}
-}
 
-void USFPlayerCombatStateComponent::BroadcastCombatInfoChanged()
-{
-	if (CachedCombatInfo != CombatInfo)
+	if (bDownedChanged)
 	{
-		CachedCombatInfo = CombatInfo;
-		OnCombatInfoChanged.Broadcast(CombatInfo);
+		BroadcastDownedStateChanged();
 	}
 }
 
-void USFPlayerCombatStateComponent::SetCombatInfoFromTravel(const FSFHeroCombatInfo& InCombatInfo)
+void USFPlayerCombatStateComponent::RestoreCombatStateFromTravel(const FSFHeroCombatInfo& InCombatInfo)
 {
 	if (!GetOwner() || !GetOwner()->HasAuthority())
 	{
 		return;
 	}
 
-	const bool bWasDead = CombatInfo.bIsDead;
-	
+	const bool bDeadChanged = (CombatInfo.bIsDead != InCombatInfo.bIsDead);
+
 	CombatInfo = InCombatInfo;
 	CachedCombatInfo = CombatInfo;
 
-	if (CombatInfo.bIsDead != bWasDead)
+	// 초기  Listen Server를 위한 UI 업데이트 
+	if (bDeadChanged)
 	{
-		BroadcastDeadStateChanged();
+		BroadcastDeadStateChangedForUI();
 	}
 }
 
@@ -199,7 +194,16 @@ void USFPlayerCombatStateComponent::MarkInitialDataReceived()
 	}
 }
 
-void USFPlayerCombatStateComponent::BroadcastDeadStateChanged()
+void USFPlayerCombatStateComponent::BroadcastCombatInfoChanged()
+{
+	if (CachedCombatInfo != CombatInfo)
+	{
+		CachedCombatInfo = CombatInfo;
+		OnCombatInfoChanged.Broadcast(CombatInfo);
+	}
+}
+
+void USFPlayerCombatStateComponent::BroadcastDeadStateChangedForUI()
 {
 	if (UGameplayMessageSubsystem::HasInstance(this))
 	{
@@ -207,7 +211,47 @@ void USFPlayerCombatStateComponent::BroadcastDeadStateChanged()
 		FSFPlayerDeadStateMessage Message;
 		Message.PlayerState = Cast<APlayerState>(GetOwner());
 		Message.bIsDead = CombatInfo.bIsDead;
+		MessageSubsystem.BroadcastMessage(SFGameplayTags::Message_Player_DeadStateChangedUI, Message);
+	}
+}
+
+void USFPlayerCombatStateComponent::BroadcastDownedStateChangedForUI()
+{
+	if (UGameplayMessageSubsystem::HasInstance(this))
+	{
+		UGameplayMessageSubsystem& MessageSubsystem = UGameplayMessageSubsystem::Get(this);
+		FSFPlayerDownedStateMessage Message;
+		Message.PlayerState = Cast<APlayerState>(GetOwner());
+		Message.bIsDowned = CombatInfo.bIsDowned;
+		MessageSubsystem.BroadcastMessage(SFGameplayTags::Message_Player_DownedStateChangedUI, Message);
+	}
+}
+
+void USFPlayerCombatStateComponent::BroadcastDeadStateChanged()
+{
+	BroadcastDeadStateChangedForUI();
+	
+	if (UGameplayMessageSubsystem::HasInstance(this))
+	{
+		UGameplayMessageSubsystem& MessageSubsystem = UGameplayMessageSubsystem::Get(this);
+		FSFPlayerDeadStateMessage Message;
+		Message.PlayerState = Cast<APlayerState>(GetOwner());
+		Message.bIsDead = CombatInfo.bIsDead;
 		MessageSubsystem.BroadcastMessage(SFGameplayTags::Message_Player_DeadStateChanged, Message);
+	}
+}
+
+void USFPlayerCombatStateComponent::BroadcastDownedStateChanged()
+{
+	BroadcastDownedStateChangedForUI();
+	
+	if (UGameplayMessageSubsystem::HasInstance(this))
+	{
+		UGameplayMessageSubsystem& MessageSubsystem = UGameplayMessageSubsystem::Get(this);
+		FSFPlayerDownedStateMessage Message;
+		Message.PlayerState = Cast<APlayerState>(GetOwner());
+		Message.bIsDowned = CombatInfo.bIsDowned;
+		MessageSubsystem.BroadcastMessage(SFGameplayTags::Message_Player_DownedStateChanged, Message);
 	}
 }
 

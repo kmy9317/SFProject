@@ -1,9 +1,16 @@
 #include "SFDeathUIComponent.h"
 
 #include "SFSpectatorComponent.h"
+#include "Character/SFPawnExtensionComponent.h"
+#include "Character/Hero/SFHero.h"
 #include "Components/GameFrameworkComponentDelegates.h"
+#include "Components/GameFrameworkComponentManager.h"
+#include "GameFramework/GameplayMessageSubsystem.h"
+#include "GameFramework/GameStateBase.h"
+#include "Messages/SFMessageGameplayTags.h"
 #include "Player/SFPlayerState.h"
 #include "System/SFInitGameplayTags.h"
+#include "UI/InGame/GameOverScreenWidget.h"
 #include "UI/InGame/SFDeathScreenWidget.h"
 
 const FName USFDeathUIComponent::NAME_DeathUIFeature("DeathUI");
@@ -31,6 +38,12 @@ void USFDeathUIComponent::BeginPlay()
 		return;
 	}
 
+	if (UGameplayMessageSubsystem::HasInstance(this))
+	{
+		UGameplayMessageSubsystem& MessageSubsystem = UGameplayMessageSubsystem::Get(this);
+		GameOverListenerHandle = MessageSubsystem.RegisterListener(SFGameplayTags::Message_Game_GameOver,this, &ThisClass::OnGameOver);
+	}
+
 	// 초기 상태(Spawned) 진입 시도
 	ensure(TryToChangeInitState(SFGameplayTags::InitState_Spawned));
     
@@ -40,6 +53,11 @@ void USFDeathUIComponent::BeginPlay()
 
 void USFDeathUIComponent::EndPlay(const EEndPlayReason::Type EndPlayReason)
 {
+	if (UGameplayMessageSubsystem::HasInstance(this))
+	{
+		UGameplayMessageSubsystem::Get(this).UnregisterListener(GameOverListenerHandle);
+	}
+	
 	if (USFPlayerCombatStateComponent* CombatComp = CachedCombatComp.Get())
 	{
 		CombatComp->OnCombatInfoChanged.RemoveDynamic(this, &ThisClass::OnCombatInfoChanged);
@@ -199,12 +217,22 @@ void USFDeathUIComponent::OnCombatInfoChanged(const FSFHeroCombatInfo& CombatInf
 	else
 	{
 		// 부활
-		HideDeathScreen();
+		OnResurrected();
 	}
 }
 
 void USFDeathUIComponent::ShowDeathScreen()
 {
+	if (bIsGameOver)
+	{
+		return; // GameOver 이벤트가 곧 오므로 스킵
+	}
+
+	if (AreAllOtherPlayersIncapacitated())
+	{
+		return; // GameOver 이벤트가 곧 오므로 스킵
+	}
+	
 	APlayerController* PC = GetController<APlayerController>();
 	if (!PC || !DeathScreenWidgetClass)
 	{
@@ -224,8 +252,75 @@ void USFDeathUIComponent::ShowDeathScreen()
 	}
 }
 
-void USFDeathUIComponent::HideDeathScreen()
+void USFDeathUIComponent::OnResurrected()
 {
+	APlayerController* PC = GetController<APlayerController>();
+	if (!PC)
+	{
+		return;
+	}
+
+	// DeathScreen만 제거
+	if (DeathScreenWidget && DeathScreenWidget->IsInViewport())
+	{
+		DeathScreenWidget->RemoveFromParent();
+	}
+
+	// 새 Pawn의 InitState 바인딩
+	BindToNewPawnInitState();
+}
+
+void USFDeathUIComponent::BindToNewPawnInitState()
+{
+	APlayerController* PC = GetController<APlayerController>();
+	if (!PC)
+	{
+		return;
+	}
+
+	APawn* CurrentPawn = PC->GetPawn();
+    
+	// 아직 새 Pawn이 없거나 SpectatorPawn이면 OnPossessedPawnChanged로 대기
+	if (!CurrentPawn || !CurrentPawn->IsA(ASFHero::StaticClass()))
+	{
+		// Pawn 변경 시 다시 시도
+		if (!PC->OnPossessedPawnChanged.IsAlreadyBound(this, &ThisClass::OnPossessedPawnChanged))
+		{
+			PC->OnPossessedPawnChanged.AddDynamic(this, &ThisClass::OnPossessedPawnChanged);
+		}
+		return;
+	}
+
+	// 새 Hero Pawn이 있으면 InitState 바인딩
+	if (UGameFrameworkComponentManager* Manager = UGameFrameworkComponentManager::GetForActor(CurrentPawn))
+	{
+		// 이미 GameplayReady면 즉시 콜백, 아니면 도달 시 콜백
+		PawnInitStateHandle = Manager->RegisterAndCallForActorInitState(CurrentPawn, USFPawnExtensionComponent::NAME_ActorFeatureName, SFGameplayTags::InitState_GameplayReady,
+			FActorInitStateChangedDelegate::CreateUObject(this, &ThisClass::OnNewPawnGameplayReady));
+	}
+}
+
+void USFDeathUIComponent::OnPossessedPawnChanged(APawn* OldPawn, APawn* NewPawn)
+{
+	APlayerController* PC = GetController<APlayerController>();
+	if (!PC)
+	{
+		return;
+	}
+
+	// 새 Hero Pawn이면 InitState 바인딩
+	if (NewPawn && NewPawn->IsA(ASFHero::StaticClass()))
+	{
+		PC->OnPossessedPawnChanged.RemoveDynamic(this, &ThisClass::OnPossessedPawnChanged);
+		BindToNewPawnInitState();
+	}
+}
+
+void USFDeathUIComponent::OnNewPawnGameplayReady(const FActorInitStateChangedParams& Params)
+{
+	// 핸들 초기화
+	PawnInitStateHandle.Reset();
+
 	APlayerController* PC = GetController<APlayerController>();
 	if (!PC)
 	{
@@ -237,21 +332,20 @@ void USFDeathUIComponent::HideDeathScreen()
 	{
 		SpectatorComp->StopSpectating();
 	}
-
-	// DeathScreen 제거
-	if (DeathScreenWidget && DeathScreenWidget->IsInViewport())
-	{
-		DeathScreenWidget->RemoveFromParent();
-	}
 }
 
 void USFDeathUIComponent::OnDeathAnimationFinished()
 {
+	if (bIsGameOver)
+	{
+		return; // GameOver 위젯을 스킵했으므로(애니메이션 출력중이라) 스크린 유지 필요
+	}
+	
 	if (DeathScreenWidget && DeathScreenWidget->IsInViewport())
 	{
 		DeathScreenWidget->RemoveFromParent();
 	}
-
+	
 	if (USFPlayerCombatStateComponent* CombatComp = CachedCombatComp.Get())
 	{
 		if (!CombatComp->IsDead())
@@ -269,4 +363,69 @@ void USFDeathUIComponent::OnDeathAnimationFinished()
 			SpectatorComp->StartSpectating();
 		}
 	}
+}
+
+void USFDeathUIComponent::OnGameOver(FGameplayTag Channel, const FSFGameOverMessage& Message)
+{
+	bIsGameOver = true;
+	
+	ShowGameOverScreen();
+}
+
+void USFDeathUIComponent::ShowGameOverScreen()
+{
+	APlayerController* PC = GetController<APlayerController>();
+	if (!PC || !GameOverWidgetClass)
+	{
+		return;
+	}
+
+	// DeathScreen이 이미 표시 중이면 유지
+	if (DeathScreenWidget && DeathScreenWidget->IsInViewport())
+	{
+		return;
+	}
+
+	// GameOver 화면 표시 (관전 중이던 플레이어들)
+	if (!GameOverWidget)
+	{
+		GameOverWidget = CreateWidget<UGameOverScreenWidget>(PC, GameOverWidgetClass);
+	}
+
+	if (GameOverWidget && !GameOverWidget->IsInViewport())
+	{
+		GameOverWidget->AddToViewport(GameOverScreenZOrder);
+		GameOverWidget->PlayGameOverDirection();
+	}
+}
+
+bool USFDeathUIComponent::AreAllOtherPlayersIncapacitated()
+{
+	AGameStateBase* GameState = GetWorld()->GetGameState<AGameStateBase>();
+	if (!GameState)
+	{
+		return false;
+	}
+
+	APlayerController* MyPC = GetController<APlayerController>();
+	if (!MyPC)
+	{
+		return false;
+	}
+
+	for (APlayerState* PS : GameState->PlayerArray)
+	{
+		if (PS->IsInactive() || PS == MyPC->PlayerState)
+		{
+			continue;
+		}
+
+		const USFPlayerCombatStateComponent* CombatComp = PS->FindComponentByClass<USFPlayerCombatStateComponent>();
+		if (CombatComp && !CombatComp->IsIncapacitated())
+		{
+			return false; // 다른 생존자 있음
+		}
+	}
+
+	return true; // 나만 남음
 }

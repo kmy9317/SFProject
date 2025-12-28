@@ -4,6 +4,8 @@
 #include "Blueprint/UserWidget.h"
 #include "SFSpectatorHUDWidget.generated.h"
 
+class ASFPlayerState;
+struct FSFPlayerSelectionInfo;
 class USFSpectatorComponent;
 class UTextBlock;
 
@@ -19,8 +21,14 @@ protected:
 	UFUNCTION()
 	void OnSpectatorTargetChanged(APawn* NewTarget);
 
+	UFUNCTION()
+	void OnTargetPlayerInfoChanged(const FSFPlayerSelectionInfo& NewPlayerSelection);
+
 	UFUNCTION(BlueprintPure, Category = "UI|Spectator")
 	USFSpectatorComponent* GetSpectatorComponent() const;
+
+	void UpdateTargetName(ASFPlayerState* SFPS);
+	void UnbindFromCurrentTarget();
 
 protected:
 	// 관전 대상 이름
@@ -30,4 +38,7 @@ protected:
 private:
 	UPROPERTY()
 	mutable TWeakObjectPtr<USFSpectatorComponent> CachedSpectatorComponent;
+
+	UPROPERTY()
+	TWeakObjectPtr<ASFPlayerState> CachedTargetPlayerState;
 };

@@ -5,6 +5,7 @@
 #include "System/Data/SFStageInfo.h"
 #include "SFPlayerController.generated.h"
 
+class USFSharedUIComponent;
 class USFDeathUIComponent;
 class USFSpectatorComponent;
 struct FSFStageInfo;
@@ -94,4 +95,7 @@ private:
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "SF|Components", meta = (AllowPrivateAccess = "true"))
 	TObjectPtr<USFDeathUIComponent> DeathUIComponent;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "SF|Components", meta = (AllowPrivateAccess = "true"))
+	TObjectPtr<USFSharedUIComponent> SharedUIComponent;
 };

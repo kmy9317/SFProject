@@ -2,6 +2,7 @@
 
 #include "EngineUtils.h"
 #include "SFEnemyManagerComponent.h"
+#include "SFGameOverManagerComponent.h"
 #include "SFGameState.h"
 #include "SFLogChannels.h"
 #include "SFPortalManagerComponent.h"
@@ -49,6 +50,11 @@ void ASFGameMode::InitGameState()
 		if (USFEnemyManagerComponent* EnemyManager = SFGameState->GetEnemyManager())
 		{
 			EnemyManager->OnAllEnemiesDefeated.AddDynamic(this, &ThisClass::OnAllEnemiesDefeated);
+		}
+
+		if (USFGameOverManagerComponent* GameOverManager = SFGameState->GetGameOverManager())
+		{
+			GameOverManager->OnGameOver.AddDynamic(this, &ThisClass::OnGameOver);
 		}
 	}
 }
@@ -546,8 +552,17 @@ bool ASFGameMode::IsBossStage() const
 	{
 		if (USFStageManagerComponent* StageManager = SFGS->GetStageManager())
 		{
+			if (bUsePIETestResurrectionInAnyStage)
+			{
+				return true;
+			}
 			return StageManager->GetCurrentStageInfo().IsBossStage();
 		}
 	}
 	return false;
+}
+
+void ASFGameMode::OnGameOver()
+{
+	// TODO : 통계 저장 및 일정 시간 후 로비 이동 처리?
 }

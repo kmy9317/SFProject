@@ -135,7 +135,7 @@ void ASFPlayerState::CopyProperties(APlayerState* PlayerState)
 
 	if (CombatStateComponent && NewPlayerState->CombatStateComponent)
 	{
-		NewPlayerState->CombatStateComponent->SetCombatInfoFromTravel(CombatStateComponent->GetCombatInfo());
+		NewPlayerState->CombatStateComponent->RestoreCombatStateFromTravel(CombatStateComponent->GetCombatInfo());
 	}
 }
 

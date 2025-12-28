@@ -11,6 +11,7 @@ class USFPartyMemberWidgetController;
 class ASFPlayerState;
 
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnPartyMemberControllerChanged, USFPartyMemberWidgetController*, MemberController);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE(FOnPartyOrderChanged);
 
 /**
  * 로컬 플레이어에서 관리하는 파티 멤버 UI 컨트롤러를 관리하는 매니저 컨트롤러
@@ -31,6 +32,10 @@ public:
 	UFUNCTION(BlueprintPure, Category="SF|Party")
 	USFPartyMemberWidgetController* GetMemberController(APlayerState* PlayerState) const;
 
+	// PlayerId 기준 정렬된 MemberController 목록 반환 
+	UFUNCTION(BlueprintPure, Category="SF|Party")
+	TArray<USFPartyMemberWidgetController*> GetSortedMemberControllers() const;
+
 protected:
 	// GameState의 C++ 델리게이트에 바인딩될 내부 핸들러
 	UFUNCTION()
@@ -38,6 +43,10 @@ protected:
 
 	UFUNCTION()
 	void HandlePlayerRemoved(APlayerState* InPlayerState);
+
+	// PlayerSelection 변경 시 재정렬을 위한 핸들러
+	UFUNCTION()
+	void HandlePlayerInfoChangedForReorder(const FSFPlayerSelectionInfo& NewPlayerSelection);
 
 	// 멤버 컨트롤러를 생성하고 브로드캐스트
 	void AddAndBroadcastMember(ASFPlayerState* PlayerState);
@@ -52,6 +61,9 @@ public:
 
 	UPROPERTY(BlueprintAssignable, Category="SF|Party")
 	FOnPartyMemberControllerChanged OnPartyMemberRemoved;
+
+	UPROPERTY(BlueprintAssignable, Category="SF|Party")
+	FOnPartyOrderChanged OnPartyOrderChanged;
 
 	// 이 컨트롤러가 개별 멤버 컨트롤러를 소유/관리
 	TMap<TWeakObjectPtr<APlayerState>, TObjectPtr<USFPartyMemberWidgetController>> PartyMemberControllerMap;

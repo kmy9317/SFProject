@@ -28,12 +28,18 @@ public:
 
 	UFUNCTION(BlueprintPure, Category = "SF|Hero")
 	UTexture2D* LoadIcon() const;
-
+	
 	UFUNCTION(BlueprintPure, Category = "SF|Hero")
 	TSoftObjectPtr<UTexture2D> GetIconPath() const { return HeroIcon; }
 
 	UFUNCTION(BlueprintPure, Category = "SF|Hero")
+	TSoftClassPtr<UAnimInstance> GetDisplayAnimBPPath() const { return DisplayAnimBP; }
+
+	UFUNCTION(BlueprintPure, Category = "SF|Hero")
 	TSubclassOf<UAnimInstance> LoadDisplayAnimationBP() const;
+
+	UFUNCTION(BlueprintPure, Category = "SF|Hero")
+	TSoftObjectPtr<USkeletalMesh> GetDisplayMeshPath() const { return DisplayMesh; }
 
 	UFUNCTION(BlueprintPure, Category = "SF|Hero")
 	USkeletalMesh* LoadDisplayMesh() const;
@@ -48,15 +54,15 @@ private:
 	UPROPERTY(EditDefaultsOnly, Category = "SF|Hero")
 	FString HeroName;
 
-	UPROPERTY(EditDefaultsOnly, Category = "SF|Hero")
+	UPROPERTY(EditDefaultsOnly, Category = "SF|Hero", meta = (AssetBundles = "Lobby"))
 	TSoftObjectPtr<UTexture2D> HeroIcon;
 
-	UPROPERTY(EditDefaultsOnly, Category = "SF|Hero")
+	UPROPERTY(EditDefaultsOnly, Category = "SF|Hero", meta = (AssetBundles = "Lobby"))
 	TSoftObjectPtr<USkeletalMesh> DisplayMesh;
 
-	UPROPERTY(EditDefaultsOnly, Category = "SF|Hero")
+	UPROPERTY(EditDefaultsOnly, Category = "SF|Hero", meta = (AssetBundles = "Lobby"))
 	TSoftClassPtr<UAnimInstance> DisplayAnimBP;
 
-	UPROPERTY(EditDefaultsOnly, Category = "SF|Hero")
+	UPROPERTY(EditDefaultsOnly, Category = "SF|Hero", meta = (AssetBundles = "InGame"))
 	TSoftObjectPtr<USFPawnData> PawnData;
 };

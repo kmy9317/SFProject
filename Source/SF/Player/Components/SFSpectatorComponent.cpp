@@ -390,14 +390,14 @@ void USFSpectatorComponent::CollectAliveTargets(TArray<APawn*>& OutTargets) cons
         }
     }
 
-    // PlayerId 기준 정렬 (클라이언트 간 순서 동기화)
+    // PlayerSlot 기준 정렬 (클라이언트 간 순서 동기화)
     OutTargets.Sort([](const APawn& A, const APawn& B)
-        {
-        const APlayerState* PSA = A.GetPlayerState();
-        const APlayerState* PSB = B.GetPlayerState();
+    {
+        const ASFPlayerState* PSA = Cast<ASFPlayerState>(A.GetPlayerState());
+        const ASFPlayerState* PSB = Cast<ASFPlayerState>(B.GetPlayerState());
         if (PSA && PSB)
         {
-            return PSA->GetPlayerId() < PSB->GetPlayerId();
+            return PSA->GetPlayerSelection().GetPlayerSlot() < PSB->GetPlayerSelection().GetPlayerSlot();
         }
         return A.GetName() < B.GetName();
     });

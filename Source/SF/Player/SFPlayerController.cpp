@@ -10,6 +10,7 @@
 #include "InputMappingContext.h"
 #include "Components/GameFrameworkInitStateInterface.h"
 #include "Components/SFDeathUIComponent.h"
+#include "Components/SFSharedUIComponent.h"
 #include "Components/SFSpectatorComponent.h"
 #include "GameFramework/Character.h"
 #include "Kismet/GameplayStatics.h"
@@ -22,6 +23,7 @@ ASFPlayerController::ASFPlayerController(const FObjectInitializer& ObjectInitial
 	LoadingCheckComponent = CreateDefaultSubobject<USFLoadingCheckComponent>(TEXT("LoadingCheckComponent"));
 	SpectatorComponent = CreateDefaultSubobject<USFSpectatorComponent>(TEXT("SpectatorComponent"));
 	DeathUIComponent = CreateDefaultSubobject<USFDeathUIComponent>(TEXT("DeathUIComponent"));
+	SharedUIComponent = CreateDefaultSubobject<USFSharedUIComponent>(TEXT("SharedUIComponent"));
 }
 
 void ASFPlayerController::BeginPlay()
