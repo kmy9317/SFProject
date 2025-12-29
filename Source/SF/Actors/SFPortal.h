@@ -3,6 +3,7 @@
 #include "CoreMinimal.h"
 #include "Components/BoxComponent.h"
 #include "GameFramework/Actor.h"
+#include "Interaction/SFInteractable.h"
 #include "SFPortal.generated.h"
 
 class USFPortalManagerComponent;
@@ -15,7 +16,7 @@ class UNiagaraComponent;
  * Overlap 감지하고 GameState에 알림
  */
 UCLASS()
-class SF_API ASFPortal : public AActor
+class SF_API ASFPortal : public AActor, public ISFInteractable
 {
 	GENERATED_BODY()
 
@@ -23,6 +24,11 @@ public:
 	ASFPortal();
 
 	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
+
+	// ~ Begin ISFInteractable
+	virtual FSFInteractionInfo GetPreInteractionInfo(const FSFInteractionQuery& InteractionQuery) const override;
+	virtual bool CanInteraction(const FSFInteractionQuery& InteractionQuery) const override;
+	// ~ End ISFInteractable
 
 	/** Portal 활성화/비활성화 */
 	UFUNCTION(BlueprintCallable, Category = "SF|Portal")
@@ -36,34 +42,28 @@ public:
 	UFUNCTION(BlueprintPure, Category = "SF|Portal")
 	TSoftObjectPtr<UWorld> GetNextStageLevel() const { return NextStageLevel; }
 
-	UPrimitiveComponent* GetTriggerComponent() const { return TriggerBox; }
+	/** 플레이어 Ready 토글 (서버에서 호출) */
+	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "SF|Portal")
+	void TogglePlayerReady(APlayerState* PlayerState);
+
+	/** 플레이어 Ready 상태 확인 */
+	UFUNCTION(BlueprintPure, Category = "SF|Portal")
+	bool IsPlayerReady(APlayerState* PlayerState) const;
 
 protected:
 	virtual void BeginPlay() override;
 	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
 	
-	/** 플레이어 진입 감지 */
-	UFUNCTION()
-	void OnPortalBeginOverlap(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, 
-		UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, 
-		const FHitResult& SweepResult);
-
-	/** 플레이어 이탈 감지 */
-	UFUNCTION()
-	void OnPortalEndOverlap(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, 
-		UPrimitiveComponent* OtherComp, int32 OtherBodyIndex);
-
 	UFUNCTION()
 	void OnRep_bIsEnabled();
 
 private:
 	/** PortalManager 찾기 및 등록 */
 	void FindAndRegisterWithManager();
+	void UpdatePortalEffects();
 
 	UFUNCTION(NetMulticast, Unreliable)
 	void MulticastPlayActivateSound();
-
-	void UpdatePortalEffects();
 
 public:
 	/** 포탈 이펙트 */
@@ -74,11 +74,10 @@ private:
 
 	UPROPERTY(VisibleAnywhere, Category = "Components")
 	TObjectPtr<USceneComponent> Root;
-	
-	/** 충돌 감지 컴포넌트 */
-	UPROPERTY(VisibleAnywhere, Category = "Components")
-	TObjectPtr<UBoxComponent> TriggerBox;
 
+	UPROPERTY(VisibleAnywhere, Category = "Components")
+	TObjectPtr<UBoxComponent> InteractionBox;
+	
 	/** 포탈 메시 */
 	UPROPERTY(VisibleAnywhere, Category = "Components")
 	TObjectPtr<UStaticMeshComponent> PortalMesh;
@@ -99,6 +98,14 @@ private:
 	/** Portal 활성화 여부 */
 	UPROPERTY(ReplicatedUsing = OnRep_bIsEnabled)
 	uint8  bIsEnabled : 1;
+
+	/** "이동 준비" 상호작용 정보 */
+	UPROPERTY(EditAnywhere, Category = "SF|Portal|Interaction")
+	FSFInteractionInfo ReadyInteractionInfo;
+
+	/** "준비 취소" 상호작용 정보 */
+	UPROPERTY(EditAnywhere, Category = "SF|Portal|Interaction")
+	FSFInteractionInfo CancelReadyInteractionInfo;
 
 	/** 캐시된 PortalManager */
 	UPROPERTY()

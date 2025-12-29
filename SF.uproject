@@ -12,7 +12,8 @@
 				"GameplayAbilities",
 				"ModularGameplay",
 				"Engine",
-				"AIModule"
+				"AIModule",
+				"UMG"
 			]
 		}
 	],
@@ -56,15 +57,15 @@
 			"Name": "AnimationWarping",
 			"Enabled": true
 		},
-    {
-        "Name": "GameplayMessageRouter",
-        "Enabled": true
-    },
-    {
-        "Name": "MotionWarping",
-        "Enabled": true
-    },
-    {
+		{
+			"Name": "GameplayMessageRouter",
+			"Enabled": true
+		},
+		{
+			"Name": "MotionWarping",
+			"Enabled": true
+		},
+		{
 			"Name": "CommonLoadingScreen",
 			"Enabled": true
 		}

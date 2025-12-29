@@ -3,8 +3,17 @@
 #include "SFLogChannels.h"
 #include "SFUserWidget.h"
 #include "Blueprint/UserWidget.h"
+#include "Controller/SFSharedOverlayWidgetController.h"
 #include "Controller/SFOverlayWidgetController.h"
 #include "Controller/Party/SFPartyWidgetController.h"
+#include "Player/SFPlayerState.h"
+#include "Player/Components/SFPlayerCombatStateComponent.h"
+#include "Player/Components/SFSharedUIComponent.h"
+
+USFSharedOverlayWidgetController* ASFHUD::GetSharedOverlayWidgetController(const FWidgetControllerParams& WCParams)
+{
+	return Cast<USFSharedOverlayWidgetController>(GetWidgetController(SharedOverlayWidgetControllerClass, WCParams));
+}
 
 USFOverlayWidgetController* ASFHUD::GetOverlayWidgetController(const FWidgetControllerParams& WCParams)
 {
@@ -36,23 +45,73 @@ USFWidgetController* ASFHUD::GetWidgetController(TSubclassOf<USFWidgetController
 	return NewController;
 }
 
+void ASFHUD::BeginPlay()
+{
+	Super::BeginPlay();
+
+	// HUD가 생성되었으므로 SharedUIComponent의 InitState 재시도
+	if (APlayerController* PC = GetOwningPlayerController())
+	{
+		if (USFSharedUIComponent* SharedUIComp = PC->FindComponentByClass<USFSharedUIComponent>())
+		{
+			SharedUIComp->CheckDefaultInitialization();
+		}
+	}
+}
+
+void ASFHUD::InitSharedOverlay(APlayerController* PC, APlayerState* PS, AGameStateBase* GS)
+{
+	if (SharedOverlayWidget)
+	{
+		return;
+	}
+
+	if (!SharedOverlayWidgetClass || !SharedOverlayWidgetControllerClass)
+	{
+		UE_LOG(LogSF, Warning, TEXT("ASFHUD::InitSharedOverlay - SharedOverlayWidgetClass or SharedOverlayWidgetControllerClass is not set"));
+		return;
+	}
+
+	// SharedOverlay 위젯 생성
+	SharedOverlayWidget = CreateWidget<USFUserWidget>(GetWorld(), SharedOverlayWidgetClass);
+	if (!SharedOverlayWidget)
+	{
+		return;
+	}
+
+	// SharedOverlay WidgetController (ASC/AttributeSet 불필요)
+	const FWidgetControllerParams WCParams(PC, PS, nullptr, nullptr, nullptr, GS);
+	if (USFSharedOverlayWidgetController* SharedOverlayController = GetSharedOverlayWidgetController(WCParams))
+	{
+		SharedOverlayWidget->SetWidgetController(SharedOverlayController);
+		SharedOverlayController->BroadcastInitialSets();
+	}
+
+	SharedOverlayWidget->AddToViewport(SharedOverlayZOrder);
+}
+
 void ASFHUD::InitOverlay(APlayerController* PC, APlayerState* PS, UAbilitySystemComponent* ASC, USFPrimarySet_Hero* PrimaryAS, USFCombatSet_Hero* CombatAS, AGameStateBase* GS)
 {
-	if (!OverlayWidgetClass ||!OverlayWidgetControllerClass ||!PartyWidgetControllerClass)
+	if (OverlayWidget)
 	{
-		UE_LOG(LogSF, Warning, TEXT("OverlayWidgetClass, OverlayWidgetControllerClass, or PartyWidgetControllerClass is not set in BP_HUD."));
+		return;
+	}
+	
+	if (!OverlayWidgetClass ||!OverlayWidgetControllerClass)
+	{
+		UE_LOG(LogSF, Warning, TEXT("ASFHUD::InitOverlay - OverlayWidgetClass or OverlayWidgetControllerClass is not set"));
 		return;
 	}
 
 	// Overlay 위젯 생성
 	OverlayWidget = CreateWidget<USFUserWidget>(GetWorld(), OverlayWidgetClass);
-
-	// 위젯 컨트롤러 파라미터 구성
-	const FWidgetControllerParams WidgetControllerParams(PC, PS, ASC, PrimaryAS, CombatAS, GS);
+	if (!OverlayWidget)
+	{
+		return;
+	}
 	
-	// 오버레이 위젯 컨트롤러 생성
-	USFOverlayWidgetController* OverlayWidgetController = Cast<USFOverlayWidgetController>(GetWidgetController(OverlayWidgetControllerClass, WidgetControllerParams));
-	if (OverlayWidgetController)
+	const FWidgetControllerParams WidgetControllerParams(PC, PS, ASC, PrimaryAS, CombatAS, GS);
+	if (USFOverlayWidgetController* OverlayWidgetController = GetOverlayWidgetController(WidgetControllerParams))
 	{
 		// 위젯에 위젯 컨트롤러 설정
 		// 해당 시점에 OnWidgetControllerSet 함수가 호출됨
@@ -68,4 +127,39 @@ void ASFHUD::InitOverlay(APlayerController* PC, APlayerState* PS, UAbilitySystem
 	
 	// 뷰포트에 위젯 추가
 	OverlayWidget->AddToViewport();
+
+	// CombatInfo 바인딩
+	if (ASFPlayerState* SFPS = Cast<ASFPlayerState>(PS))
+	{
+		if (USFPlayerCombatStateComponent* CombatComp = SFPS->FindComponentByClass<USFPlayerCombatStateComponent>())
+		{
+			CombatComp->OnCombatInfoChanged.AddDynamic(this, &ASFHUD::OnCombatInfoChanged);
+            
+			// 초기 상태 적용
+			const FSFHeroCombatInfo& CombatInfo = CombatComp->GetCombatInfo();
+			UpdateHeroOverlayVisibility(CombatInfo.bIsDead);
+		}
+	}
+}
+
+void ASFHUD::OnCombatInfoChanged(const FSFHeroCombatInfo& CombatInfo)
+{
+	UpdateHeroOverlayVisibility(CombatInfo.bIsDead);
+}
+
+void ASFHUD::UpdateHeroOverlayVisibility(bool bIsDead)
+{
+	if (!OverlayWidget)
+	{
+		return;
+	}
+
+	if (bIsDead)
+	{
+		OverlayWidget->SetVisibility(ESlateVisibility::Collapsed);
+	}
+	else
+	{
+		OverlayWidget->SetVisibility(ESlateVisibility::Visible);
+	}
 }

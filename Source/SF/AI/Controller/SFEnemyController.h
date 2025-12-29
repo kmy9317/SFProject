@@ -26,6 +26,9 @@ public:
 	// ISFAIControllerInterface
 	virtual void InitializeAIController() override;
 
+	UFUNCTION()
+	void OnCombatStateChanged(bool bInCombat);
+
 
 #pragma region Perception
 	// 시야 감지 컴포넌트
@@ -52,9 +55,6 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="AI|Perception")
 	FName TargetTag = FName("Player");
 
-	// 시야 감지 이벤트 콜백 (감지/상실)
-	UFUNCTION()
-	void OnTargetPerceptionUpdated(AActor* Actor, FAIStimulus Stimulus);
 
 #pragma endregion
 	

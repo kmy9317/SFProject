@@ -1,7 +1,9 @@
 #include "SFLoadingCheckComponent.h"
 
+#include "SFSpectatorComponent.h"
 #include "Character/SFPawnExtensionComponent.h"
 #include "Components/GameFrameworkComponentManager.h"
+#include "Player/SFPlayerState.h"
 #include "System/SFInitGameplayTags.h"
 
 
@@ -13,6 +15,31 @@ USFLoadingCheckComponent::USFLoadingCheckComponent(const FObjectInitializer& Obj
 
 bool USFLoadingCheckComponent::ShouldShowLoadingScreen(FString& OutReason) const
 {
+	AController* Controller = GetController<AController>();
+	if (!Controller)
+	{
+		OutReason = TEXT("No Controller");
+		return true;
+	}
+
+	// 죽은 플레이어는 로딩 스크린 불필요
+	if (ASFPlayerState* SFPS = Controller->GetPlayerState<ASFPlayerState>())
+	{
+		if (SFPS->IsDead())
+		{
+			return false; 
+		}
+	}
+
+	// 관전 모드 진입시 로딩 스크린 불필요
+	if (USFSpectatorComponent* SpectatorComp = Controller->FindComponentByClass<USFSpectatorComponent>())
+	{
+		if (SpectatorComp->IsSpectating())
+		{
+			return false;
+		}
+	}
+	
 	if (APawn* OwnedPawn = GetPawn<APawn>())
 	{
 		if (const USFPawnExtensionComponent* PawnExtComp = USFPawnExtensionComponent::FindPawnExtensionComponent(OwnedPawn))

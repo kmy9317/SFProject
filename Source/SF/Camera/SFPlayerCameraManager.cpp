@@ -21,6 +21,8 @@ ASFPlayerCameraManager::ASFPlayerCameraManager(const FObjectInitializer& ObjectI
 	DefaultFOV = SF_CAMERA_DEFAULT_FOV;
 	ViewPitchMin = SF_CAMERA_DEFAULT_PITCH_MIN;
 	ViewPitchMax = SF_CAMERA_DEFAULT_PITCH_MAX;
+
+	bClientSimulatingViewTarget = false;
 }
 
 void ASFPlayerCameraManager::UpdateViewTarget(FTViewTarget& OutVT, float DeltaTime)

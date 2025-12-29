@@ -28,6 +28,10 @@ namespace SFGameplayTags
 	// AoE Attack (범위)
 	UE_DEFINE_GAMEPLAY_TAG_COMMENT(Ability_Enemy_Attack_AoE, "Ability.Enemy.Attack.AoE", "AoE Attack - Area of Effect attack");
 
+	// ========== Enemy State Ability Tags ==========
+
+	// Turn In Place (제자리 회전)
+	UE_DEFINE_GAMEPLAY_TAG_COMMENT(Ability_Enemy_TurnInPlace, "Ability.Enemy.TurnInPlace", "Turn In Place - Character rotation in place");
 
 	// ========== Cooldown Tags ==========
 
@@ -44,9 +48,13 @@ namespace SFGameplayTags
 	UE_DEFINE_GAMEPLAY_TAG_COMMENT(Ability_Cooldown_Enemy_Attack_AoE, "Ability.Cooldown.Enemy.Attack.AoE", "Cooldown for AoE Attack");
 
 	// ========== Hero Ability Tags ==========
-	UE_DEFINE_GAMEPLAY_TAG(Ability_Interact_Active, "Ability.Interact.Active");
+	UE_DEFINE_GAMEPLAY_TAG(Ability_Interact, "Ability.Interact");
+	UE_DEFINE_GAMEPLAY_TAG(Ability_Interact_Active, "Ability.Interact.Active")
+	UE_DEFINE_GAMEPLAY_TAG(Ability_Interact_Object, "Ability.Interact.Object")
 	
 	UE_DEFINE_GAMEPLAY_TAG(Ability_Hero_Dodge, "Ability.Hero.Dodge");
+	UE_DEFINE_GAMEPLAY_TAG(Ability_Hero_Downed, "Ability.Hero.Downed");
+	UE_DEFINE_GAMEPLAY_TAG(Ability_Hero_Death, "Ability.Hero.Death");
 	
 	// Hero Skill Cooldowns
 	UE_DEFINE_GAMEPLAY_TAG_COMMENT(Ability_Cooldown_Hero_Skill_Primary, "Ability.Cooldown.Hero.Skill.Primary", "Cooldown for primary skill");

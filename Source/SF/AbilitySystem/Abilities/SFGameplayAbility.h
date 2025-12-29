@@ -3,9 +3,15 @@
 #include "CoreMinimal.h"
 #include "GenericTeamAgentInterface.h"
 #include "Abilities/GameplayAbility.h"
+#include "Animation/Hero/SFHeroAnimationData.h"
 #include "Character/Hero/Component/SFHeroMovementComponent.h"
 #include "SFGameplayAbility.generated.h"
 
+class ASFPlayerState;
+class UInputAction;
+class USFEquipmentComponent;
+class USFHeroAnimationData;
+class USFPawnExtensionComponent;
 class ASFPlayerController;
 class USFHeroComponent;
 class USFCameraMode;
@@ -39,6 +45,9 @@ public:
 
 	UFUNCTION(BlueprintCallable, Category = "SF|Ability")
 	ASFPlayerController* GetSFPlayerControllerFromActorInfo() const;
+
+	UFUNCTION(BlueprintPure, Category = "SF|Ability")
+	ASFPlayerState* GetSFPlayerStateFromActorInfo() const;
 	
 	UFUNCTION(BlueprintCallable, Category = "SF|Ability")
 	ASFCharacterBase* GetSFCharacterFromActorInfo() const;
@@ -48,6 +57,15 @@ public:
 
 	UFUNCTION(BlueprintCallable, Category = "SF|Ability")
 	USFHeroComponent* GetHeroComponentFromActorInfo() const;
+
+	UFUNCTION(BlueprintCallable, Category = "SF|Ability|Animation")
+	USFHeroAnimationData* GetHeroAnimationData() const;
+
+	UFUNCTION(BlueprintCallable, Category = "SF|Ability|Equipment")
+	USFEquipmentComponent* GetEquipmentComponent() const;
+
+	UFUNCTION(BlueprintCallable, Category = "SF|Ability|Equipment")
+	FSFMontagePlayData GetMainHandEquipMontageData() const;
 	
 	ESFAbilityActivationPolicy GetActivationPolicy() const { return ActivationPolicy; }
 
@@ -78,6 +96,12 @@ public:
 
 	UFUNCTION(BlueprintCallable, Category = "SF|Ability|Movement")
 	void RestoreSlidingMode();
+
+	UFUNCTION(BlueprintCallable)
+	void FlushPressedInput(UInputAction* InputAction);
+
+	UFUNCTION(BlueprintCallable, Category = "SF|Ability|Animation")
+	void ExecuteMontageGameplayCue(const FSFMontagePlayData& MontageData);
 	
 protected:
 	//~UGameplayAbility interface
@@ -86,7 +110,19 @@ protected:
 
 	// 스킬이 발동될 때 실행되는 함수 (언리얼 BP상의 Event ActivateAbility와 동일)
 	virtual void ActivateAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, const FGameplayEventData* TriggerEventData) override;
-
+	
+	virtual bool CommitAbility(
+	const FGameplayAbilitySpecHandle Handle,
+	const FGameplayAbilityActorInfo* ActorInfo,
+	const FGameplayAbilityActivationInfo ActivationInfo,
+	FGameplayTagContainer* OptionalRelevantTags
+) override;
+	
+	bool CommitAbility(
+		const FGameplayAbilitySpecHandle Handle,
+		const FGameplayAbilityActorInfo* ActorInfo,
+		const FGameplayAbilityActivationInfo ActivationInfo
+	);
 protected:
 	
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "SF|AbilityActivation")
@@ -126,4 +162,8 @@ private:
 
 	// 적용 여부 (복원 필요 체크용)
 	bool bSlidingModeApplied = false;
+
+protected:
+	// 쿨타임 초기화 패시브 처리
+	void TryProcCooldownReset();
 };

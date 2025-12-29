@@ -8,6 +8,7 @@
 #include "Save/SFPersistentDataType.h"
 #include "Team/SFTeamTypes.h"
 #include "Character/Hero/Component/SFPermanentUpgradeComponent.h"
+#include "Components/SFPlayerCombatStateComponent.h"
 #include "System/Data/SFPermanentUpgradeTypes.h"
 #include "SFPlayerState.generated.h"
 
@@ -18,6 +19,7 @@ struct FStreamableHandle;
 class ASFPlayerController;
 class USFPawnData;
 class USFAbilitySystemComponent;
+class USFPlayerCombatStateComponent;
 
 // PawnData 로드 완료 델리게이트
 DECLARE_MULTICAST_DELEGATE_OneParam(FOnPawnDataLoaded, const USFPawnData*);
@@ -48,6 +50,9 @@ class SF_API ASFPlayerState : public APlayerState, public IAbilitySystemInterfac
 public:
 	ASFPlayerState(const FObjectInitializer& ObjectInitializer = FObjectInitializer::Get());
 
+	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
+	virtual void PostNetInit() override;
+
 	//~ IGenericTeamAgentInterface
 	virtual void SetGenericTeamId(const FGenericTeamId& NewTeamID) override;
 	virtual FGenericTeamId GetGenericTeamId() const override;
@@ -73,6 +78,9 @@ public:
 	void SetIsReadyForTravel(bool bInIsReadyForTravel);
 	bool GetIsReadyForTravel() const { return bIsReadyForTravel; }
 
+	UFUNCTION(BlueprintPure, Category = "SF|PlayerState")
+	bool IsDead() const;
+
 	//~AActor interface
 	virtual void PostInitializeComponents() override;
 	//~End of AActor interface
@@ -89,6 +97,12 @@ public:
 	ESFPlayerConnectionType GetPlayerConnectionType() const { return MyPlayerConnectionType; }
 	const USFPrimarySet_Hero* GetPrimarySet() const { return PrimarySet; }
 	const USFCombatSet_Hero* GetCombatSet() const { return CombatSet; }
+
+	// Gets the replicated view rotation of this player, used for spectating
+	FRotator GetReplicatedViewRotation() const;
+
+	// Sets the replicated view rotation, only valid on the server
+	void SetReplicatedViewRotation(const FRotator& NewRotation);
 
 	// 트래블 직전에 데이터를 미리 저장하는 함수
 	void SavePersistedData();
@@ -136,8 +150,6 @@ public:
 	UPROPERTY(BlueprintAssignable, Category = "SF|Events")
 	FOnPlayerInfoChangedDelegate OnPlayerInfoChanged;
 
-	void OnPawnReadyForPermanentUpgrade();
-
 private:
 	// 어빌리티 시스템 컴포넌트에서 PawnData를 참조해서 능력을 부여하기 위해 캐싱을 해놓음
 	UPROPERTY(ReplicatedUsing = OnRep_PawnData)
@@ -148,6 +160,9 @@ private:
 
 	UPROPERTY(ReplicatedUsing = OnRep_IsReadyForTravel)
 	uint8 bIsReadyForTravel : 1;
+
+	UPROPERTY(Replicated)
+	FRotator ReplicatedViewRotation;
 
 	UPROPERTY(VisibleAnywhere, Category = "SF|PlayerState")
 	TObjectPtr<USFAbilitySystemComponent> AbilitySystemComponent;
@@ -193,8 +208,10 @@ private:
 	FSFPermanentUpgradeData LastAppliedPermanentUpgradeData;
 	//===========================
 
-protected:
-	// Permanent Upgrade
-	UFUNCTION()
-	void OnAbilitySystemInitialized();
+	//=====Combat State=====
+	UPROPERTY(VisibleAnywhere)
+	TObjectPtr<USFPlayerCombatStateComponent> CombatStateComponent;
+	
+
+	//======================
 };

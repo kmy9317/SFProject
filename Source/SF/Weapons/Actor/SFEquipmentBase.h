@@ -4,6 +4,7 @@
 
 #include "CoreMinimal.h"
 #include "AbilitySystemInterface.h"
+#include "GameplayTagContainer.h"
 #include "GameFramework/Actor.h"
 #include "SFEquipmentBase.generated.h"
 
@@ -29,6 +30,8 @@ public:
 	void SetIsBlocking(bool bNewBlockingState);
 	bool GetIsBlocking() const { return bIsBlocking; }
 
+	const FGameplayTag& GetEquipMontageTag() const { return EquipMontageTag; }
+
 private:
 
 	UFUNCTION()
@@ -47,4 +50,7 @@ public:
 private:
 	UPROPERTY(ReplicatedUsing=OnRep_IsBlocking)
 	bool bIsBlocking;
+
+	UPROPERTY(EditDefaultsOnly, Category = "SF|Animation")
+	FGameplayTag EquipMontageTag;
 };

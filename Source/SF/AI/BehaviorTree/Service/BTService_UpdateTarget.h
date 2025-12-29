@@ -42,5 +42,5 @@ protected:
 	float MaxChaseDistance = 999999.0f; // 기존 2000.0f -> 999999.0f
 
 private:
-	float CalculateTargetScore(UBehaviorTreeComponent& OwnerComp, AActor* Target, ASFEnemyController* AIController) const;
+	float CalculateTargetScore(UBehaviorTreeComponent& OwnerComp, AActor* Target,class ASFBaseAIController* AIController) const;
 };

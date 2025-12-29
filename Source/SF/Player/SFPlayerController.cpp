@@ -8,14 +8,22 @@
 #include "EnhancedInputComponent.h"
 #include "EnhancedInputSubsystems.h"
 #include "InputMappingContext.h"
-#include "GameModes/SFGameState.h"
-#include "GameModes/SFStageManagerComponent.h"
-#include "UI/Common/SFSkillSelectionScreen.h"
+#include "Components/GameFrameworkInitStateInterface.h"
+#include "Components/SFDeathUIComponent.h"
+#include "Components/SFSharedUIComponent.h"
+#include "Components/SFSpectatorComponent.h"
+#include "GameFramework/Character.h"
+#include "Kismet/GameplayStatics.h"
+#include "Pawn/SFSpectatorPawn.h"
+#include "UI/InGame/SFIndicatorWidgetBase.h"
 
 ASFPlayerController::ASFPlayerController(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 {
 	LoadingCheckComponent = CreateDefaultSubobject<USFLoadingCheckComponent>(TEXT("LoadingCheckComponent"));
+	SpectatorComponent = CreateDefaultSubobject<USFSpectatorComponent>(TEXT("SpectatorComponent"));
+	DeathUIComponent = CreateDefaultSubobject<USFDeathUIComponent>(TEXT("DeathUIComponent"));
+	SharedUIComponent = CreateDefaultSubobject<USFSharedUIComponent>(TEXT("SharedUIComponent"));
 }
 
 void ASFPlayerController::BeginPlay()
@@ -32,23 +40,16 @@ void ASFPlayerController::BeginPlay()
 		}
 	}
 
+	// 로컬 플레이어인 경우 팀원 표시 로직 실행
 	if (IsLocalController())
 	{
-		if (ASFGameState* SFGameState = GetWorld()->GetGameState<ASFGameState>())
-		{
-			if (USFStageManagerComponent* StageManager = SFGameState->GetStageManager())
-			{
-				// 이미 클리어된 상태면 즉시 처리
-				if (StageManager->IsStageCleared())
-				{
-					HandleStageCleared(StageManager->GetCurrentStageInfo());
-				}
-				else
-				{
-					StageManager->OnStageCleared.AddDynamic(this, &ThisClass::HandleStageCleared);
-				}
-			}
-		}
+		GetWorld()->GetTimerManager().SetTimer(
+			TeammateSearchTimerHandle,
+			this,
+			&ASFPlayerController::CreateTeammateIndicators,
+			1.0f,
+			true
+			);
 	}
 }
 
@@ -85,6 +86,15 @@ void ASFPlayerController::OnRep_PlayerState()
 			}
 		}
 	}
+
+	// PlayerState가 도착했으므로 이를 기다리던 컴포넌트들의 초기화 재시도
+	for (UActorComponent* Comp : GetComponents())
+	{
+		if (IGameFrameworkInitStateInterface* InitInterface = Cast<IGameFrameworkInitStateInterface>(Comp))
+		{
+			InitInterface->CheckDefaultInitialization();
+		}
+	}
 }
 
 void ASFPlayerController::SetupInputComponent()
@@ -103,6 +113,43 @@ void ASFPlayerController::SetupInputComponent()
 	}
 }
 
+void ASFPlayerController::PlayerTick(float DeltaTime)
+{
+	Super::PlayerTick(DeltaTime);
+
+	ASFPlayerState* SFPS = GetPlayerState<ASFPlayerState>();
+	APawn* CurrentPawn = GetPawn();
+
+	// 관전 중(SpectatorPawn)일 때는 내 시선을 공유할 필요 없음 
+	if (CurrentPawn && CurrentPawn->IsA(ASFSpectatorPawn::StaticClass()))
+	{
+		return; 
+	}
+
+	// 일반 캐릭터 조종 중
+	if (SFPS)
+	{
+		if (IsLocalController())
+		{
+			// 내 화면의 정확한 회전값 가져오기
+			FRotator MyViewRotation = GetControlRotation(); 
+
+			// [Client Local] 로컬 예측을 위해 내 변수 즉시 업데이트 (반응성)
+			SFPS->SetReplicatedViewRotation(MyViewRotation);
+			Server_UpdateViewRotation(MyViewRotation);
+		}
+	}
+}
+
+void ASFPlayerController::Server_UpdateViewRotation_Implementation(FRotator NewRotation)
+{
+	ASFPlayerState* SFPS = GetPlayerState<ASFPlayerState>();
+	if (SFPS)
+	{
+		SFPS->SetReplicatedViewRotation(NewRotation);
+	}
+}
+
 ASFPlayerState* ASFPlayerController::GetSFPlayerState() const
 {
 	return CastChecked<ASFPlayerState>(PlayerState, ECastCheckedType::NullAllowed);
@@ -113,7 +160,6 @@ USFAbilitySystemComponent* ASFPlayerController::GetSFAbilitySystemComponent() co
 	const ASFPlayerState* LCPS = GetSFPlayerState();
 	return (LCPS ? LCPS->GetSFAbilitySystemComponent() : nullptr);
 }
-
 
 void ASFPlayerController::PostProcessInput(const float DeltaTime, const bool bGamePaused)
 {
@@ -166,97 +212,66 @@ void ASFPlayerController::ToggleInGameMenu()
 	
 }
 
-void ASFPlayerController::HandleStageCleared(const FSFStageInfo& ClearedStageInfo)
+void ASFPlayerController::CreateTeammateIndicators()
 {
-	if (!ClearedStageInfo.IsBossStage() && !ClearedStageInfo.IsNormalStage())
+	if (!TeammateIndicatorWidgetClass) 
 	{
 		return;
 	}
 
-	ASFPlayerState* SFPS = GetPlayerState<ASFPlayerState>();
-	if (!SFPS)
+	// 1. 죽거나 사라진 팀원 위젯 청소 (Cleanup)
+	for (auto It = TeammateWidgetMap.CreateIterator(); It; ++It)
 	{
-		return;
-	}
+		AActor* KeyActor = It.Key();
+		USFIndicatorWidgetBase* Widget = It.Value();
 
-	if (!SFPS->IsPawnDataLoaded())
-	{
-		// 아직 로드 안됨 - 대기
-		bPendingStageCleared = true;
-		PendingStageInfo = ClearedStageInfo;
-
-		// 기존 핸들 해제 후 새로 바인딩
-		if (PawnDataLoadedHandle.IsValid())
+		// 조건: 액터가 파괴되었거나(IsValid 실패), 위젯이 타겟을 잃어버렸다면
+		if (!IsValid(KeyActor) || (Widget && !Widget->HasValidTarget()))
 		{
-			SFPS->OnPawnDataLoaded.Remove(PawnDataLoadedHandle);
-		}
-  
-		// 로드 완료 대기
-		PawnDataLoadedHandle = SFPS->OnPawnDataLoaded.AddLambda([this](const USFPawnData* PawnData)
-		{
-			if (bPendingStageCleared)
+			if (Widget)
 			{
-				bPendingStageCleared = false;
-				ShowSkillSelectionScreen(PendingStageInfo.StageIndex);
+				Widget->RemoveFromParent(); // 화면에서 즉시 지움
 			}
-		});
+			It.RemoveCurrent();
+		}
+	}
+
+	// 2. 새로운 팀원 검색 및 위젯 생성
+
+	TArray<AActor*> FoundActors;
+	UGameplayStatics::GetAllActorsOfClass(GetWorld(), ACharacter::StaticClass(), FoundActors);
+
+	APawn* MyPawn = GetPawn();
+
+	for (AActor* Actor : FoundActors)
+	{
+		// A. 플레이어 자신이면 패스
+		if (Actor == MyPawn) continue;
+
+		// B. 이미 위젯을 생성한 액터면 패스
+		if (TeammateWidgetMap.Contains(Actor)) continue;
+
+		// C. 진짜 플레이어인지 확인 (몬스터 제외)
+		APawn* TargetPawn = Cast<APawn>(Actor);
+		if (!TargetPawn) continue;
+
+		// PlayerState가 없으면 봇이나 몬스터로 간주하고 패스 -> 혹시 PlayerState가 늦게 로딩될 수도 있으니, 이번 틱에 없으면 다음 틱에 재검사
+		if (TargetPawn->GetPlayerState() == nullptr) continue;
+
+		// === [조건 만족: 위젯 생성] ===
+		USFIndicatorWidgetBase* NewIndicator = CreateWidget<USFIndicatorWidgetBase>(this, TeammateIndicatorWidgetClass);
+		if (NewIndicator)
+		{
+			// 타겟 설정
+			NewIndicator->SetTargetActor(Actor);
 			
-		return;
-	}
-	
-	ShowSkillSelectionScreen(ClearedStageInfo.StageIndex);
-}
-
-void ASFPlayerController::ShowSkillSelectionScreen(int32 StageIndex)
-{
-	if (SkillSelectionScreenInstance && SkillSelectionScreenInstance->IsInViewport())
-	{
-		return;
-	}
-
-	if (!SkillSelectionScreenClass)
-	{
-		UE_LOG(LogTemp, Warning, TEXT("[PlayerController] SkillSelectionScreenClass is not set!"));
-		return;
-	}
-
-	SkillSelectionScreenInstance = CreateWidget<USFSkillSelectionScreen>(this, SkillSelectionScreenClass);
-	if (SkillSelectionScreenInstance)
-	{
-		// 선택 완료 바인딩
-		SkillSelectionScreenInstance->OnSelectionCompleteDelegate.AddDynamic(this, &ThisClass::OnSkillSelectionComplete);
-
-		// 스테이지 정보로 초기화
-		SkillSelectionScreenInstance->InitializeSelection(StageIndex);
-
-		// 화면에 표시
-		SkillSelectionScreenInstance->AddToViewport(50);
-
-		// UI 모드로 전환
-		FInputModeUIOnly InputMode;
-		InputMode.SetWidgetToFocus(SkillSelectionScreenInstance->TakeWidget());
-		InputMode.SetLockMouseToViewportBehavior(EMouseLockMode::DoNotLock);
-		SetInputMode(InputMode);
-		bShowMouseCursor = true;
-	}
-}
-
-void ASFPlayerController::OnSkillSelectionComplete()
-{
-	HideSkillSelectionScreen();
-}
-
-
-void ASFPlayerController::HideSkillSelectionScreen()
-{
-	if (SkillSelectionScreenInstance)
-	{
-		SkillSelectionScreenInstance->OnSelectionCompleteDelegate.RemoveAll(this);
-		SkillSelectionScreenInstance->RemoveFromParent();
-		SkillSelectionScreenInstance = nullptr;
-
-		// 게임 모드로 복귀
-		SetInputMode(FInputModeGameOnly());
-		bShowMouseCursor = false;
+			// 화면 최하단(-1)에 부착 -> 다른 HUD를 가리지 않도록
+			NewIndicator->AddToViewport(-1);
+			
+			// 관리 맵에 등록
+			TeammateWidgetMap.Add(Actor, NewIndicator);
+			
+			UE_LOG(LogTemp, Log, TEXT("Team Indicator Created for: %s"), *Actor->GetName());
+		}
 	}
 }

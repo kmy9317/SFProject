@@ -9,11 +9,12 @@
 #include "Interaction/SFInteractable.h"
 #include "SFCharacterBase.generated.h"
 
+class UBoxComponent;
 class USFPawnExtensionComponent;
 class USFAbilitySystemComponent;
 
 UCLASS()
-class SF_API ASFCharacterBase : public ACharacter, public IAbilitySystemInterface, public IGameplayTagAssetInterface,public IGenericTeamAgentInterface, public ISFInteractable
+class SF_API ASFCharacterBase : public ACharacter, public IAbilitySystemInterface, public IGameplayTagAssetInterface, public IGenericTeamAgentInterface, public ISFInteractable
 {
 	GENERATED_BODY()
 
@@ -27,7 +28,7 @@ public:
 	/**
 	 * IAbilitySystemInterface
 	 */
-	USFAbilitySystemComponent* GetSFAbilitySystemComponent() const;
+	virtual USFAbilitySystemComponent* GetSFAbilitySystemComponent() const;
 	virtual UAbilitySystemComponent* GetAbilitySystemComponent() const override;
 
 	virtual void GetOwnedGameplayTags(FGameplayTagContainer& TagContainer) const override;
@@ -60,6 +61,11 @@ protected:
 	virtual void Tick(float DeltaSeconds) override;
 
 protected:
+
+	// 상호작용 감지용 Box (Interaction 채널만 반응) 
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "SF|Interaction")
+	TObjectPtr<UBoxComponent> InteractionBox;
+	
 	UPROPERTY(VisibleInstanceOnly, BlueprintReadOnly, Category = "SF|Character|Animation")
 	float GroundSpeed;
 
@@ -76,14 +82,8 @@ protected:
 
 public:
 	// ~ Begin ISFInteractable
-	virtual FSFInteractionInfo GetPreInteractionInfo(const FSFInteractionQuery& InteractionQuery) const override;
-	virtual bool CanInteraction(const FSFInteractionQuery& InteractionQuery) const override;
 	virtual void GetMeshComponents(TArray<UMeshComponent*>& OutMeshComponents) const override;
 	// ~ End ISFInteractable
-
-protected:
-	UPROPERTY(EditDefaultsOnly, Category="SF|Interaction")
-	FSFInteractionInfo InteractionInfo;
 
 private:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "SF|Character", Meta = (AllowPrivateAccess = "true"))

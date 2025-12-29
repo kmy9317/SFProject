@@ -28,6 +28,8 @@ protected:
 	virtual void PreAttributeChange(const FGameplayAttribute& Attribute, float& NewValue) override;
 	virtual void PostAttributeChange(const FGameplayAttribute& Attribute, float OldValue, float NewValue) override;
 
+	virtual void ClampAttribute(const FGameplayAttribute& Attribute, float& NewValue) const override;
+
 public:
 	ATTRIBUTE_ACCESSORS(ThisClass, AttackPower);
 	ATTRIBUTE_ACCESSORS(ThisClass, Defense);

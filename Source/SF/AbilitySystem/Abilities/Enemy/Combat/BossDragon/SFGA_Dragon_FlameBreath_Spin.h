@@ -13,4 +13,6 @@ UCLASS()
 class SF_API USFGA_Dragon_FlameBreath_Spin : public USFGA_Enemy_BaseAttack
 {
 	GENERATED_BODY()
+
+	
 };

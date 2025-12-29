@@ -50,21 +50,26 @@ ASFEnemy::ASFEnemy(const FObjectInitializer& ObjectInitializer)
 	SetNetUpdateFrequency(100.f);
 	//사실 PlayerState에서 Ability세팅할때랑 똑같이 세팅을 라이라에서는 하는것 같다
 
-    bUseControllerRotationYaw = false;  // 컨트롤러 회전을 직접 따라가지 않음
+    // ✅ Lyra 철학: Character는 Controller 회전을 직접 따라가지 않음
+    // 회전은 AnimInstance의 TurnInPlace 또는 CharacterMovement의 OrientRotationToMovement로 처리
+    bUseControllerRotationYaw = false;
+	bUseControllerRotationPitch = false;
+	bUseControllerRotationRoll = false;
 
     if (UCharacterMovementComponent* MoveComp = GetCharacterMovement())
     {
-    	// 부드러운 회전 활성화
+    	// ✅ 수정: true로 설정 - Actor가 자동으로 ControlRotation을 따라감
+    	// 작은 각도는 자연스럽게 회전, 큰 각도만 Turn In Place로 처리
         MoveComp->bUseControllerDesiredRotation = true;
-    	// 이동 방향으로 자동 회전 비활성화
+    	// 이동 방향으로 자동 회전 비활성화 (ControllerYaw 우선)
         MoveComp->bOrientRotationToMovement = false;
 
-        MoveComp->RotationRate = FRotator(0.0f, 540.0f, 0.0f);
+        // 자동 회전 속도 설정 (360도/초)
+        MoveComp->RotationRate = FRotator(0.0f, 360.0f, 0.0f);
 
-    	
-    	MoveComp->MaxAcceleration = 1024.0f;  
-    	MoveComp->BrakingDecelerationWalking = 1024.0f;  
-    	MoveComp->GroundFriction = 8.0f; 
+    	MoveComp->MaxAcceleration = 500.0f;
+    	MoveComp->BrakingDecelerationWalking = 1024.0f;
+    	MoveComp->GroundFriction = 8.0f;
     }
 	
 }
@@ -207,8 +212,8 @@ void ASFEnemy::InitializeMovementComponent()
 
 FGenericTeamId ASFEnemy::GetGenericTeamId() const
 {
-	// [수정] 변수명 충돌 방지를 위해 Controller -> EnemyController 로 변경
-	if (ASFEnemyController* EnemyController = Cast<ASFEnemyController>(GetController()))
+
+	if (ASFBaseAIController* EnemyController = Cast<ASFBaseAIController>(GetController()))
 	{
 		return EnemyController->GetGenericTeamId();
 	}

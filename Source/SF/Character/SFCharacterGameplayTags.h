@@ -13,7 +13,9 @@ namespace SFGameplayTags
 	SF_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(Character_State_ComboWindow);
 	SF_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(Character_State_UsingAbility);
 	SF_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(Character_State_Skill);
-	
+	SF_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(Character_State_Downed);
+	SF_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(Character_State_TurningInPlace);
+
 	// ========== 방어/회피 ==========
 	SF_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(Character_State_Blocking);
 	SF_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(Character_State_Dodging);
@@ -26,6 +28,8 @@ namespace SFGameplayTags
 	SF_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(Character_State_Launched);
 	SF_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(Character_State_Parried);
 	SF_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(Character_State_Groggy);
+	SF_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(Character_State_Grabbed);
+	
 
 	// ========== 이펙트 ==========
 	SF_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(Character_State_Invulnerable);
@@ -34,4 +38,7 @@ namespace SFGameplayTags
 	SF_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(Character_State_Health);
 	SF_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(Character_State_Mana);
 	SF_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(Character_State_Stamina);
+	
+	// ========== 상호작용 ==========
+	SF_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(Character_State_Interact);
 }

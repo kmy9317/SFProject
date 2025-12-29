@@ -19,7 +19,7 @@ UBTService_UpdateTarget::UBTService_UpdateTarget()
 	HasTargetKey.AddBoolFilter(this, GET_MEMBER_NAME_CHECKED(UBTService_UpdateTarget, HasTargetKey));
 }
 
-float UBTService_UpdateTarget::CalculateTargetScore(UBehaviorTreeComponent& OwnerComp, AActor* Target, ASFEnemyController* AIController) const
+float UBTService_UpdateTarget::CalculateTargetScore(UBehaviorTreeComponent& OwnerComp, AActor* Target, ASFBaseAIController* AIController) const
 {
 	if (!Target || !AIController) return -1.f;
 	APawn* ControlledPawn = AIController->GetPawn();
@@ -34,8 +34,16 @@ void UBTService_UpdateTarget::TickNode(UBehaviorTreeComponent& OwnerComp, uint8*
 {
 	Super::TickNode(OwnerComp, NodeMemory, DeltaSeconds);
 
-	ASFEnemyController* AIController = Cast<ASFEnemyController>(OwnerComp.GetAIOwner());
+	ASFBaseAIController* AIController = Cast<ASFBaseAIController>(OwnerComp.GetAIOwner());
 	if (!AIController) return;
+
+	// CC 상태나 TurnInPlace 중에는 타겟 업데이트 스킵
+	if (AIController->GetCurrentRotationMode() == EAIRotationMode::None ||
+		AIController->IsTurningInPlace())
+	{
+		return;
+	}
+
 
 	APawn* MyPawn = AIController->GetPawn();
 	if (!MyPawn) return;
@@ -53,11 +61,18 @@ void UBTService_UpdateTarget::TickNode(UBehaviorTreeComponent& OwnerComp, uint8*
 		
 		if (Dist > MaxChaseDistance)
 		{
-			// 너무 멀어졌을 때만 타겟 해제
 			BlackboardComp->ClearValue(TargetActorKey.SelectedKeyName);
 			BlackboardComp->SetValueAsBool(HasTargetKey.SelectedKeyName, false);
 			AIController->TargetActor = nullptr;
-			return; 
+
+			//  CombatComponent도 클리어
+			if (AIController->CombatComponent && CurrentTarget)
+			{
+				//AIController->CombatComponent->HandleTargetPerceptionUpdated(CurrentTarget, false);
+			}
+
+			// 타겟을 지웠으니 이번 틱 종료
+			return;
 		}
 	}
 
@@ -108,21 +123,48 @@ void UBTService_UpdateTarget::TickNode(UBehaviorTreeComponent& OwnerComp, uint8*
 
 		if (bShouldSwitch)
 		{
-			CurrentTarget = BestTarget;
-			
+
+			CurrentTarget = BestTarget; // 로컬 변수 갱신
+
+			// 블랙보드 및 컨트롤러 갱신
 			BlackboardComp->SetValueAsObject(TargetActorKey.SelectedKeyName, CurrentTarget);
 			BlackboardComp->SetValueAsBool(HasTargetKey.SelectedKeyName, true);
 			AIController->TargetActor = CurrentTarget;
+
+			//  CombatComponent도 업데이트 (UpdateDesiredControlYaw가 올바른 타겟 사용)
+			if (AIController->CombatComponent)
+			{
+				//
+			}
+
+			// [중요] 타겟을 새로 찾았을 때만 LastKnownPosition 업데이트 (추격용)
+			// 시야에서 사라져도 마지막 위치로 가게 하려면 이 부분이 중요함
 			BlackboardComp->SetValueAsVector("LastKnownPosition", CurrentTarget->GetActorLocation());
 		}
 	}
 	else if (!CurrentTarget)
 	{
-		// 타겟도 없고, 보이는 적도 없으면 클리어
-		BlackboardComp->ClearValue(TargetActorKey.SelectedKeyName);
-		BlackboardComp->SetValueAsBool(HasTargetKey.SelectedKeyName, false);
-		AIController->TargetActor = nullptr;
-		return;
+		// 기존 타겟이 있었다면? -> [수정 1]에서 거리 체크를 통과했으므로 "유지"합니다.
+		if (CurrentTarget)
+		{
+			// 시야에는 없지만 추격 거리 안이므로 유지됨.
+			// 아무 작업 안 함 (Keep)
+		}
+		else
+		{
+			// 타겟도 없고, 보이는 적도 없음 -> 클리어 (안전 장치)
+			BlackboardComp->ClearValue(TargetActorKey.SelectedKeyName);
+			BlackboardComp->SetValueAsBool(HasTargetKey.SelectedKeyName, false);
+			AIController->TargetActor = nullptr;
+
+			//  CombatComponent도 클리어
+			if (AIController->CombatComponent && CurrentTarget)
+			{
+				//
+			}
+
+			return;
+		}
 	}
 
 	// 타겟 추적 중이면 마지막 위치 업데이트

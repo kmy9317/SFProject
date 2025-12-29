@@ -2,8 +2,11 @@
 
 #include "CoreMinimal.h"
 #include "GameFramework/GameModeBase.h"
+#include "GameFramework/PlayerStart.h"
 #include "SFGameMode.generated.h"
 
+class USFGameplayAbility;
+class ASFPlayerState;
 class ASFPortal;
 class USFHeroDefinition;
 class USFPawnData;
@@ -45,13 +48,32 @@ public:
 	/** GameState에서 호출하는 Travel 요청 */
 	void RequestTravelToNextStage(TSoftObjectPtr<UWorld> NextStageLevel);
 
+	/** 보스 스테이지 클리어 시 Dead/Downed 플레이어 모두 회복 */
+	void ReviveAllIncapacitatedPlayers();
+
 protected:
+	void ReviveDeadPlayer(ASFPlayerState* PlayerState);
+
+	void ReviveDownedPlayer(ASFPlayerState* PlayerState);
+
+	UFUNCTION()
+	void OnResurrectionReady(ASFPlayerState* PlayerState);
+	
 	UFUNCTION()
 	void OnAllEnemiesDefeated();
+
+	bool IsBossStage() const;
+
+	UFUNCTION()
+	void OnGameOver();
 
 private:
 	void SetupPlayerPawnDataLoading(APlayerController* PC);
 	void OnPlayerPawnDataLoaded(APlayerController* PC, const USFPawnData* PawnData);
+
+protected:
+	UPROPERTY(EditDefaultsOnly, Category = "SF|Resurrection")
+	TSubclassOf<USFGameplayAbility> ResurrectionAbilityClass;
 
 private:
 	/** PawnData 로드 대기 중인 플레이어들*/
@@ -65,16 +87,10 @@ private:
 	UPROPERTY(EditDefaultsOnly, Category = "SF|Test")
 	bool bUsePIETestMode = false;
 
-	/** TODO : 테스트용 자동 포탈 활성화 여부 (삭제 예정)*/
-	UPROPERTY(EditDefaultsOnly, Category = "SF|Test|Portal")
-	bool bAutoActivatePortal = true;
-
-	/** TODO : 게임 시작 후 포탈 활성화까지 대기 시간 (삭제 예정)*/
-	UPROPERTY(EditDefaultsOnly, Category = "SF|Test|Portal", meta = (EditCondition = "bAutoActivatePortal", ClampMin = "0.0"))
-	float PortalActivationDelay = 5.0f;
-
-	FTimerHandle PortalActivationTimerHandle;
-
+	/** PIE 테스트 부활 모드 활성화 여부(스테이지 유무x)*/
+	UPROPERTY(EditDefaultsOnly, Category = "SF|Test")
+	bool bUsePIETestResurrectionInAnyStage = false;
+	
 	UPROPERTY()
 	TArray<APlayerStart*> AssignedPlayerStarts;
 };

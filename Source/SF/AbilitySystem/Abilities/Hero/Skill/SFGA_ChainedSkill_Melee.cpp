@@ -51,6 +51,22 @@ void USFGA_ChainedSkill_Melee::ActivateAbility(const FGameplayAbilitySpecHandle 
 		return;
 	}
 
+	// 쿨타임 초기화 관련 로직
+	UAbilitySystemComponent* ASC = GetAbilitySystemComponentFromActorInfo();
+	if (!ASC)
+	{
+		return;
+	}
+
+	// 이미 바인딩돼 있으면 중복 방지
+	if (!CooldownGEAddedHandle.IsValid())
+	{
+		CooldownGEAddedHandle =
+			ASC->OnActiveGameplayEffectAddedDelegateToSelf.AddUObject(
+				this,
+				&ThisClass::OnCooldownGEAdded);
+	}
+	
 	ExecutingChainIndex = GetCurrentChain();
 	ExecuteChainStep(ExecutingChainIndex);
 
@@ -158,4 +174,66 @@ void USFGA_ChainedSkill_Melee::EndAbility(const FGameplayAbilitySpecHandle Handl
 	Super::EndAbility(Handle, ActorInfo, ActivationInfo, bReplicateEndAbility, bWasCancelled);
 }
 
+void USFGA_ChainedSkill_Melee::OnCooldownGEAdded(
+	UAbilitySystemComponent* TargetASC,
+	const FGameplayEffectSpec& Spec,
+	FActiveGameplayEffectHandle ActiveHandle)
+{
+	const FGameplayTagContainer* CDTags = GetCooldownTags();
+	if (!CDTags || CDTags->IsEmpty())
+	{
+		return;
+	}
 
+	FGameplayTagContainer EffectTags;
+	Spec.GetAllAssetTags(EffectTags);
+	Spec.GetAllGrantedTags(EffectTags);
+
+	if (!EffectTags.HasAny(*CDTags))
+	{
+		return;
+	}
+
+	// 🔥 Timeout / Complete 공통 처리
+	TryProcCooldownReset_FromASC(TargetASC);
+
+	if (CooldownGEAddedHandle.IsValid())
+	{
+		TargetASC->OnActiveGameplayEffectAddedDelegateToSelf.Remove(CooldownGEAddedHandle);
+		CooldownGEAddedHandle.Reset();
+	}
+}
+
+void USFGA_ChainedSkill_Melee::TryProcCooldownReset_FromASC(UAbilitySystemComponent* ASC)
+{
+	if (!ASC)
+	{
+		return;
+	}
+
+	AActor* OwnerActor = ASC->GetOwner();
+	if (!OwnerActor || !OwnerActor->HasAuthority())
+	{
+		return;
+	}
+	
+	if (FMath::FRand() > 0.25f)
+	{
+		return;
+	}
+
+	const FGameplayTagContainer* CDTags = GetCooldownTags();
+	if (!CDTags || CDTags->IsEmpty())
+	{
+		return;
+	}
+
+	// 쿨타임 초기화
+	ASC->RemoveActiveEffectsWithTags(*CDTags);
+}
+
+const FGameplayTagContainer* USFGA_ChainedSkill_Melee::GetCooldownTags() const
+{
+	// 인스펙터에서 설정한 이 태그(Ability.Cooldown.Hero.Skill.Identity)를 기준으로 제거할 거라서
+	return CooldownTags.IsEmpty() ? Super::GetCooldownTags() : &CooldownTags;
+}

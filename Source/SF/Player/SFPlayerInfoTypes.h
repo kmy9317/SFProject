@@ -129,3 +129,12 @@ private:
 	UPROPERTY(BlueprintReadOnly, meta = (AllowPrivateAccess = "true"))
 	bool bReady;
 };
+
+USTRUCT(BlueprintType)
+struct FSFHeroDisplayInfo
+{
+	GENERATED_BODY()
+
+	UPROPERTY()
+	FString PlayerName;
+};

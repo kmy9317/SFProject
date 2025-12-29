@@ -1,5 +1,3 @@
-// Fill out your copyright notice in the Description page of Project Settings.
-
 #pragma once
 
 #include "CoreMinimal.h"
@@ -7,54 +5,64 @@
 #include "AbilitySystem/Abilities/SFGameplayAbility.h"
 #include "SFGA_EnemyHitReaction.generated.h"
 
-class UAbilityTask_PlayMontageAndWait; 
-/**
- * 
- */
+class UAbilityTask_PlayMontageAndWait;
+
 UCLASS()
 class SF_API USFGA_EnemyHitReaction : public USFGameplayAbility
 {
-	GENERATED_BODY()
+    GENERATED_BODY()
 
 public:
-	USFGA_EnemyHitReaction();
+    USFGA_EnemyHitReaction();
 
 protected:
-	/** 피격 반응 시 재생할 애니메이션 몽타주 */
-	UPROPERTY(EditDefaultsOnly, Category = "SFGA|HitReaction")
-	UAnimMontage* FrontHitMontage;
+    UPROPERTY(EditDefaultsOnly, Category = "SFGA|HitReaction")
+    UAnimMontage* FrontHitMontage;
 
-	UPROPERTY(EditDefaultsOnly, Category = "SFGA|HitReaction")
-	UAnimMontage* BackHitMontage;
-	
-	UAbilityTask_PlayMontageAndWait* MontageTask;
+    UPROPERTY(EditDefaultsOnly, Category = "SFGA|HitReaction")
+    UAnimMontage* BackHitMontage;
 
-	/** Gameplay Effect가 적용된 핸들. EndAbility에서 제거하는 데 사용 */
-	FActiveGameplayEffectHandle ActiveHitEffectHandle;
-	
-	virtual void ActivateAbility(const FGameplayAbilitySpecHandle Handle, 
-		const FGameplayAbilityActorInfo* ActorInfo, 
-		const FGameplayAbilityActivationInfo ActivationInfo, 
-		const FGameplayEventData* TriggerEventData) override;
+    // 피격 후 무적 시간 
+    UPROPERTY(EditDefaultsOnly, Category = "SFGA|HitReaction|Invincibility")
+    float InvincibilityDuration = 2.0f;
 
-	virtual void EndAbility(const FGameplayAbilitySpecHandle Handle, 
-		const FGameplayAbilityActorInfo* ActorInfo, 
-		const FGameplayAbilityActivationInfo ActivationInfo, 
-		bool bReplicateEndAbility, bool bWasCancelled) override;
+    // 피격 후 무적 활성화 여부
+    UPROPERTY(EditDefaultsOnly, Category = "SFGA|HitReaction|Invincibility")
+    bool bActivateInvincibilityOnEnd = true;
 
+    // 현재 무적 상태인지
+    bool bIsInvincible = false;
+    
+    UAbilityTask_PlayMontageAndWait* MontageTask;
+    FActiveGameplayEffectHandle ActiveHitEffectHandle;
+    FTimerHandle InvincibilityTimerHandle;
+    
+    virtual void ActivateAbility(const FGameplayAbilitySpecHandle Handle, 
+       const FGameplayAbilityActorInfo* ActorInfo, 
+       const FGameplayAbilityActivationInfo ActivationInfo, 
+       const FGameplayEventData* TriggerEventData) override;
 
+    virtual void EndAbility(const FGameplayAbilitySpecHandle Handle, 
+       const FGameplayAbilityActorInfo* ActorInfo, 
+       const FGameplayAbilityActivationInfo ActivationInfo, 
+       bool bReplicateEndAbility, bool bWasCancelled) override;
 
+    // 무적 활성화 
+    void ActivateInvincibility();
 
-	UFUNCTION()
-	void OnMontageCompleted();
+    // 무적 해제 
+    UFUNCTION()
+    void DeactivateInvincibility();
 
-	UFUNCTION()
-	void OnMontageCancelled();
+    UFUNCTION()
+    void OnMontageCompleted();
 
-	UFUNCTION()
-	void OnMontageInterrupted();
-	
-	FVector ExtractHitLocationFromEvent(const FGameplayEventData* EventData) const;
+    UFUNCTION()
+    void OnMontageCancelled();
 
-	FVector ExtractHitDirectionFromEvent(const FGameplayEventData* EventData) const;
+    UFUNCTION()
+    void OnMontageInterrupted();
+    
+    FVector ExtractHitLocationFromEvent(const FGameplayEventData* EventData) const;
+    FVector ExtractHitDirectionFromEvent(const FGameplayEventData* EventData) const;
 };

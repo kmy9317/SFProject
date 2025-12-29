@@ -13,6 +13,9 @@ USFGA_CharacterDeath::USFGA_CharacterDeath()
 {
 	InstancingPolicy = EGameplayAbilityInstancingPolicy::InstancedPerActor;
 	bServerRespectsRemoteAbilityCancellation = true;
+
+
+	CancelAbilitiesWithTag.AddTag(SFGameplayTags::Character_State_Attacking);
 	
 	FAbilityTriggerData TriggerData;
 	TriggerData.TriggerTag = SFGameplayTags::GameplayEvent_Death;

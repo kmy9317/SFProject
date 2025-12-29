@@ -99,6 +99,11 @@ void ASFWorldInteractable::OnInteractionSuccess(AActor* Interactor)
 
 bool ASFWorldInteractable::CanInteraction(const FSFInteractionQuery& InteractionQuery) const
 {
+	if (!ISFInteractable::CanInteraction(InteractionQuery))
+	{
+		return false;
+	}
+	
 	return bShouldConsume ? (bWasConsumed == false) : true;
 }
 
@@ -107,5 +112,19 @@ void ASFWorldInteractable::OnRep_WasConsumed()
 	// 기본 구현 (필요 시)
 	UE_LOG(LogSF, Warning, TEXT("bWasConsumed changed: %d"), bWasConsumed);
 }
+
+int32 ASFWorldInteractable::GetActiveInteractorCount() const
+{
+	int32 Count = 0;
+	for (const TWeakObjectPtr<AActor>& Interactor : CachedInteractors)
+	{
+		if (Interactor.IsValid())
+		{
+			++Count;
+		}
+	}
+	return Count;
+}
+
 
 

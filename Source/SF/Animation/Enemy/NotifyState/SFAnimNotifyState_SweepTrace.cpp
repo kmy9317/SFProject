@@ -4,6 +4,7 @@
 #include "SFAnimNotifyState_SweepTrace.h"
 
 #include "AbilitySystemBlueprintLibrary.h"
+#include "AbilitySystemComponent.h"
 #include "Animation/Hero/AnimNotify/SFAnimNotify_SendGameplayEvent.h"
 #include "DrawDebugHelpers.h"
 
@@ -143,6 +144,10 @@ void USFAnimNotifyState_SweepTrace::NotifyTick(
 				if (!HitActor || HitActor == Owner)
 					continue;
 
+				if (!HitActor->IsA(APawn::StaticClass()))
+				{
+					continue;
+				}
 				if (HitActors.Contains(HitActor))
 					continue;
 
@@ -153,7 +158,12 @@ void USFAnimNotifyState_SweepTrace::NotifyTick(
 				EventData.EventTag = EventTag;
 				EventData.Instigator = Owner;
 				EventData.Target = HitActor;
-				EventData.ContextHandle.AddHitResult(Hit);
+				UAbilitySystemComponent* ASC = UAbilitySystemBlueprintLibrary::GetAbilitySystemComponent(Owner);
+				if (!ASC)
+					continue;
+				FGameplayEffectContextHandle ContextHandle = ASC->MakeEffectContext();
+				ContextHandle.AddHitResult(Hit);
+				EventData.ContextHandle = ContextHandle;
 
 				UAbilitySystemBlueprintLibrary::SendGameplayEventToActor(
 					Owner,

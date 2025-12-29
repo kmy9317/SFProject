@@ -1,6 +1,7 @@
 #include "SFGameState.h"
 
 #include "SFEnemyManagerComponent.h"
+#include "SFGameOverManagerComponent.h"
 #include "SFPortalManagerComponent.h"
 #include "SFStageManagerComponent.h"
 
@@ -9,6 +10,7 @@ ASFGameState::ASFGameState()
 	PortalManager = CreateDefaultSubobject<USFPortalManagerComponent>(TEXT("PortalManager"));
 	EnemyManager = CreateDefaultSubobject<USFEnemyManagerComponent>(TEXT("EnemyManager"));
 	StageManager = CreateDefaultSubobject<USFStageManagerComponent>(TEXT("StageManager"));
+	GameOverManager = CreateDefaultSubobject<USFGameOverManagerComponent>(TEXT("GameOverManager"));
 }
 
 void ASFGameState::AddPlayerState(APlayerState* PlayerState)
@@ -32,3 +34,9 @@ void ASFGameState::RemovePlayerState(APlayerState* PlayerState)
 		OnPlayerRemoved.Broadcast(PlayerState);
 	}
 }
+
+bool ASFGameState::IsGameOver() const
+{
+	return GameOverManager && GameOverManager->IsGameOver();
+}
+

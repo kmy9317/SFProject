@@ -33,7 +33,7 @@ protected:
 	// 타겟(캐릭터)의 상태(앉기, 점프 등)에 맞춰 뷰 업데이트.
 	void UpdateForTarget(float DeltaTime);
 	// 벽 뚫림(관통) 방지 로직 업데이트.
-	void UpdatePreventPenetration(float DeltaTime);
+	virtual void UpdatePreventPenetration(float DeltaTime);
 	// 실제 벽 뚫림 방지 계산 수행.
 	void PreventCameraPenetration(class AActor const& ViewTarget, FVector const& SafeLoc, FVector& CameraLoc, float const& DeltaTime, float& DistBlockedPct, bool bSingleRayOnly);
 	

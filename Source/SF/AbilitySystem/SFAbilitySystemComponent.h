@@ -71,8 +71,12 @@ public:
 
 	// Duration GE 복원
 	void RestoreGameplayEffectsFromData(const FSFSavedAbilitySystemData& InData);
-
+\
+	/**
+	 * 어빌리티 관리 헬퍼 함수
+	 */
 	
+	void CancelActiveAbilities(const FGameplayTagContainer* WithTags = nullptr, const FGameplayTagContainer* WithoutTags = nullptr, UGameplayAbility* Ignore = nullptr, bool bIncludeOnSpawn = false);
 
 protected:
 
@@ -102,10 +106,7 @@ protected:
 	// 현재 입력이 지속적으로 눌려있는 어빌리티들의 핸들.
 	TArray<FGameplayAbilitySpecHandle> InputHeldSpecHandles;
 
-//Effect
-public:
-	void ProcessHitReactionEvent(float Damage,const FGameplayEffectSpec& Spec);
-	void ProcessParryEvent(float Damage,const FGameplayEffectSpec& Spec);
-	void ProcessDeathEvent(const FGameplayEffectSpec& Spec);
-	void ProcessStaggerEvent(const FGameplayEffectSpec& Spec);
+	// 이 태그가 있으면 모든 어빌리티 입력 무시
+	UPROPERTY(EditDefaultsOnly, Category = "SF|Input")
+	FGameplayTagContainer InputBlockedTags;
 };

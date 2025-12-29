@@ -15,7 +15,7 @@ struct FSFPortalStateMessage
 	UPROPERTY(BlueprintReadOnly)
 	bool bIsActive = false;
     
-	// 전체 플레이어 수k
+	// 전체 플레이어 수
 	UPROPERTY(BlueprintReadOnly)
 	int32 TotalPlayerCount = 0;
 
@@ -39,4 +39,41 @@ struct FSFPlayerTravelReadyMessage
 	/** 맵 이동 준비 상태 */	
 	UPROPERTY(BlueprintReadOnly, Category = "GameplayMessage")
 	bool bIsReadyToTravel = false;
+};
+
+/**
+ * 플레이어 Dead 상태 변경 메시지
+ */
+USTRUCT(BlueprintType)
+struct FSFPlayerDeadStateMessage
+{
+	GENERATED_BODY()
+
+	UPROPERTY(BlueprintReadOnly)
+	TObjectPtr<APlayerState> PlayerState = nullptr;
+
+	UPROPERTY(BlueprintReadOnly)
+	bool bIsDead = false;
+};
+
+USTRUCT(BlueprintType)
+struct FSFPlayerDownedStateMessage
+{
+	GENERATED_BODY()
+
+	UPROPERTY(BlueprintReadOnly)
+	TObjectPtr<APlayerState> PlayerState = nullptr;
+
+	UPROPERTY(BlueprintReadOnly)
+	bool bIsDowned = false;
+};
+
+USTRUCT(BlueprintType)
+struct FSFGameOverMessage
+{
+	GENERATED_BODY()
+
+	// 추후 확장용 (예: 게임오버 사유, 통계 등)
+	UPROPERTY(BlueprintReadOnly)
+	float SurvivedTime = 0.f;
 };

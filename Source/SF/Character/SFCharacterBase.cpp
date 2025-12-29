@@ -3,9 +3,11 @@
 #include "GameFramework/CharacterMovementComponent.h"
 #include "AbilitySystem/SFAbilitySystemComponent.h"
 #include "SFPawnExtensionComponent.h"
+#include "Components/BoxComponent.h"
 #include "Components/CapsuleComponent.h"
 #include "Net/UnrealNetwork.h"
 #include "Hero/SFHeroComponent.h"
+#include "Physics/SFCollisionChannels.h"
 #include "Player/SFPlayerState.h"
 #include "Team/SFTeamTypes.h"
 
@@ -13,6 +15,12 @@ ASFCharacterBase::ASFCharacterBase(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 {
 	PrimaryActorTick.bCanEverTick = true;
+
+	InteractionBox = CreateDefaultSubobject<UBoxComponent>(TEXT("InteractionBox"));
+	InteractionBox->SetupAttachment(GetRootComponent());
+	InteractionBox->SetBoxExtent(FVector(50.f, 50.f, 90.f));
+	InteractionBox->SetCollisionProfileName(TEXT("Interactable"));
+	InteractionBox->SetCollisionResponseToAllChannels(ECR_Ignore);
 
 	// SFPawnExtensionComponent만 native c++로 설정해 줌. 해당 컴포넌트가 다른 컴포넌트들의
 	// 초기화를 담당하는 컴포넌트이기 떄문에 가장 먼저 생성해 주어야 한다. 엔진에서는  native c++의 컴포넌트가 먼저 생성되고 
@@ -202,17 +210,6 @@ FGenericTeamId ASFCharacterBase::GetGenericTeamId() const
 	// todo 이거 서브 클래스에서 getter를 무조건 다시 해야하는데
 	//Player는 PlayerState의 TeamID를 return 해야하고 Enemy는 Controller의 값을 return 해야함.
 	return FGenericTeamId(SFTeamID::NoTeam);
-}
-
-FSFInteractionInfo ASFCharacterBase::GetPreInteractionInfo(const FSFInteractionQuery& InteractionQuery) const
-{
-	return InteractionInfo;
-}
-
-bool ASFCharacterBase::CanInteraction(const FSFInteractionQuery& InteractionQuery) const
-{
-	// TODO : 공통적으로 상호작용 가능한지 판별을 위한 코드 구상
-	return ISFInteractable::CanInteraction(InteractionQuery);
 }
 
 void ASFCharacterBase::GetMeshComponents(TArray<UMeshComponent*>& OutMeshComponents) const

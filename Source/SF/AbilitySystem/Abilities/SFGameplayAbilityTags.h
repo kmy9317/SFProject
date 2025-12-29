@@ -30,6 +30,10 @@ namespace SFGameplayTags
 	// AoE Attack (범위)
 	SF_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(Ability_Enemy_Attack_AoE);
 
+	// ========== Enemy State Ability Tags ==========
+
+	// Turn In Place (제자리 회전)
+	SF_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(Ability_Enemy_TurnInPlace);
 
 	// ========== Cooldown Tags ==========
 
@@ -47,9 +51,13 @@ namespace SFGameplayTags
 
 
 	// ========== Hero Ability Tags ==========
+	SF_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(Ability_Interact);
 	SF_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(Ability_Interact_Active);
+	SF_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(Ability_Interact_Object);
 
 	SF_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(Ability_Hero_Dodge);
+	SF_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(Ability_Hero_Downed);
+	SF_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(Ability_Hero_Death);
 	
 	// Hero Skill Cooldowns
 	SF_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(Ability_Cooldown_Hero_Skill_Primary);

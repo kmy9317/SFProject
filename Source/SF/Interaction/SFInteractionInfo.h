@@ -5,15 +5,17 @@
 
 class ISFInteractable;
 
+UENUM(BlueprintType)
+enum class ESFInteractionType : uint8
+{
+	Instant,      // Duration 무시, 즉시 실행
+	TimedHold,    // Duration 시간 후 성공 
+	GaugeBased    // 외부 게이지가 100 도달 시 성공 (부활 등)
+};
+
 /**
  * 상호작용에 필요한 모든 정보를 담는 핵심 구조체
  * 상호작용 가능한 객체가 플레이어에게 제공하는 상호작용의 세부사항을 정의
- * 주요 구성 요소:
- * - UI 표시 정보 (제목, 설명)
- * - 홀딩 시스템 (지속시간)
- * - 어빌리티 시스템 연동 (실행할 어빌리티)
- * - 애니메이션  (몽타주)
- * - 커스텀 UI 위젯
  */
 USTRUCT(BlueprintType)
 struct FSFInteractionInfo
@@ -26,36 +28,49 @@ public:
 	TScriptInterface<ISFInteractable> Interactable;
 
 	/** 상호작용 UI에 표시될 제목 (예: "상자 열기", "소생 시키기") */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Info")
 	FText Title;
 
 	/** 상호작용 UI에 표시될 상세 설명 (예: "F키를 눌러 문을 엽니다") */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Info")
 	FText Content;
 
 	/**
-	 * 홀딩 상호작용의 지속시간 (초 단위)
-	 * 0.0f = 즉시 실행 (키를 누르는 순간 실행)
-	 * 0.0f 초과 = 홀딩 필요 (키를 누르고 있어야 함)
-	 * 플레이어의 Resourcefulness 스탯(강화)에 의해 시간 단축될 수 있음
+	 * 상호작용 실행 방식
+	 * - Instant: 즉시 실행
+	 * - TimedHold: Duration 시간 동안 홀딩 후 성공
+	 * - GaugeBased: 외부 게이지가 100 도달 시 성공 
 	 */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Info")
+	ESFInteractionType InteractionType = ESFInteractionType::Instant;
+
+	/**
+	 * 홀딩 상호작용의 지속시간 (초 단위)
+	 */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Info|Duration", meta = (EditCondition = "InteractionType == ESFInteractionType::TimedHold"))
 	float Duration = 0.f;
 
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Info|GameplayEvent", meta = (EditCondition = "InteractionType == ESFInteractionType::GaugeBased"))
+	FGameplayTag GaugeBasedCompleteEventTag;
+
 	/** 상호작용 실행 시 플레이어에게 부여될 어빌리티 클래스 */
-	UPROPERTY(EditAnywhere, BlueprintReadOnly)
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Info|Ability")
 	TSubclassOf<UGameplayAbility> AbilityToGrant;
 
-	/** 홀딩 상호작용 시작 시 재생될 애니메이션 몽타주 */
-	UPROPERTY(EditAnywhere, BlueprintReadOnly)
-	TObjectPtr<UAnimMontage> ActiveStartMontage;
+	/** 홀딩 시작 시 재생할 몽타주 태그 (HeroAnimationData에서 조회) */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Info|Animaiton")
+	FGameplayTag ActiveStartMontageTag;
 
-	/** 홀딩 상호작용 종료 시 재생될 애니메이션 몽타주 */
-	UPROPERTY(EditAnywhere, BlueprintReadOnly)
-	TObjectPtr<UAnimMontage> ActiveEndMontage;
+	/** 상호작용 완료 시 재생할 몽타주 태그 (HeroAnimationData에서 조회) */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Info|Animation")
+	FGameplayTag ActiveEndMontageTag;
+
+	/** 홀딩 중 지속적으로 재생될 게임플레이 큐 태그 (사운드, 이펙트 등) */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, meta=(Categories="GameplayCue"))
+	FGameplayTag ActiveLoopGameplayCueTag;
 
 	/** 이 상호작용을 위한 커스텀 UI 위젯 클래스 */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Info|UI")
 	TSoftClassPtr<UUserWidget> InteractionWidgetClass;
 
 	/**
@@ -67,10 +82,13 @@ public:
 		return Interactable == Other.Interactable &&
 			Title.IdenticalTo(Other.Title) &&
 			Content.IdenticalTo(Other.Content) &&
+			InteractionType == Other.InteractionType &&
 			Duration == Other.Duration &&
+			GaugeBasedCompleteEventTag == Other.GaugeBasedCompleteEventTag &&
 			AbilityToGrant == Other.AbilityToGrant &&
-			ActiveStartMontage == Other.ActiveStartMontage &&
-			ActiveEndMontage == Other.ActiveEndMontage &&
+			ActiveStartMontageTag == Other.ActiveStartMontageTag &&
+			ActiveEndMontageTag == Other.ActiveEndMontageTag &&
+			ActiveLoopGameplayCueTag == Other.ActiveLoopGameplayCueTag &&
 			InteractionWidgetClass == Other.InteractionWidgetClass;
 	}
 

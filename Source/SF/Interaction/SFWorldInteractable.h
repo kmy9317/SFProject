@@ -33,7 +33,7 @@ public:
 	 * @param Interactor 상호작용을 시작한 액터 (보통 플레이어)
 	 */
 	UFUNCTION(BlueprintCallable)
-	virtual void OnInteractActiveStarted(AActor* Interactor);
+	virtual void OnInteractActiveStarted(AActor* Interactor) override;
 
 	
 	UFUNCTION(BlueprintImplementableEvent, DisplayName="OnInteractActiveStarted")
@@ -45,7 +45,7 @@ public:
 	 * @param Interactor 상호작용을 종료한 액터 (보통 플레이어)
 	 */
 	UFUNCTION(BlueprintCallable)
-	virtual void OnInteractActiveEnded(AActor* Interactor);
+	virtual void OnInteractActiveEnded(AActor* Interactor) override;
 
 	UFUNCTION(BlueprintImplementableEvent, DisplayName="OnInteractActiveEnded")
 	void K2_OnInteractActiveEnded(AActor* Interactor);
@@ -56,10 +56,12 @@ public:
 	 * 일회성 객체의 경우 소모 처리 및 다른 상호작용자들의 상호작용 취소
 	 */
 	UFUNCTION(BlueprintCallable)
-	virtual void OnInteractionSuccess(AActor* Interactor);
+	virtual void OnInteractionSuccess(AActor* Interactor) override;
 	
 	UFUNCTION(BlueprintImplementableEvent, DisplayName="OnInteractionSuccess")
 	void K2_OnInteractionSuccess(AActor* Interactor);
+
+	virtual int32 GetActiveInteractorCount() const override;
 	
 protected:
 	/**

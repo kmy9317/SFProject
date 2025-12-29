@@ -15,16 +15,11 @@ public:
 protected:
 	virtual EBTNodeResult::Type ExecuteTask(UBehaviorTreeComponent& OwnerComp, uint8* NodeMemory) override;
 	virtual void TickTask(UBehaviorTreeComponent& OwnerComp, uint8* NodeMemory, float DeltaSeconds) override;
-
-	// [헬퍼 함수] 어빌리티의 IsWithinAttackAngle 호출
-	bool CheckAbilityAttackAngle(UBehaviorTreeComponent& OwnerComp, AActor* Target) const;
+	virtual EBTNodeResult::Type AbortTask(UBehaviorTreeComponent& OwnerComp, uint8* NodeMemory) override;
+	AActor* GetTargetFromBlackboard(UBehaviorTreeComponent& OwnerComp) const;
 
 public:
-	// 어빌리티를 못 찾았을 때 사용할 기본 오차 (백업용)
-	UPROPERTY(EditAnywhere, Category = "AI")
-	float DefaultPrecision = 10.0f;
-
-	// [필수] 블랙보드에서 읽어올 어빌리티 태그 키 (예: SelectedAbilityTag)
-	UPROPERTY(EditAnywhere, Category = "AI")
-	FBlackboardKeySelector AbilityTagKey;
+	// 허용 각도
+	UPROPERTY(EditAnywhere, Category = "Rotation", meta = (ClampMin = "1.0", ClampMax = "45.0"))
+	float AcceptableAngle = 10.0f;
 };

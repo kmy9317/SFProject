@@ -17,4 +17,6 @@ namespace SFGameplayTags
 	SF_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(GameplayCue_HitReaction_Light)
 	
 	SF_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(GameplayCue_Event_Parry);
+	
+	SF_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(GameplayCue_Animation_PlayMontage);
 }

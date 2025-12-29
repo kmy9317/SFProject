@@ -2,6 +2,7 @@
 
 #include "CoreMinimal.h"
 #include "Components/GameStateComponent.h"
+#include "GameFramework/GameplayMessageSubsystem.h"
 #include "Messages/SFPortalInfoMessages.h"
 #include "SFPortalManagerComponent.generated.h"
 
@@ -28,40 +29,34 @@ public:
     UFUNCTION(BlueprintCallable, Category = "SF|Portal", BlueprintAuthorityOnly)
     void ActivatePortal();
 
-    /** 플레이어가 Portal에 진입 (서버 전용) */
-    UFUNCTION(BlueprintCallable, Category = "SF|Portal")
-    void NotifyPlayerEnteredPortal(APlayerState* PlayerState);
+    /** 플레이어 Ready 상태 토글 */
+    UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "SF|Portal")
+    void TogglePlayerReady(APlayerState* PlayerState);
     
-    /** 플레이어가 Portal에서 이탈 (서버 전용) */
-    UFUNCTION(BlueprintCallable, Category = "SF|Portal")
-    void NotifyPlayerLeftPortal(APlayerState* PlayerState);
-    
-    /** Portal Actor 등록 (World에 배치된 Portal이 BeginPlay에서 호출) */
     void RegisterPortal(ASFPortal* Portal);
-    
-    /** Portal Actor 등록 해제 */
     void UnregisterPortal(ASFPortal* Portal);
 
-    int32 GetPlayersReadyCount();
+    UFUNCTION(BlueprintPure, Category = "SF|Portal")
+    bool IsTravelCountdownActive() const { return PortalState.bIsActive && PortalState.TravelCountdown <= TravelDelayTime; }
+
+    // Ready 상태인 살아있는 플레이어 수
+    UFUNCTION(BlueprintPure, Category = "SF|Portal")
+    int32 GetReadyPlayerCount() const;
+
+    UFUNCTION(BlueprintPure, Category = "SF|Portal")
+    int32 GetRequiredPlayerCount() const;
+
+    UFUNCTION(BlueprintPure, Category = "SF|Portal")
+    ASFPortal* GetManagedPortal() const { return ManagedPortal; }
 
 private:
 
-    /** 현재 포탈 내부에 있는 플레이어들을 수동으로 다시 체크 */
-    void RecheckExistingOverlaps();
-    
-    /** 포탈 상태 메시지 브로드캐스트 */
-    void BroadcastPortalState();
-    
-    /** Portal 준비 체크 및 Travel 시작 */
-    void CheckPortalReadyAndTravel();
-    
-    /** Travel 실행 (타이머 콜백) */
+    void OnFirstPlayerReady();
+    void CheckAllPlayersReady();
+    void StartTravelCountdown();
     void ExecuteTravel();
+    void BroadcastPortalState();
 
-    /** 필요한 플레이어 수 계산 */
-    int32 GetRequiredPlayerCount() const;
-
-    /** 중간에 나간 플레이어 case 처리 */
     UFUNCTION()
     void HandlePlayerRemoved(APlayerState* PlayerState);
     
@@ -69,28 +64,36 @@ private:
     void OnRep_PortalActive();
 
     UFUNCTION()
-    void OnRep_PortalStateChanged();
+    void OnRep_PortalState();
+
+    void OnPlayerDeadStateChanged(FGameplayTag Channel, const FSFPlayerDeadStateMessage& Message);
 
 private:
     /** Portal 활성화 상태 */
     UPROPERTY(ReplicatedUsing = OnRep_PortalActive)
-    bool bPortalActive;
+    bool bPortalActive = false;
 
     /** 포털 UI 상태 (전역) */
-    UPROPERTY(ReplicatedUsing = OnRep_PortalStateChanged)
+    UPROPERTY(ReplicatedUsing = OnRep_PortalState)
     FSFPortalStateMessage PortalState;
 
-    /** Travel 대기 시간 */
+    /** 첫 Ready 후 강제 Travel까지 시간 */
+    UPROPERTY(EditDefaultsOnly, Category = "SF|Portal")
+    float ForceTimeLimit = 120.0f;
+
+    /** 전원 Ready 후 Travel까지 대기 시간 */
     UPROPERTY(EditDefaultsOnly, Category = "SF|Portal")
     float TravelDelayTime = 5.0f;
     
-    /** Travel 대기 타이머 */
+    FTimerHandle ForceTimerHandle;
     FTimerHandle TravelTimerHandle;
-    
-    /** Travel 중인지 */
-    bool bIsPrepareToTravel;
 
-    /** 현재 관리중인 Portal */
+    bool bIsTravelCountdownActive = false;
+    
+    bool bLoadingScreenPreloaded = false;
+
     UPROPERTY()
     TObjectPtr<ASFPortal> ManagedPortal;
+
+    FGameplayMessageListenerHandle DeadStateListenerHandle;
 };

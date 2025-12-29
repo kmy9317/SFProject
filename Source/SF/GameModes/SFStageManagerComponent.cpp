@@ -1,6 +1,10 @@
 #include "SFStageManagerComponent.h"
 
+#include "AbilitySystemComponent.h"
+#include "AbilitySystem/GameplayEvent/SFGameplayEventTags.h"
+#include "Animation/Hero/AnimNotify/SFAnimNotify_SendGameplayEvent.h"
 #include "Net/UnrealNetwork.h"
+#include "Player/SFPlayerState.h"
 #include "System/SFStageSubsystem.h"
 
 USFStageManagerComponent::USFStageManagerComponent(const FObjectInitializer& ObjectInitializer)
@@ -46,6 +50,34 @@ void USFStageManagerComponent::NotifyStageClear()
         return;
     }
 
+    // ===============================
+    // 🔥 GAS StageClear 이벤트 전달
+    // ===============================
+    if (UWorld* World = GetWorld())
+    {
+        if (AGameStateBase* GameState = World->GetGameState())
+        {
+            for (APlayerState* BasePS : GameState->PlayerArray)
+            {
+                ASFPlayerState* PS = Cast<ASFPlayerState>(BasePS);
+                if (!PS)
+                    continue;
+
+                UAbilitySystemComponent* ASC = PS->GetAbilitySystemComponent();
+                if (!ASC)
+                    continue;
+
+                FGameplayEventData EventData;
+                EventData.EventTag = SFGameplayTags::GameplayEvent_Stage_Clear;
+
+                ASC->HandleGameplayEvent(
+                    EventData.EventTag,
+                    &EventData
+                );
+            }
+        }
+    }
+    
     bStageCleared = true;
 
     OnStageCleared.Broadcast(CurrentStageInfo);

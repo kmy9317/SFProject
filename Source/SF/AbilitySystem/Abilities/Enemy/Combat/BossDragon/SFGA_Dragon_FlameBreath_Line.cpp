@@ -10,10 +10,18 @@
 #include "AI/Controller/SFEnemyCombatComponent.h"
 #include "Interface/SFAIControllerInterface.h"
 #include "Animation/AnimInstance.h"
+#include "Character/Enemy/Component/Boss_Dragon/SFDragonGameplayTags.h"
 
 USFGA_Dragon_FlameBreath_Line::USFGA_Dragon_FlameBreath_Line()
 {
-	
+	AbilityID = FName("Dragon_FlameBreath_Line");
+	AttackType = EAttackType::Range;
+
+	// Ability Tags
+	AbilityTags.AddTag(SFGameplayTags::Ability_Dragon_FlameBreath_Line);
+
+	// Cooldown Tag
+	CoolDownTag = SFGameplayTags::Ability_Cooldown_Dragon_FlameBreath_Line;
 }
 
 void USFGA_Dragon_FlameBreath_Line::ActivateAbility( const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, const FGameplayEventData* TriggerEventData)
@@ -32,12 +40,9 @@ void USFGA_Dragon_FlameBreath_Line::ActivateAbility( const FGameplayAbilitySpecH
 
 void USFGA_Dragon_FlameBreath_Line::StartCharging()
 {
-	// TODO: Add GameplayTag to AvatarActor (e.g., State.Dragon.Charging)
-
 	AccumulatedInterruptDamage = 0.f;
 	HitActors.Empty();
 
-	//타깃 설정 
 	PrimaryTarget = FindPrimaryTarget();
 	if (!PrimaryTarget.IsValid())
 	{
@@ -45,66 +50,76 @@ void USFGA_Dragon_FlameBreath_Line::StartCharging()
 		return;
 	}
 
-	// 몽타주 재생
 	if (BreathMontage)
 	{
-		UAbilityTask_PlayMontageAndWait* MontageTask =
-			UAbilityTask_PlayMontageAndWait::CreatePlayMontageAndWaitProxy(
-				this,
-				NAME_None,
-				BreathMontage,
-				1.f,
-				FName("ChargeStart"), 
-				true
-			);
+		ChargeStartMontageTask = UAbilityTask_PlayMontageAndWait::CreatePlayMontageAndWaitProxy(
+			this,
+			NAME_None,
+			BreathMontage,
+			1.f,
+			FName("ChargeStart"),
+			true
+		);
 
-		if (MontageTask)
+		if (ChargeStartMontageTask)
 		{
-			MontageTask->OnInterrupted.AddDynamic(this, &USFGA_Dragon_FlameBreath_Line::OnMontageInterrupted);
-			MontageTask->OnCancelled.AddDynamic(this, &USFGA_Dragon_FlameBreath_Line::OnMontageCancelled);
-			MontageTask->ReadyForActivation();
+			ChargeStartMontageTask->OnCompleted.AddDynamic(this, &USFGA_Dragon_FlameBreath_Line::OnChargeStartCompleted);
+			ChargeStartMontageTask->OnInterrupted.AddDynamic(this, &USFGA_Dragon_FlameBreath_Line::OnMontageInterrupted);
+			ChargeStartMontageTask->OnCancelled.AddDynamic(this, &USFGA_Dragon_FlameBreath_Line::OnMontageCancelled);
+			ChargeStartMontageTask->ReadyForActivation();
 		}
 	}
 
-	// 3. AnimInstance에 타겟 전달 (머리 추적용)
-	ASFCharacterBase* Dragon = GetSFCharacterFromActorInfo();
-	if (Dragon && Dragon->GetMesh())
-	{
-		// TODO: Set GameplayTag on AvatarActor for head tracking
-		// AnimBP will use Layered Blend Per Bone to track PrimaryTarget
-		// Example: Dragon->GetAbilitySystemComponent()->AddLooseGameplayTag(Tag_State_Dragon_Breathing);
-	}
-	
 	if (CurrentActorInfo->IsNetAuthority())
 	{
-		OnDamageReceivedHandle = GetAbilitySystemComponentFromActorInfo()
-			->OnGameplayEffectAppliedDelegateToSelf.AddUObject(
+		UAbilitySystemComponent* ASC = GetAbilitySystemComponentFromActorInfo();
+		if (ASC)
+		{
+			OnDamageReceivedHandle = ASC->OnGameplayEffectAppliedDelegateToSelf.AddUObject(
 				this,
 				&USFGA_Dragon_FlameBreath_Line::OnDamageReceivedDuringCharge
 			);
+		}
 	}
-	
-	GetWorld()->GetTimerManager().SetTimer(
-		ChargeTimerHandle,
-		this,
-		&USFGA_Dragon_FlameBreath_Line::TransitionToBreath,
-		ChargeDuration,
-		false
-	);
-	//  UI 표시
-	// TODO: GameplayCue로 경고 UI 표시
+
+	UWorld* World = GetWorld();
+	if (World)
+	{
+		World->GetTimerManager().SetTimer(
+			ChargeTimerHandle,
+			this,
+			&USFGA_Dragon_FlameBreath_Line::TransitionToBreath,
+			ChargeDuration,
+			false
+		);
+	}
+}
+
+void USFGA_Dragon_FlameBreath_Line::OnChargeStartCompleted()
+{
+	ASFCharacterBase* Dragon = GetSFCharacterFromActorInfo();
+	if (Dragon && Dragon->GetMesh())
+	{
+		UAnimInstance* AnimInst = Dragon->GetMesh()->GetAnimInstance();
+		if (AnimInst && BreathMontage)
+		{
+			AnimInst->Montage_JumpToSection(FName("ChargeLoop"), BreathMontage);
+		}
+	}
 }
 
 void USFGA_Dragon_FlameBreath_Line::TransitionToBreath()
 {
-	// TODO: Remove Charging tag, Add Breathing tag
-	
 	if (OnDamageReceivedHandle.IsValid())
 	{
-		GetAbilitySystemComponentFromActorInfo()->OnGameplayEffectAppliedDelegateToSelf.Remove(OnDamageReceivedHandle);
-		OnDamageReceivedHandle.Reset();
+		UAbilitySystemComponent* ASC = GetAbilitySystemComponentFromActorInfo();
+		if (ASC)
+		{
+			ASC->OnGameplayEffectAppliedDelegateToSelf.Remove(OnDamageReceivedHandle);
+			OnDamageReceivedHandle.Reset();
+		}
 	}
-	
+
 	ASFCharacterBase* Dragon = GetSFCharacterFromActorInfo();
 	if (Dragon && Dragon->GetMesh())
 	{
@@ -112,46 +127,49 @@ void USFGA_Dragon_FlameBreath_Line::TransitionToBreath()
 		if (AnimInst && BreathMontage)
 		{
 			AnimInst->Montage_SetNextSection(
-				FName("ChargeLoop"),   
-				FName("BreathStart"),  
+				FName("ChargeLoop"),
+				FName("BreathStart"),
 				BreathMontage
 			);
 			AnimInst->Montage_JumpToSection(FName("BreathStart"), BreathMontage);
 		}
 	}
-	
+
 	if (!CurrentActorInfo->IsNetAuthority())
 	{
 		return;
 	}
 
-	// 이건 데미지 주는 거 매틱마다 
-	GetWorld()->GetTimerManager().SetTimer(
-		BreathTickTimer,
-		this,
-		&USFGA_Dragon_FlameBreath_Line::ApplyBreathDamage,
-		BreathTickRate,
-		true  
-	);
-	// 이건 Breath 타이머 
-	GetWorld()->GetTimerManager().SetTimer(
-		BreathDurationTimer,
-		this,
-		&USFGA_Dragon_FlameBreath_Line::StopBreath,
-		BreathDuration,
-		false
-	);
+	UWorld* World = GetWorld();
+	if (World)
+	{
+		World->GetTimerManager().SetTimer(
+			BreathTickTimer,
+			this,
+			&USFGA_Dragon_FlameBreath_Line::ApplyBreathDamage,
+			BreathTickRate,
+			true
+		);
+
+		World->GetTimerManager().SetTimer(
+			BreathDurationTimer,
+			this,
+			&USFGA_Dragon_FlameBreath_Line::StopBreath,
+			BreathDuration,
+			false
+		);
+	}
 }
 
 void USFGA_Dragon_FlameBreath_Line::ApplyBreathDamage()
 {
 	ASFCharacterBase* Dragon = GetSFCharacterFromActorInfo();
 	if (!Dragon) return;
-	
+
 	FVector Start = Dragon->GetMesh()->GetSocketLocation(TEXT("JawSocket"));
 	FVector Forward = Dragon->GetActorForwardVector();
 	FVector End = Start + Forward * BreathRange;
-	
+
 	TArray<FHitResult> Hits;
 	FCollisionQueryParams QueryParams;
 	QueryParams.AddIgnoredActor(Dragon);
@@ -163,7 +181,7 @@ void USFGA_Dragon_FlameBreath_Line::ApplyBreathDamage()
 		ECollisionChannel::ECC_Pawn,
 		QueryParams
 	);
-	
+
 	if (bIsDebug)
 	{
 		DrawDebugLine(
@@ -177,25 +195,28 @@ void USFGA_Dragon_FlameBreath_Line::ApplyBreathDamage()
 			5.f
 		);
 	}
-	
+
 	for (const FHitResult& Hit : Hits)
 	{
 		AActor* HitActor = Hit.GetActor();
 		if (!HitActor) continue;
-		
+
 		if (GetAttitudeTowards(HitActor) != ETeamAttitude::Hostile)
 			continue;
-		
+
 		if (HitActors.Contains(HitActor))
 			continue;
 
 		HitActors.Add(HitActor);
-		
+
 		FGameplayEffectContextHandle EffectContext =
 			MakeEffectContext(CurrentSpecHandle, CurrentActorInfo);
 		EffectContext.AddHitResult(Hit);
-		
+
 		ApplyRawDamageToTarget(HitActor, BreathDamagePerTick,EffectContext);
+
+		// Pressure 적용 (ISFDragonPressureInterface) - 첫 히트 시에만
+		ApplyPressureToTarget(HitActor);
 
 		if (bIsDebug)
 		{
@@ -210,19 +231,19 @@ void USFGA_Dragon_FlameBreath_Line::ApplyBreathDamage()
 			);
 		}
 	}
-	
+
 	HitActors.Empty();
 }
 
 
 void USFGA_Dragon_FlameBreath_Line::StopBreath()
 {
-	// TODO: Remove Breathing tag
-	// bIsBreathing = false;
-	
-	GetWorld()->GetTimerManager().ClearTimer(BreathTickTimer);
+	UWorld* World = GetWorld();
+	if (World)
+	{
+		World->GetTimerManager().ClearTimer(BreathTickTimer);
+	}
 
-	
 	ASFCharacterBase* Dragon = GetSFCharacterFromActorInfo();
 	if (Dragon && Dragon->GetMesh())
 	{
@@ -238,7 +259,7 @@ void USFGA_Dragon_FlameBreath_Line::StopBreath()
 			AnimInst->Montage_JumpToSection(FName("BreathEnd"), BreathMontage);
 		}
 	}
-	
+
 	if (BreathMontage)
 	{
 		BreathEndMontageTask = UAbilityTask_PlayMontageAndWait::CreatePlayMontageAndWaitProxy(
@@ -246,13 +267,12 @@ void USFGA_Dragon_FlameBreath_Line::StopBreath()
 			NAME_None,
 			BreathMontage,
 			1.f,
-			FName("BreathEnd"),  // BreathEnd 섹션 감지
-			false  
+			FName("BreathEnd"),
+			false
 		);
 
 		if (BreathEndMontageTask)
 		{
-			// OnCompleted: BreathEnd 섹션이 자연스럽게 끝나면 호출됨
 			BreathEndMontageTask->OnCompleted.AddDynamic(this, &USFGA_Dragon_FlameBreath_Line::OnBreathEndCompleted);
 			BreathEndMontageTask->OnInterrupted.AddDynamic(this, &USFGA_Dragon_FlameBreath_Line::OnMontageInterrupted);
 			BreathEndMontageTask->OnCancelled.AddDynamic(this, &USFGA_Dragon_FlameBreath_Line::OnMontageCancelled);
@@ -264,7 +284,25 @@ void USFGA_Dragon_FlameBreath_Line::StopBreath()
 
 AActor* USFGA_Dragon_FlameBreath_Line::FindPrimaryTarget()
 {
-	ISFAIControllerInterface* AIC = Cast<ISFAIControllerInterface>(GetControllerFromActorInfo()->GetPawn()->GetController());
+	AController* Controller = GetControllerFromActorInfo();
+	if (!Controller)
+	{
+		return nullptr;
+	}
+
+	APawn* Pawn = Controller->GetPawn();
+	if (!Pawn)
+	{
+		return nullptr;
+	}
+
+	AController* PawnController = Pawn->GetController();
+	if (!PawnController)
+	{
+		return nullptr;
+	}
+
+	ISFAIControllerInterface* AIC = Cast<ISFAIControllerInterface>(PawnController);
 	if (!AIC)
 	{
 		return nullptr;
@@ -280,37 +318,45 @@ AActor* USFGA_Dragon_FlameBreath_Line::FindPrimaryTarget()
 }
 
 
-void USFGA_Dragon_FlameBreath_Line::OnDamageReceivedDuringCharge( UAbilitySystemComponent* Source,  const FGameplayEffectSpec& SpecApplied,  FActiveGameplayEffectHandle ActiveHandle)
+void USFGA_Dragon_FlameBreath_Line::OnDamageReceivedDuringCharge(UAbilitySystemComponent* Source, const FGameplayEffectSpec& SpecApplied, FActiveGameplayEffectHandle ActiveHandle)
 {
-	// TODO: Check GameplayTag instead of bool
-	// if (!Dragon->HasMatchingGameplayTag(Tag_State_Dragon_Charging)) return;
-
-	
-	float Damage = SpecApplied.GetSetByCallerMagnitude(SFGameplayTags::Data_Damage_BaseDamage,false, 0.f );
+	float Damage = SpecApplied.GetSetByCallerMagnitude(SFGameplayTags::Data_Damage_BaseDamage, false, 0.f);
 
 	if (Damage > 0.f)
 	{
 		AccumulatedInterruptDamage += Damage;
 
-		// 중단 성공
 		if (AccumulatedInterruptDamage >= InterruptThreshold)
 		{
 			InterruptBreath();
 		}
 	}
 }
+
 void USFGA_Dragon_FlameBreath_Line::InterruptBreath()
 {
-	
-	GetWorld()->GetTimerManager().ClearTimer(ChargeTimerHandle);
-	
+	UWorld* World = GetWorld();
+	if (World)
+	{
+		World->GetTimerManager().ClearTimer(ChargeTimerHandle);
+	}
+
+	if (OnDamageReceivedHandle.IsValid())
+	{
+		UAbilitySystemComponent* ASC = GetAbilitySystemComponentFromActorInfo();
+		if (ASC)
+		{
+			ASC->OnGameplayEffectAppliedDelegateToSelf.Remove(OnDamageReceivedHandle);
+			OnDamageReceivedHandle.Reset();
+		}
+	}
+
 	if (InterruptStaggerEffect)
 	{
 		UAbilitySystemComponent* DragonASC = GetAbilitySystemComponentFromActorInfo();
 		if (DragonASC)
 		{
-			FGameplayEffectSpecHandle StaggerSpec =
-				MakeOutgoingGameplayEffectSpec(InterruptStaggerEffect, 1);
+			FGameplayEffectSpecHandle StaggerSpec = MakeOutgoingGameplayEffectSpec(InterruptStaggerEffect, 1);
 
 			if (StaggerSpec.IsValid())
 			{
@@ -318,12 +364,12 @@ void USFGA_Dragon_FlameBreath_Line::InterruptBreath()
 					SFGameplayTags::Data_Stagger_BaseStagger,
 					InterruptStaggerDamage
 				);
-				
+
 				DragonASC->ApplyGameplayEffectSpecToSelf(*StaggerSpec.Data.Get());
 			}
 		}
 	}
-	
+
 	EndAbility(CurrentSpecHandle, CurrentActorInfo, CurrentActivationInfo, true, true);
 }
 
@@ -350,31 +396,89 @@ void USFGA_Dragon_FlameBreath_Line::EndAbility(
 	bool bReplicateEndAbility,
 	bool bWasCancelled)
 {
-	
-	GetWorld()->GetTimerManager().ClearTimer(ChargeTimerHandle);
-	GetWorld()->GetTimerManager().ClearTimer(BreathTickTimer);
-	GetWorld()->GetTimerManager().ClearTimer(BreathDurationTimer);
-	
+	UWorld* World = GetWorld();
+	if (World)
+	{
+		World->GetTimerManager().ClearTimer(ChargeTimerHandle);
+		World->GetTimerManager().ClearTimer(BreathTickTimer);
+		World->GetTimerManager().ClearTimer(BreathDurationTimer);
+	}
+
+	if (ChargeStartMontageTask)
+	{
+		ChargeStartMontageTask->EndTask();
+		ChargeStartMontageTask = nullptr;
+	}
+
 	if (BreathEndMontageTask)
 	{
 		BreathEndMontageTask->EndTask();
 		BreathEndMontageTask = nullptr;
 	}
-	
+
 	if (OnDamageReceivedHandle.IsValid())
 	{
-		GetAbilitySystemComponentFromActorInfo()
-			->OnGameplayEffectAppliedDelegateToSelf.Remove(OnDamageReceivedHandle);
-		OnDamageReceivedHandle.Reset();
+		UAbilitySystemComponent* ASC = GetAbilitySystemComponentFromActorInfo();
+		if (ASC)
+		{
+			ASC->OnGameplayEffectAppliedDelegateToSelf.Remove(OnDamageReceivedHandle);
+			OnDamageReceivedHandle.Reset();
+		}
 	}
-	
-	// TODO: Remove all breath-related tags from AvatarActor
 
-
-	// 5. 상태 초기화
 	PrimaryTarget.Reset();
 	HitActors.Empty();
 	AccumulatedInterruptDamage = 0.f;
 
 	Super::EndAbility(Handle, ActorInfo, ActivationInfo, bReplicateEndAbility, bWasCancelled);
+}
+
+float USFGA_Dragon_FlameBreath_Line::CalcScoreModifier(const FEnemyAbilitySelectContext& Context) const
+{
+	// Boss Context로 캐스팅하여 Zone 정보 확인
+	const FBossEnemyAbilitySelectContext* BossContext =
+		static_cast<const FBossEnemyAbilitySelectContext*>(&Context);
+
+	float Modifier = 0.f;
+
+	// Mid Range와 Long Range에서 높은 점수
+	if (BossContext && BossContext->Zone == EBossAttackZone::Mid)
+	{
+		Modifier += 800.f;  // Mid Range에서 우선 사용
+	}
+
+	if (BossContext && BossContext->Zone == EBossAttackZone::Long)
+	{
+		Modifier += 600.f;  // Long Range에서도 사용 가능
+	}
+
+	// 플레이어가 멀리 있을 때 추가 점수
+	if (Context.DistanceToTarget > 2000.f)
+	{
+		Modifier += 500.f;
+	}
+
+	if (!Context.Target)
+		return Modifier;
+
+	UAbilitySystemComponent* TargetASC =
+		UAbilitySystemBlueprintLibrary::GetAbilitySystemComponent(Context.Target);
+
+	if (!TargetASC)
+		return Modifier;
+
+	// Pressure 없으면 증가 (압박 시작)
+	if (!TargetASC->HasMatchingGameplayTag(SFGameplayTags::Dragon_Pressure_Forward) &&
+		!TargetASC->HasMatchingGameplayTag(SFGameplayTags::Dragon_Pressure_Back))
+	{
+		Modifier += 300.f;
+	}
+
+	// 이미 Back Pressure 중이면 우선순위 감소 (중복 압박 방지)
+	if (TargetASC->HasMatchingGameplayTag(SFGameplayTags::Dragon_Pressure_Back))
+	{
+		Modifier -= 400.f;  // 최소 0 이상 유지 (800 - 400 = 400)
+	}
+
+	return FMath::Max(Modifier, 0.f);  // 항상 0 이상
 }

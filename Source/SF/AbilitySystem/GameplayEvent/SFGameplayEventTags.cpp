@@ -18,9 +18,16 @@ namespace SFGameplayTags
 	UE_DEFINE_GAMEPLAY_TAG(GameplayEvent_Parry, "GameplayEvent.Parry");
 	UE_DEFINE_GAMEPLAY_TAG(GameplayEvent_Parried, "GameplayEvent.Parried");
 	UE_DEFINE_GAMEPLAY_TAG(GameplayEvent_Knockback, "GameplayEvent.Knockback");
+	UE_DEFINE_GAMEPLAY_TAG(GameplayEvent_Launched, "GameplayEvent.Launched");
 	UE_DEFINE_GAMEPLAY_TAG(GameplayEvent_Groggy, "GameplayEvent.Groggy");
-	
-	
+	UE_DEFINE_GAMEPLAY_TAG(GameplayEvent_Revived, "GameplayEvent.Revived");
+	UE_DEFINE_GAMEPLAY_TAG(GameplayEvent_Downed, "GameplayEvent.Downed");
+
+	// Turn In Place Events
+	UE_DEFINE_GAMEPLAY_TAG(GameplayEvent_Turn_90L, "GameplayEvent.Turn.90L");
+	UE_DEFINE_GAMEPLAY_TAG(GameplayEvent_Turn_90R, "GameplayEvent.Turn.90R");
+	UE_DEFINE_GAMEPLAY_TAG(GameplayEvent_Turn_180L, "GameplayEvent.Turn.180L");
+	UE_DEFINE_GAMEPLAY_TAG(GameplayEvent_Turn_180R, "GameplayEvent.Turn.180R");
 
 	// Damage Events
 	UE_DEFINE_GAMEPLAY_TAG(GameplayEvent_Damage_Critical, "GameplayEvent.Damage.Critical");
@@ -73,4 +80,10 @@ namespace SFGameplayTags
 
 	// Cost
 	UE_DEFINE_GAMEPLAY_TAG(Data_Cost_DodgeStamina, "Data.Cost.DodgeStamina");
+
+	// Stage
+	UE_DEFINE_GAMEPLAY_TAG(GameplayEvent_Stage_Clear, "GameplayEvent.Stage.Clear");
+
+	// Player Buff
+	UE_DEFINE_GAMEPLAY_TAG(GameplayEvent_PlayerAbility_LastStand, "GameplayEvent.PlayerAbility.LastStand");
 }

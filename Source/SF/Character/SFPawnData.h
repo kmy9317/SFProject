@@ -5,6 +5,7 @@
 #include "Engine/DataAsset.h"
 #include "SFPawnData.generated.h"
 
+class USFHeroAnimationData;
 class USFGameplayAbility;
 class USFInputConfig;
 class USFAbilitySet;
@@ -63,6 +64,10 @@ public:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "SF|Camera")
 	TSubclassOf<USFCameraMode> DefaultCameraMode;
 
+	// 히어로 애니메이션 데이터 (스켈레톤별 몽타주 매핑)
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "SF|Animation")
+	TObjectPtr<USFHeroAnimationData> HeroAnimationData;
+
 	// 카테고리별 업그레이드 선택지 (EX : InputTag.PrimarySkill → Primary skills[GA_A, GA_B, GA_C])
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "SF|SkillUpgrade", meta = (Categories = "InputTag"))
 	TMap<FGameplayTag, FSFSkillUpgradeOptionList> SkillUpgradeMap;
@@ -70,6 +75,4 @@ public:
 	// 스테이지별 업그레이드할 카테고리 순서
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "SF|SkillUpgrade", meta = (Categories = "InputTag"))
 	TArray<FGameplayTag> UpgradeSlotOrder;
-
-	
 };

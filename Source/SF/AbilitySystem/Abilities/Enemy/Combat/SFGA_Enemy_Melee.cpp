@@ -34,25 +34,17 @@ void USFGA_Enemy_Melee::ActivateAbility(
 	const FGameplayEventData* TriggerEventData)
 {
 	Super::ActivateAbility(Handle, ActorInfo, ActivationInfo, TriggerEventData);
-
-	// 기본 검증
-	if (AttackTypeMontage.AnimMontage == nullptr)
+	
+	if (!AttackTypeMontage.AnimMontage)
 	{
 		EndAbility(Handle, ActorInfo, ActivationInfo, true, true);
 		return;
 	}
 
-	// 몽타주 재생
 	MontageTask = UAbilityTask_PlayMontageAndWait::CreatePlayMontageAndWaitProxy(
 		this,
 		NAME_None,
-		AttackTypeMontage.AnimMontage,
-		1.0f,
-		NAME_None,
-		true,
-		1.0f,
-		0.0f,
-		false);
+		AttackTypeMontage.AnimMontage);
 
 	if (MontageTask)
 	{
@@ -62,26 +54,12 @@ void USFGA_Enemy_Melee::ActivateAbility(
 		MontageTask->ReadyForActivation();
 	}
 
-	// 서버에서만 게임플레이 로직 실행
 	if (!ActorInfo->IsNetAuthority())
-	{
 		return;
-	}
-	
-	CurrentPenetration = Penetration;
-	
-	if (!CommitAbility(Handle, ActorInfo, ActivationInfo))
-	{
-		EndAbility(Handle, ActorInfo, ActivationInfo, true, true);
-		return;
-	}
 
 	EventTask = UAbilityTask_WaitGameplayEvent::WaitGameplayEvent(
 		this,
-		SFGameplayTags::GameplayEvent_TraceHit,
-		nullptr,
-		false,
-		false);
+		SFGameplayTags::GameplayEvent_TraceHit);
 
 	if (EventTask)
 	{
@@ -89,6 +67,7 @@ void USFGA_Enemy_Melee::ActivateAbility(
 		EventTask->ReadyForActivation();
 	}
 }
+
 
 void USFGA_Enemy_Melee::CleanupWeaponTraces()
 {

@@ -26,7 +26,7 @@ public:
 
 	USFHeroComponent(const FObjectInitializer& ObjectInitializer = FObjectInitializer::Get());
 
-	UFUNCTION(BlueprintPure, Category = "LC|Hero")
+	UFUNCTION(BlueprintPure, Category = "SF|Hero")
 	static USFHeroComponent* FindHeroComponent(const AActor* Actor) { return (Actor ? Actor->FindComponentByClass<USFHeroComponent>() : nullptr); }
 	
 	/** Overrides the camera from an active gameplay ability */

@@ -14,7 +14,9 @@ namespace SFGameplayTags
 	UE_DEFINE_GAMEPLAY_TAG_COMMENT(Character_State_ComboWindow, "Character.State.ComboWindow", "Valid input window for next combo attack");
 	UE_DEFINE_GAMEPLAY_TAG_COMMENT(Character_State_UsingAbility, "Character.State.UsingAbility", "Character UseAbility");
 	UE_DEFINE_GAMEPLAY_TAG_COMMENT(Character_State_Skill, "Character.State.Skill", "Character Using Skill");
-	
+	UE_DEFINE_GAMEPLAY_TAG_COMMENT(Character_State_Downed, "Character.State.Downed", "Character is downed");
+	UE_DEFINE_GAMEPLAY_TAG_COMMENT(Character_State_TurningInPlace, "Character.State.TurningInPlace", "Character is turning in place");
+
 	// ========== 방어/회피 ==========
 	UE_DEFINE_GAMEPLAY_TAG_COMMENT(Character_State_Blocking, "Character.State.Blocking", "Character is blocking");
 	UE_DEFINE_GAMEPLAY_TAG_COMMENT(Character_State_Dodging, "Character.State.Dodging", "Character is dodging");
@@ -25,6 +27,7 @@ namespace SFGameplayTags
 	UE_DEFINE_GAMEPLAY_TAG_COMMENT(Character_State_Knockdown, "Character.State.Knockdown", "Character is knocked down");
 	UE_DEFINE_GAMEPLAY_TAG_COMMENT(Character_State_Knockback, "Character.State.Knockback", "Character is knocked back");
 	UE_DEFINE_GAMEPLAY_TAG_COMMENT(Character_State_Launched, "Character.State.Launched", "Character is launched upward or outward");
+	UE_DEFINE_GAMEPLAY_TAG_COMMENT(Character_State_Grabbed, "Character.State.Grabbed", "Character is Grabbed ");
 
 	// ========== 패링/그로기 ==========
 	UE_DEFINE_GAMEPLAY_TAG_COMMENT(Character_State_Parried, "Character.State.Parried", "Character is parried (staggered due to parry)");
@@ -37,5 +40,8 @@ namespace SFGameplayTags
 	UE_DEFINE_GAMEPLAY_TAG(State_RegenPaused_Health, "State.RegenPaused.Health");
 	UE_DEFINE_GAMEPLAY_TAG(State_RegenPaused_Mana, "State.RegenPaused.Mana");
 	UE_DEFINE_GAMEPLAY_TAG(State_RegenPaused_Stamina, "State.RegenPaused.Stamina");
+
+	// ========== 상호작용 ==========
+	UE_DEFINE_GAMEPLAY_TAG(Character_State_Interact, "Character.State.Interact");
 	
 }

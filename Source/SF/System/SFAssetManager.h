@@ -23,6 +23,8 @@ public:
 
 	//~UAssetManager interface
 	virtual void StartInitialLoading() override;
+	virtual void FinishInitialLoading() override;
+	virtual void PostInitialAssetScan() override;
 #if WITH_EDITOR
 	virtual void PreBeginPIE(bool bStartSimulate) override;
 #endif
@@ -31,14 +33,32 @@ public:
 	static USFAssetManager& Get();
 
 	template<typename AssetType>
+	static AssetType* GetAssetByPath(const TSoftObjectPtr<AssetType>& AssetPointer, bool bKeepInMemory = true);
+
+	template<typename AssetType>
 	static TSubclassOf<AssetType> GetSubclassByPath(const TSoftClassPtr<AssetType>& AssetPointer, bool bKeepInMemory = true);
 
 	const USFGameData& GetGameData();
-	
-	void LoadHeroDefinitions(const FStreamableDelegate& LoadFinishedCallback);
-	bool GetLoadedHeroDefinitions(TArray<USFHeroDefinition*>& LoadedHeroDefinations) const;
 
+	// HeroDefinition 로드 요청 (이미 로드되어 있으면 콜백 즉시 실행)
+	void LoadHeroDefinitions(const FStreamableDelegate& LoadFinishedCallback);
+	bool GetLoadedHeroDefinitions(TArray<USFHeroDefinition*>& OutHeroDefinations) const;
 	TSharedPtr<FStreamableHandle> LoadPawnDataAsync(const TSoftObjectPtr<USFPawnData>& PawnDataPath, FStreamableDelegate& LoadCompleteDelegate);
+
+	// ===== PrimaryAsset 관리 =====
+	void LoadPrimaryAssetType(FPrimaryAssetType AssetType, const FStreamableDelegate& OnComplete = FStreamableDelegate());
+	void UnloadPrimaryAssetType(FPrimaryAssetType AssetType);
+	bool IsPrimaryAssetTypeLoaded(FPrimaryAssetType AssetType) const;
+	
+	// ===== Bundle 관리 =====
+	void LoadBundle(FName BundleName, const TArray<FPrimaryAssetType>& AssetTypes, const FStreamableDelegate& OnComplete = FStreamableDelegate());
+	void UnloadBundle(FName BundleName);
+	bool IsBundleLoaded(FName BundleName) const;
+
+	// Lobby 에셋 관련 래퍼 함수들
+	void LoadLobbyAssets(const FStreamableDelegate& OnComplete = FStreamableDelegate());
+	void UnloadLobbyAssets() { UnloadBundle(TEXT("Lobby")); }
+	bool AreLobbyAssetsLoaded() const { return IsBundleLoaded(TEXT("Lobby")); }
 
 protected:
 	template <typename GameDataClass>
@@ -59,6 +79,13 @@ protected:
 	void AddLoadedAsset(const UObject* Asset);
 	
 	UPrimaryDataAsset* LoadGameDataOfClass(TSubclassOf<UPrimaryDataAsset> DataClass, const TSoftObjectPtr<UPrimaryDataAsset>& DataClassPath, FPrimaryAssetType PrimaryAssetType);
+	
+private:
+	
+	void LoadAllPrimaryAssets();
+	void OnPrimaryAssetTypeLoaded(FPrimaryAssetType AssetType);
+	void OnBundleLoaded(FName BundleName);
+	TArray<FPrimaryAssetType> GetManagedPrimaryAssetTypes() const;
 
 protected:
 	
@@ -74,7 +101,46 @@ protected:
 
 	// Used for a scope lock when modifying the list of load assets.
 	FCriticalSection LoadedAssetsCritical;
+
+private:
+	// ===== PrimaryAsset Handles (타입별 관리) =====
+	TMap<FPrimaryAssetType, TSharedPtr<FStreamableHandle>> PrimaryAssetHandles;
+	TMap<FPrimaryAssetType, FStreamableDelegate> PendingPrimaryAssetCallbacks;
+
+	// ===== Bundle Handles =====
+	TMap<FName, TSharedPtr<FStreamableHandle>> BundleHandles;
+	TMap<FName, FStreamableDelegate> PendingBundleCallbacks;
+    
+	// 번들 로드 시 대기 중인 PrimaryAsset 타입 수
+	TMap<FName, int32> PendingAssetTypesForBundle;
+	TMap<FName, TArray<FPrimaryAssetType>> BundleAssetTypes;
 };
+
+template<typename AssetType>
+AssetType* USFAssetManager::GetAssetByPath(const TSoftObjectPtr<AssetType>& AssetPointer, bool bKeepInMemory)
+{
+	AssetType* LoadedAsset = nullptr;
+
+	const FSoftObjectPath& AssetPath = AssetPointer.ToSoftObjectPath();
+
+	if (AssetPath.IsValid())
+	{
+		LoadedAsset = AssetPointer.Get();
+		if (!LoadedAsset)
+		{
+			LoadedAsset = Cast<AssetType>(SynchronousLoadAsset(AssetPath));
+			ensureAlwaysMsgf(LoadedAsset, TEXT("Failed to load asset [%s]"), *AssetPointer.ToString());
+		}
+
+		if (LoadedAsset && bKeepInMemory)
+		{
+			// Added to loaded asset list.
+			Get().AddLoadedAsset(Cast<UObject>(LoadedAsset));
+		}
+	}
+
+	return LoadedAsset;
+}
 
 template <typename AssetType>
 TSubclassOf<AssetType> USFAssetManager::GetSubclassByPath(const TSoftClassPtr<AssetType>& AssetPointer, bool bKeepInMemory)

@@ -5,6 +5,9 @@
 #include "System/Data/SFStageInfo.h"
 #include "SFPlayerController.generated.h"
 
+class USFSharedUIComponent;
+class USFDeathUIComponent;
+class USFSpectatorComponent;
 struct FSFStageInfo;
 class USFSkillSelectionScreen;
 class USFLoadingCheckComponent;
@@ -32,16 +35,21 @@ public:
 	virtual void SetupInputComponent() override; 
 	//~End of AController interface
 
+	//~APlayerController interface
+	virtual void PlayerTick(float DeltaTime) override;
+	//~End of APlayerController interface
+
 	UFUNCTION(BlueprintCallable, Category = "SF|PlayerController")
 	ASFPlayerState* GetSFPlayerState() const;
 	
 	UFUNCTION(BlueprintCallable, Category = "SF|PlayerController")
 	USFAbilitySystemComponent* GetSFAbilitySystemComponent() const;
 
-	
-
 protected:
 	virtual void PostProcessInput(const float DeltaTime, const bool bGamePaused) override;
+	
+	UFUNCTION(Server, Unreliable)
+	void Server_UpdateViewRotation(FRotator NewRotation);
 
 protected:
 	// ----------------[추가] 인게임 메뉴 관련 변수 및 함수----------------------
@@ -60,29 +68,34 @@ protected:
 	UPROPERTY()
 	TObjectPtr<UUserWidget> InGameMenuInstance;
 
-	void ToggleInGameMenu();
+	// 팀원 표시 위젯 클래스
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "UI|InGame")
+	TSubclassOf<UUserWidget> TeammateIndicatorWidgetClass;
 
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "UI|SkillSelection")
-	TSubclassOf<USFSkillSelectionScreen> SkillSelectionScreenClass;
-
+	// 생성된 팀원 표시 위젯 관리 맵
 	UPROPERTY()
-	TObjectPtr<USFSkillSelectionScreen> SkillSelectionScreenInstance;
+	TMap<AActor*, class USFIndicatorWidgetBase*> TeammateWidgetMap;
 
-	UFUNCTION()
-	void HandleStageCleared(const FSFStageInfo& ClearedStageInfo);
+	// 팀원 표시 검색 타이머 핸들
+	FTimerHandle TeammateSearchTimerHandle;
+	
 
-	UFUNCTION()
-	void OnSkillSelectionComplete();
-
-	void ShowSkillSelectionScreen(int32 StageIndex);
-	void HideSkillSelectionScreen();
+protected:
+	// 인게임 메뉴 생성 함수
+	void ToggleInGameMenu();
+	// 팀원 위젯 생성 함수
+	void CreateTeammateIndicators();
 
 private:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "SF|Components", meta = (AllowPrivateAccess = "true"))
 	TObjectPtr<USFLoadingCheckComponent> LoadingCheckComponent;
 
-	// 스테이지 클리어 대기 (PawnData 미로드 시)
-	bool bPendingStageCleared = false;
-	FSFStageInfo PendingStageInfo;
-	FDelegateHandle PawnDataLoadedHandle;
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "SF|Components", meta = (AllowPrivateAccess = "true"))
+	TObjectPtr<USFSpectatorComponent> SpectatorComponent;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "SF|Components", meta = (AllowPrivateAccess = "true"))
+	TObjectPtr<USFDeathUIComponent> DeathUIComponent;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "SF|Components", meta = (AllowPrivateAccess = "true"))
+	TObjectPtr<USFSharedUIComponent> SharedUIComponent;
 };

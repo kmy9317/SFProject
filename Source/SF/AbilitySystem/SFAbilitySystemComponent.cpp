@@ -11,7 +11,6 @@
 #include "Character/SFCharacterGameplayTags.h"
 #include "Character/Enemy/SFEnemy.h"
 #include "Character/Hero/SFHero.h"
-#include "GameplayEvent/SFGameplayEventTags.h"
 #include "Player/Save/SFPersistentDataType.h"
 
 
@@ -22,6 +21,9 @@ USFAbilitySystemComponent::USFAbilitySystemComponent(const FObjectInitializer& O
 	InputPressedSpecHandles.Reset();
 	InputReleasedSpecHandles.Reset();
 	InputHeldSpecHandles.Reset();
+
+	InputBlockedTags.AddTag(SFGameplayTags::Character_State_Downed);
+	InputBlockedTags.AddTag(SFGameplayTags::Character_State_Dead);
 }
 
 void USFAbilitySystemComponent::InitAbilityActorInfo(AActor* InOwnerActor, AActor* InAvatarActor)
@@ -200,6 +202,16 @@ void USFAbilitySystemComponent::AbilityInputTagReleased(const FGameplayTag& Inpu
 
 void USFAbilitySystemComponent::ProcessAbilityInput(float DeltaTime, bool bGamePaused)
 {
+	// 입력 차단 태그 체크 - 있으면 입력 버퍼만 클리어하고 리턴
+	if (HasAnyMatchingGameplayTags(InputBlockedTags))
+	{
+		InputStartedSpecHandles.Reset();
+		InputPressedSpecHandles.Reset();
+		InputReleasedSpecHandles.Reset();
+		// InputHeldSpecHandles는 유지 (키를 떼면 정상적으로 제거되도록)
+		return;
+	}
+
 	// 이번 프레임에 활성화할 어빌리티들을 저장할 정적 배열
 	// 정적 변수로 선언하여 매 프레임마다 메모리 할당을 피함
 	static TArray<FGameplayAbilitySpecHandle> AbilitiesToActivate;
@@ -578,61 +590,44 @@ void USFAbilitySystemComponent::RestoreGameplayEffectsFromData(const FSFSavedAbi
 		RestoredCount, InData.SavedGameplayEffects.Num());
 }
 
-void USFAbilitySystemComponent::ProcessHitReactionEvent(float Damage, const FGameplayEffectSpec& Spec)
+void USFAbilitySystemComponent::CancelActiveAbilities(const FGameplayTagContainer* WithTags, const FGameplayTagContainer* WithoutTags, UGameplayAbility* Ignore, bool bIncludeOnSpawn)
 {
-	if (HasMatchingGameplayTag(SFGameplayTags::Character_State_Dead))
-		return;
+	ABILITYLIST_SCOPE_LOCK();
 	
-	if (Damage <= 1.f)
-		return;
-	
-	FGameplayEventData Payload;
-	Payload.EventTag = SFGameplayTags::GameplayEvent_HitReaction;
-	Payload.Target = GetAvatarActor();
-	Payload.Instigator = Spec.GetContext().GetOriginalInstigator();
-	Payload.ContextHandle = Spec.GetContext();
-	Payload.EventMagnitude = Damage;
+	for (FGameplayAbilitySpec& Spec : ActivatableAbilities.Items)
+	{
+		if (!Spec.IsActive())
+		{
+			continue;
+		}
+		
+		// OnSpawn 어빌리티는 스킵
+		if (const USFGameplayAbility* SFAbility = Cast<USFGameplayAbility>(Spec.Ability))
+		{
+			if (SFAbility->GetActivationPolicy() == ESFAbilityActivationPolicy::OnSpawn)
+			{
+				// bIncludeOnSpawn이 false면 스킵
+				if (!bIncludeOnSpawn)
+				{
+					continue;
+				}
+			}
+		}
 
-	HandleGameplayEvent(SFGameplayTags::GameplayEvent_HitReaction, &Payload);
+		// 태그 필터링
+		bool bCancel = true;
+		if (WithTags && !Spec.Ability->AbilityTags.HasAny(*WithTags))
+		{
+			bCancel = false;
+		}
+		if (WithoutTags && Spec.Ability->AbilityTags.HasAny(*WithoutTags))
+		{
+			bCancel = false;
+		}
+
+		if (bCancel)
+		{
+			CancelAbilitySpec(Spec, Ignore);
+		}
+	}
 }
-
-void USFAbilitySystemComponent::ProcessParryEvent(float Damage, const FGameplayEffectSpec& Spec)
-{
-	FGameplayEventData PayLoad;
-	PayLoad.EventTag = SFGameplayTags::GameplayEvent_Parry;
-	PayLoad.Target = GetAvatarActor();
-	PayLoad.Instigator = Spec.GetContext().GetOriginalInstigator();
-	PayLoad.ContextHandle = Spec.GetContext();
-	PayLoad.EventMagnitude = Damage;
-	HandleGameplayEvent(SFGameplayTags::GameplayEvent_Parry, &PayLoad);
-}
-
-void USFAbilitySystemComponent::ProcessDeathEvent(const FGameplayEffectSpec& Spec)
-{
-	if (HasMatchingGameplayTag(SFGameplayTags::Character_State_Dead))
-		return;
-	FGameplayEventData PayLoad;
-	PayLoad.EventTag = SFGameplayTags::GameplayEvent_Death;
-	PayLoad.Target = GetAvatarActor();
-	PayLoad.Instigator = Spec.GetContext().GetOriginalInstigator();
-	PayLoad.ContextHandle = Spec.GetContext();
-	HandleGameplayEvent(SFGameplayTags::GameplayEvent_Death, &PayLoad);
-}
-
-void USFAbilitySystemComponent::ProcessStaggerEvent(
-	const FGameplayEffectSpec& Spec)
-{
-
-	if (HasMatchingGameplayTag(SFGameplayTags::Character_State_Dead))
-		return;
-
-	FGameplayEventData Payload;
-	Payload.EventTag = SFGameplayTags::GameplayEvent_Groggy;
-	Payload.Target = GetAvatarActor();
-	Payload.Instigator = Spec.GetContext().GetInstigator();
-	Payload.ContextHandle = Spec.GetContext();
-
-	HandleGameplayEvent(SFGameplayTags::GameplayEvent_Groggy,&Payload);
-}
-
-

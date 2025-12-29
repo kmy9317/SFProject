@@ -27,10 +27,10 @@ public:
 	}
 	
 private:
-	/** 상호작용 가능한 객체 참조 */
+	// 상호작용 가능한 객체 참조 
 	TScriptInterface<ISFInteractable> Interactable;
 
-	/** 상호작용 정보들을 저장할 배열 참조 */
+	// 상호작용 정보들을 저장할 배열 참조 
 	TArray<FSFInteractionInfo>& InteractionInfos;
 };
 
@@ -48,7 +48,7 @@ class SF_API ISFInteractable
 	GENERATED_BODY()
 
 public:
-	// 상호작용 가능한 Actor에서 상속받아서 상호작용에 따른 몽타주, 부여할 어빌리티 정보를 리턴
+	// 상호작용 가능한 Actor에서 상속받아서 상호작용에 따른 부여할 어빌리티 정보를 리턴
 	virtual FSFInteractionInfo GetPreInteractionInfo(const FSFInteractionQuery& InteractionQuery) const { return FSFInteractionInfo(); }
 
 	/**
@@ -56,12 +56,13 @@ public:
 	 * GetPreInteractionInfo()에서 얻은 기본 정보에 플레이어의 GE 스탯을 적용하여
 	 * 상호작용 지속시간을 조정한 후 최종 정보를 빌더에 추가
 	 */
-	void GatherPostInteractionInfos(const FSFInteractionQuery& InteractionQuery, FSFInteractionInfoBuilder& InteractionInfoBuilder) const
+	virtual void GatherPostInteractionInfos(const FSFInteractionQuery& InteractionQuery, FSFInteractionInfoBuilder& InteractionInfoBuilder) const
 	{
 		FSFInteractionInfo InteractionInfo = GetPreInteractionInfo(InteractionQuery);
 	
 		if (UAbilitySystemComponent* AbilitySystem = UAbilitySystemBlueprintLibrary::GetAbilitySystemComponent(InteractionQuery.RequestingAvatar.Get()))
 		{
+			// TODO : GE 스탯 적용 로직 추가 
 			InteractionInfo.Duration = FMath::Max<float>(0.f, InteractionInfo.Duration);
 		}
 	
@@ -78,14 +79,15 @@ public:
 
 	/**
 	* 하이라이트 효과를 위한 메시 컴포넌트들을 반환하는 가상 함수
-	* 상호작용 가능한 객체가 플레이어 시선에 들어올 때 아웃라인 효과를 적용하기 위해 사용
 	*/
 	UFUNCTION(BlueprintCallable)
 	virtual void GetMeshComponents(TArray<UMeshComponent*>& OutMeshComponents) const { }
 
-	/**
-	* 현재 상황에서 상호작용이 가능한지 검증하는 가상 함수
-	*/
 	UFUNCTION(BlueprintCallable)
-	virtual bool CanInteraction(const FSFInteractionQuery& InteractionQuery) const { return true; }
+	virtual bool CanInteraction(const FSFInteractionQuery& InteractionQuery) const;
+
+	virtual void OnInteractActiveStarted(AActor* Interactor) {}
+	virtual void OnInteractActiveEnded(AActor* Interactor) {}
+	virtual void OnInteractionSuccess(AActor* Interactor) {}
+	virtual int32 GetActiveInteractorCount() const { return 0; }
 };

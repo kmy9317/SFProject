@@ -42,6 +42,11 @@ void USFCombatSet::PostAttributeChange(const FGameplayAttribute& Attribute, floa
 	Super::PostAttributeChange(Attribute, OldValue, NewValue);
 }
 
+void USFCombatSet::ClampAttribute(const FGameplayAttribute& Attribute, float& NewValue) const
+{
+	// TODO : Clamp 할 Attribute 필요시 추가
+}
+
 void USFCombatSet::OnRep_AttackPower(const FGameplayAttributeData& OldValue)
 {
 	GAMEPLAYATTRIBUTE_REPNOTIFY(ThisClass, AttackPower, OldValue);
