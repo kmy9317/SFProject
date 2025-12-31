@@ -1,13 +1,10 @@
 // SFBaseAIController.cpp
 #include "SFBaseAIController.h"
-
 #include "AbilitySystemComponent.h"
 #include "AbilitySystemGlobals.h"
 #include "AI/StateMachine/SFStateMachine.h"
-#include "Animation/Enemy/SFEnemyAnimInstance.h"
 #include "BehaviorTree/BehaviorTree.h"
 #include "BehaviorTree/BehaviorTreeComponent.h"
-#include "BehaviorTree/BlackboardComponent.h"
 #include "Components/GameFrameworkComponentManager.h"
 #include "Net/UnrealNetwork.h"
 #include "AI/Controller/SFEnemyCombatComponent.h"
@@ -16,7 +13,6 @@
 #include "Character/Enemy/Component/SFStateReactionComponent.h"
 #include "GameFramework/Character.h"
 #include "Team/SFTeamTypes.h"
-#include "Navigation/CrowdFollowingComponent.h"
 #include "AbilitySystemBlueprintLibrary.h"
 #include "AbilitySystem/GameplayEvent/SFGameplayEventTags.h"
 #include "GameFramework/CharacterMovementComponent.h"
@@ -31,8 +27,7 @@ ASFBaseAIController::ASFBaseAIController(const FObjectInitializer& ObjectInitial
 
     PrimaryActorTick.bCanEverTick = true;
     PrimaryActorTick.TickGroup = TG_PrePhysics;
-
-    // 기본값
+    
     CurrentRotationMode = EAIRotationMode::MovementDirection;
     RotationInterpSpeed = 5.f;
 }
@@ -191,13 +186,10 @@ void ASFBaseAIController::ReceiveStateEnd(FGameplayTag StateTag)
         BTComp->ResumeLogic(TEXT("CC End"));
     }
 
-    bool bShouldBeInCombatMode = bIsInCombat;
-    if (CombatComponent && CombatComponent->GetCurrentTarget())
-    {
-        bShouldBeInCombatMode = true;
-    }
-
-    SetRotationMode(bShouldBeInCombatMode ? EAIRotationMode::ControllerYaw : EAIRotationMode::MovementDirection);
+    // CC 해제 후 현재 전투 상태에 맞는 회전 모드로 복원
+    // 하위 클래스(Enemy, Dragon)가 각자의 방식으로 처리하므로
+    // Base에서는 기본 MovementDirection으로만 설정
+    SetRotationMode(EAIRotationMode::MovementDirection);
 }
 
 void ASFBaseAIController::SetBehaviorTree(UBehaviorTree* NewBehaviorTree)
@@ -265,7 +257,6 @@ FGenericTeamId ASFBaseAIController::GetGenericTeamId() const
     return TeamId;
 }
 
-
 bool ASFBaseAIController::ShouldRotateActorByController() const
 {
     return true;
@@ -275,23 +266,25 @@ void ASFBaseAIController::UpdateControlRotation(float DeltaTime, bool bUpdatePaw
 {
     APawn* MyPawn = GetPawn();
     if (!MyPawn) return;
-
+    
     if (IsTurningInPlace()) return;
-
+    
     bool bIsUsingAbility = false;
     if (UAbilitySystemComponent* ASC = UAbilitySystemGlobals::GetAbilitySystemComponentFromActor(MyPawn))
     {
         if (ASC->HasMatchingGameplayTag(SFGameplayTags::Character_State_UsingAbility))
         {
             bIsUsingAbility = true;
-            bUpdatePawn = false;
         }
     }
-
-    // Controller 회전(시선)만 우선 갱신. Pawn 회전은 직접 제어하지 않는다.
+    // Controller 회전만 갱신 
     Super::UpdateControlRotation(DeltaTime, false);
-
-    // 타겟이 있으면 컨트롤러가 타겟을 보도록 갱신
+    
+    if (bIsUsingAbility)
+    {
+        return;
+    }
+    
     if (CombatComponent && CombatComponent->GetCurrentTarget())
     {
         FVector ToTarget = CombatComponent->GetCurrentTarget()->GetActorLocation() - MyPawn->GetActorLocation();
@@ -301,12 +294,10 @@ void ASFBaseAIController::UpdateControlRotation(float DeltaTime, bool bUpdatePaw
             SetControlRotation(ToTarget.Rotation());
         }
     }
-
-    // 여기서부터는 Actor 회전을 허용하는 경우에만 진행
+    
     if (!ShouldRotateActorByController()) return;
-    if (bIsUsingAbility) return;
-    if (!bUpdatePawn) return;
 
+    // ControllerYaw 모드일 때만 Base에서 Actor 회전 처리
     if (CurrentRotationMode == EAIRotationMode::ControllerYaw)
     {
         FRotator TargetRot = GetControlRotation();
@@ -316,7 +307,7 @@ void ASFBaseAIController::UpdateControlRotation(float DeltaTime, bool bUpdatePaw
         FRotator CurrentActorRot = MyPawn->GetActorRotation();
         float AngleDiff = FMath::Abs(FMath::FindDeltaAngleDegrees(CurrentActorRot.Yaw, TargetRot.Yaw));
         float Threshold = GetTurnThreshold();
-
+        
         if (AngleDiff < Threshold)
         {
             FRotator NewActorRot = FMath::RInterpTo(CurrentActorRot, TargetRot, DeltaTime, RotationInterpSpeed);

@@ -9,6 +9,7 @@
 #include "Character/SFCharacterBase.h"
 #include "AbilitySystem/SFAbilitySystemComponent.h"
 #include "AbilitySystem/Abilities/Enemy/Combat/SFGA_Enemy_BaseAttack.h"
+#include "AbilitySystem/GameplayEvent/SFGameplayEventTags.h"
 
 USFBTTask_FindAttackPoint::USFBTTask_FindAttackPoint(const FObjectInitializer& ObjectInitializer)
     : Super(ObjectInitializer)
@@ -42,70 +43,66 @@ EBTNodeResult::Type USFBTTask_FindAttackPoint::ExecuteTask(UBehaviorTreeComponen
         return EBTNodeResult::Failed;
     }
 
-    // 2. ASC에서 해당 태그를 가진 어빌리티(GA)를 찾아 사거리 정보 가져오기
-    float MinDist = 0.f;
-    float MaxDist = 1000.f;
+     float MinDist = 0.f;
+    float MaxDist = 1000.f; 
     bool bFoundAbility = false;
 
     USFAbilitySystemComponent* ASC = Character->GetSFAbilitySystemComponent();
     if (ASC)
     {
-        // ActivatableAbilities를 순회하며 태그가 일치하는 인스턴스 찾기
         for (const FGameplayAbilitySpec& Spec : ASC->GetActivatableAbilities())
         {
+            // 태그 매칭 확인 (HasTagExact 권장)
             if (Spec.Ability && Spec.Ability->AbilityTags.HasTag(AbilityTag))
             {
-                // 인스턴싱된 어빌리티라면 PrimaryInstance를 가져옴
-                USFGA_Enemy_BaseAttack* AttackAbility = Cast<USFGA_Enemy_BaseAttack>(Spec.GetPrimaryInstance());
-                
-                // 만약 인스턴싱되지 않은 어빌리티(CDO 사용)라면 CDO를 캐스팅
-                if (!AttackAbility)
-                {
-                    AttackAbility = Cast<USFGA_Enemy_BaseAttack>(Spec.Ability);
-                }
+                // 1. Spec에 저장된 실시간 값 먼저 확인
+                const float* MinValPtr = Spec.SetByCallerTagMagnitudes.Find(SFGameplayTags::Data_EnemyAbility_MinAttackRange);
+                const float* MaxValPtr = Spec.SetByCallerTagMagnitudes.Find(SFGameplayTags::Data_EnemyAbility_AttackRange);
 
-                if (AttackAbility)
+                if (MinValPtr && MaxValPtr)
                 {
-                    MinDist = AttackAbility->GetMinAttackRange();
-                    MaxDist = AttackAbility->GetAttackRange();
-                    bFoundAbility = true;
-                    break;
+                    MinDist = *MinValPtr;
+                    MaxDist = *MaxValPtr;
                 }
+                else
+                {
+                    
+                    if (USFGA_Enemy_BaseAttack* CDO = Cast<USFGA_Enemy_BaseAttack>(Spec.Ability))
+                    {
+                        MinDist = CDO->GetMinAttackRange();
+                        MaxDist = CDO->GetAttackRange();
+                    }
+                }
+            
+                bFoundAbility = true;
+                break;
             }
         }
     }
 
-    if (!bFoundAbility)
-    {
-        UE_VLOG(Character, LogBehaviorTree, Warning, TEXT("SFBTTask_FindAttackPoint: Could not find Ability with Tag %s"), *AbilityTag.ToString());
-        // 실패 처리하거나 기본값으로 진행할 수 있습니다. 여기선 기본값(0~1000)으로 진행합니다.
-    }
+    
 
-    // 3. (옵션) 이미 사거리 내에 있다면 스킵
-    // 주석에 언급하신 대로 몹이 뭉치는 것을 방지하기 위해 이 옵션은 보통 꺼두거나(false),
-    // bSkipIfInRange가 true일 때만 체크하도록 합니다.
     if (bSkipIfInRange && TargetActorPtr)
     {
-        float DistSq = FVector::DistSquared(Character->GetActorLocation(), TargetActorPtr->GetActorLocation());
+        // 수평 거리(2D)로 체크하여 높이 오차 제거
+        float DistSq = FVector::DistSquared2D(Character->GetActorLocation(), TargetActorPtr->GetActorLocation());
         float MaxRangeSq = MaxDist * MaxDist;
-        // 약간의 여유(Tolerance)를 두고 체크
-        if (DistSq < (MaxRangeSq * 0.9f)) 
+        
+        // 90% 사거리 안에 있다면 이미 충분함
+        if (DistSq < (MaxRangeSq * 0.81f)) // 0.9의 제곱은 0.81
         {
-            // 이미 공격 가능 범위 안이라면 이동할 필요 없음 -> 성공 반환
             return EBTNodeResult::Succeeded;
         }
     }
 
-    // 4. EQS 쿼리 요청 생성
+    // 4. EQS 파라미터 주입
     FEnvQueryRequest QueryRequest(QueryTemplate, Character);
-
-    // 최적 거리 계산 (Min과 Max의 중간)
     const float OptimalDistance = (MinDist + MaxDist) * 0.5f;
 
-    // EQS 파라미터 주입 (EQS 에셋에서 이 이름의 파라미터를 사용해야 함)
     QueryRequest.SetFloatParam(FName("MinDistance"), MinDist);
     QueryRequest.SetFloatParam(FName("MaxDistance"), MaxDist);
     QueryRequest.SetFloatParam(FName("OptimalDistance"), OptimalDistance);
+
 
     // 쿼리 실행
     QueryID = QueryRequest.Execute(RunMode, this, &USFBTTask_FindAttackPoint::OnQueryFinished);

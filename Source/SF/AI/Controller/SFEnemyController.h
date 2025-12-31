@@ -1,17 +1,14 @@
+// SFEnemyController.h
 #pragma once
 
 #include "CoreMinimal.h"
-#include "SFBaseAIController.h"
-#include "DetourCrowdAIController.h"
 #include "SFBaseAIController.h"
 #include "Perception/AIPerceptionComponent.h"
 #include "Perception/AISenseConfig_Sight.h"
 #include "SFEnemyController.generated.h"
 
-/**
- * Enemy AI Controller with Perception system and Crowd avoidance
- * Inherits common BT functionality from ASFBaseAIController
- */
+class USFEnemyCombatComponent;
+
 UCLASS()
 class SF_API ASFEnemyController : public ASFBaseAIController
 {
@@ -19,43 +16,44 @@ class SF_API ASFEnemyController : public ASFBaseAIController
 
 public:
 	ASFEnemyController(const FObjectInitializer& ObjectInitializer = FObjectInitializer::Get());
+
+	virtual void InitializeAIController() override;
 	
 	UFUNCTION(BlueprintCallable, Category = "AI|Combat")
 	void SetTargetForce(AActor* NewTarget);
 
-	// ISFAIControllerInterface
-	virtual void InitializeAIController() override;
+protected:
+	//~ Begin ASFBaseAIController Interface
+	virtual void UpdateControlRotation(float DeltaTime, bool bUpdatePawn = true) override;
+	virtual bool ShouldRotateActorByController() const override;
+	virtual float GetTurnThreshold() const override;
+	virtual bool IsTurningInPlace() const override;
+	//~ End ASFBaseAIController Interface
 
+
+	void RotateActorTowardsController(float DeltaTime);
+	
 	UFUNCTION()
 	void OnCombatStateChanged(bool bInCombat);
 
+protected:
 
-#pragma region Perception
-	// 시야 감지 컴포넌트
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="AI|Perception")
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "AI|Perception")
 	TObjectPtr<UAIPerceptionComponent> AIPerception;
 
-	// 시야 감지 구조체
-	UPROPERTY()
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "AI|Perception")
 	TObjectPtr<UAISenseConfig_Sight> SightConfig;
 
-	// 감지 가능 거리
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="AI|Perception")
+	// Sight Configuration
+	UPROPERTY(EditDefaultsOnly, Category = "AI|Perception")
 	float SightRadius = 2000.f;
 
-	// 감지 유지 종료 거리
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="AI|Perception")
-	float LoseSightRadius = 3500.f;
+	UPROPERTY(EditDefaultsOnly, Category = "AI|Perception")
+	float LoseSightRadius = 2500.f;
 
-	// Idle 상태 시 시야각 (45도 = 정면 약 90도 부채꼴)
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="AI|Perception")
-	float PeripheralVisionAngleDegrees = 45.f;
-
-	// 액터태그 기반 타겟 액터
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="AI|Perception")
-	FName TargetTag = FName("Player");
-
-
-#pragma endregion
+	UPROPERTY(EditDefaultsOnly, Category = "AI|Perception")
+	float PeripheralVisionAngleDegrees = 90.f;
 	
+	UPROPERTY(EditDefaultsOnly, Category = "AI|Target")
+	FName TargetTag = NAME_None;
 };

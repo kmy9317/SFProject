@@ -22,9 +22,13 @@ public:
 
 
 protected:
-
-	
 	UPROPERTY(EditAnywhere, Category = "Ability")
 	FGameplayTagContainer AbilitySearchTags;
-	;
+
+	UPROPERTY(EditAnywhere, Category = "BlackBoard", meta=(AllowNone = "true"))
+	FBlackboardKeySelector MinRangeKey;
+
+	UPROPERTY(EditAnywhere, Category = "BlackBoard", meta=(AllowNone = "true"))
+	FBlackboardKeySelector MaxRangeKey;
+	
 };

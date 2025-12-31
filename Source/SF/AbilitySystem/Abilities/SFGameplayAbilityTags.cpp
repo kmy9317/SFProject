@@ -15,6 +15,9 @@ namespace SFGameplayTags
 
 	// Charge Attack (돌진)
 	UE_DEFINE_GAMEPLAY_TAG_COMMENT(Ability_Enemy_Attack_Charge, "Ability.Enemy.Attack.Charge", "Charge Attack - Rush attack");
+	
+	UE_DEFINE_GAMEPLAY_TAG_COMMENT(Ability_Enemy_Movement_Step, "Ability.Enemy.Movement.Step", "Step Movement");
+	
 
 	// Guard Break Attack (가드 파괴)
 	UE_DEFINE_GAMEPLAY_TAG_COMMENT(Ability_Enemy_Attack_GuardBreak, "Ability.Enemy.Attack.GuardBreak", "Guard Break Attack - Breaks player guard");
