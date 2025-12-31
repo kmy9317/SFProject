@@ -29,6 +29,16 @@ void ASFLobbyPlayerState::BeginPlay()
 	}
 }
 
+void ASFLobbyPlayerState::EndPlay(const EEndPlayReason::Type EndPlayReason)
+{
+	if (LobbyGameState)
+	{
+		LobbyGameState->OnPlayerSelectionUpdated.RemoveAll(this);
+	}
+	
+	Super::EndPlay(EndPlayReason);
+}
+
 void ASFLobbyPlayerState::CopyProperties(APlayerState* PlayerState)
 {
 	Super::CopyProperties(PlayerState);

@@ -25,9 +25,12 @@ ASFPlayerSlot::ASFPlayerSlot()
 void ASFPlayerSlot::BeginPlay()
 {
 	Super::BeginPlay();
-	
-	// HeroDisplay 미리 스폰
-	SpawnHeroDisplay();
+
+	if (HasAuthority())
+	{
+		// HeroDisplay 미리 스폰
+		SpawnHeroDisplay();
+	}
 }
 
 void ASFPlayerSlot::SpawnHeroDisplay()
