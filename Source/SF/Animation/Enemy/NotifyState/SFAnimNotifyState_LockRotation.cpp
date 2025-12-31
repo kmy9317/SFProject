@@ -5,7 +5,9 @@
 
 USFAnimNotifyState_LockRotation::USFAnimNotifyState_LockRotation()
 {
-    NotifyColor = FColor::Red; 
+#if WITH_EDITORONLY_DATA
+    NotifyColor = FColor::Red;
+#endif
 }
 
 void USFAnimNotifyState_LockRotation::NotifyBegin(USkeletalMeshComponent* MeshComp, UAnimSequenceBase* Animation, float TotalDuration, const FAnimNotifyEventReference& EventReference)

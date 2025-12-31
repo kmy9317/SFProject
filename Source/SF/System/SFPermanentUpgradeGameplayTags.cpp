@@ -15,6 +15,8 @@ namespace SFPermanentUpgradeTags
 	UE_DEFINE_GAMEPLAY_TAG_COMMENT(Data_Upgrade_MaxStamina,"Data.Upgrade.MaxStamina","영구 업그레이드: 최대 스태미나 증가");
 	UE_DEFINE_GAMEPLAY_TAG_COMMENT(Data_Upgrade_Luck,"Data.Upgrade.Luck","영구 업그레이드: 행운 증가");
 	UE_DEFINE_GAMEPLAY_TAG_COMMENT(Data_Upgrade_CritChance,"Data.Upgrade.CritChance","영구 업그레이드: 치명타 확률 증가");
+	UE_DEFINE_GAMEPLAY_TAG_COMMENT(Data_Upgrade_ManaRegen,"Data.Upgrade.ManaRegen","영구 업그레이드: 마나 재생 증가");
+	UE_DEFINE_GAMEPLAY_TAG_COMMENT(Data_Upgrade_StaminaRegen,"Data.Upgrade.StaminaRegen","영구 업그레이드: 스태미나 재생 증가");
 	
 	
 	UE_DEFINE_GAMEPLAY_TAG_COMMENT(Data_Upgrade_CooldownReductionPct,"Data.Upgrade.CooldownReductionPct","영구 업그레이드: 쿨타임 감소 비율");

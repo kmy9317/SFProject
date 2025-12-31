@@ -36,6 +36,8 @@ public:
 	ATTRIBUTE_ACCESSORS(ThisClass, Stamina);
 	ATTRIBUTE_ACCESSORS(ThisClass, MaxStamina);
 	ATTRIBUTE_ACCESSORS(ThisClass, CooldownRate);
+	ATTRIBUTE_ACCESSORS(ThisClass, ManaRegen);
+	ATTRIBUTE_ACCESSORS(ThisClass, StaminaRegen);
 
 protected:
 	UFUNCTION()
@@ -52,6 +54,12 @@ protected:
 	
 	UFUNCTION()
 	void OnRep_CooldownRate(const FGameplayAttributeData& OldValue);
+
+	UFUNCTION()
+	void OnRep_ManaRegen(const FGameplayAttributeData& OldValue);
+
+	UFUNCTION()
+	void OnRep_StaminaRegen(const FGameplayAttributeData& OldValue);
 
 private:
 	bool CanEnterDownedState() const;
@@ -71,4 +79,10 @@ private:
 
 	UPROPERTY(BlueprintReadOnly, ReplicatedUsing=OnRep_CooldownRate, meta=(AllowPrivateAccess="true"))
 	FGameplayAttributeData CooldownRate;
+
+	UPROPERTY(BlueprintReadOnly, ReplicatedUsing=OnRep_ManaRegen, meta=(AllowPrivateAccess="true"))
+	FGameplayAttributeData ManaRegen;
+	
+	UPROPERTY(BlueprintReadOnly, ReplicatedUsing=OnRep_StaminaRegen, meta=(AllowPrivateAccess="true"))
+	FGameplayAttributeData StaminaRegen;
 };

@@ -85,6 +85,9 @@ public:
 
 	UFUNCTION(BlueprintCallable, Category="SF|PlayFab")
 	bool HasLoadedPlayerData() const { return bHasLoadedPlayerData; }
+
+	void TryStartPermanentUpgradeForThisGame();
+	void ResetPermanentUpgradeForNewGameSession();
 	//====================================================================
 
 private:
@@ -112,5 +115,7 @@ private:
 	FTimerHandle RetrySendUpgradeTimerHandle;
 	int32 RetrySendUpgradeAttempts = 0;
 	static constexpr int32 MaxRetrySendUpgradeAttempts = 30;
+
+	bool bPermanentUpgradeStartedThisGame = false;
 	//====================================================================
 };

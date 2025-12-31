@@ -2,6 +2,7 @@
 
 #include "Interfaces/OnlineIdentityInterface.h"
 #include "OnlineSubsystem.h"
+#include "SFPlayFabSubsystem.h"
 #include "Online/OnlineSessionNames.h"
 #include "Kismet/GameplayStatics.h"
 #include "Engine/Engine.h"
@@ -138,6 +139,11 @@ void USFOSSGameInstance::OnCreateSessionComplete(FName SessionName, bool bWasSuc
 
 		//Listen 서버로 레벨 오픈
 		LoadWaitingLevel_AsHost();
+		
+		if (USFPlayFabSubsystem* PF = GetSubsystem<USFPlayFabSubsystem>())
+		{
+			PF->ResetPermanentUpgradeForNewGameSession();
+		}
 	}
 	else
 	{

@@ -143,6 +143,10 @@ private:
 	// Permanent upgrade apply helper
 	void TryApplyPermanentUpgrade();
 	static bool ArePermanentUpgradeDataEqual(const FSFPermanentUpgradeData& A, const FSFPermanentUpgradeData& B);
+	FTimerHandle PermanentUpgradeRetryTimer;
+	void SchedulePermanentUpgradeRetry();
+	bool bPermanentUpgradeAppliedThisGame = false;
+
 
 public:
 	FOnPawnDataLoaded OnPawnDataLoaded;

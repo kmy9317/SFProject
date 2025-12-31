@@ -21,6 +21,8 @@ void USFPrimarySet_Hero::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& O
 	DOREPLIFETIME_CONDITION_NOTIFY(ThisClass, Stamina, COND_None, REPNOTIFY_Always);
 	DOREPLIFETIME_CONDITION_NOTIFY(ThisClass, MaxStamina, COND_None, REPNOTIFY_Always);
 	DOREPLIFETIME_CONDITION_NOTIFY(ThisClass, CooldownRate, COND_None, REPNOTIFY_Always);
+	DOREPLIFETIME_CONDITION_NOTIFY(ThisClass, ManaRegen, COND_None, REPNOTIFY_Always);
+	DOREPLIFETIME_CONDITION_NOTIFY(ThisClass, StaminaRegen, COND_None, REPNOTIFY_Always);
 }
 
 bool USFPrimarySet_Hero::PreGameplayEffectExecute(FGameplayEffectModCallbackData& Data)
@@ -119,6 +121,14 @@ void USFPrimarySet_Hero::ClampAttribute(const FGameplayAttribute& Attribute, flo
 	{
 		NewValue = FMath::Clamp(NewValue, 0.1f, 2.0f);
 	}
+	else if (Attribute == GetManaRegenAttribute())
+	{
+		NewValue = FMath::Clamp(NewValue, 0.f, 10.0f);
+	}
+	else if (Attribute == GetStaminaRegenAttribute())
+	{
+		NewValue = FMath::Clamp(NewValue, 0.f, 10.0f);
+	}
 }
 
 void USFPrimarySet_Hero::OnRep_Mana(const FGameplayAttributeData& OldValue)
@@ -141,6 +151,21 @@ void USFPrimarySet_Hero::OnRep_MaxStamina(const FGameplayAttributeData& OldValue
 	GAMEPLAYATTRIBUTE_REPNOTIFY(ThisClass, MaxStamina, OldValue);
 }
 
+void USFPrimarySet_Hero::OnRep_CooldownRate(const FGameplayAttributeData& OldValue)
+{
+	GAMEPLAYATTRIBUTE_REPNOTIFY(ThisClass, CooldownRate, OldValue);
+}
+
+void USFPrimarySet_Hero::OnRep_ManaRegen(const FGameplayAttributeData& OldValue)
+{
+	GAMEPLAYATTRIBUTE_REPNOTIFY(ThisClass, ManaRegen, OldValue);
+}
+
+void USFPrimarySet_Hero::OnRep_StaminaRegen(const FGameplayAttributeData& OldValue)
+{
+	GAMEPLAYATTRIBUTE_REPNOTIFY(ThisClass, StaminaRegen, OldValue);
+}
+
 bool USFPrimarySet_Hero::CanEnterDownedState() const
 {
 	USFPlayerCombatStateComponent* CombatState = USFPlayerCombatStateComponent::FindPlayerCombatStateComponent(GetOwningActor());
@@ -150,9 +175,4 @@ bool USFPrimarySet_Hero::CanEnterDownedState() const
 	}
 
 	return CombatState->GetRemainingDownCount() > 0;
-}
-
-void USFPrimarySet_Hero::OnRep_CooldownRate(const FGameplayAttributeData& OldValue)
-{
-	GAMEPLAYATTRIBUTE_REPNOTIFY(ThisClass, CooldownRate, OldValue);
 }

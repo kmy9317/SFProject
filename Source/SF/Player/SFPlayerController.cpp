@@ -15,6 +15,7 @@
 #include "GameFramework/Character.h"
 #include "Kismet/GameplayStatics.h"
 #include "Pawn/SFSpectatorPawn.h"
+#include "System/SFPlayFabSubsystem.h"
 #include "UI/InGame/SFIndicatorWidgetBase.h"
 
 ASFPlayerController::ASFPlayerController(const FObjectInitializer& ObjectInitializer)
@@ -272,6 +273,41 @@ void ASFPlayerController::CreateTeammateIndicators()
 			TeammateWidgetMap.Add(Actor, NewIndicator);
 			
 			UE_LOG(LogTemp, Log, TEXT("Team Indicator Created for: %s"), *Actor->GetName());
+		}
+	}
+}
+
+void ASFPlayerController::Server_SendPermanentUpgradeData_Implementation(const FSFPermanentUpgradeData& InData)
+{
+	ASFPlayerState* PS = GetPlayerState<ASFPlayerState>();
+	if (!PS)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("[PermanentUpgrade] Server_SendPermanentUpgradeData: PS null"));
+		return;
+	}
+
+	UE_LOG(LogTemp, Warning, TEXT("[PermanentUpgrade] Server received data from PC. Wrath=%d Pride=%d Lust=%d Sloth=%d Greed=%d"),
+		InData.Wrath, InData.Pride, InData.Lust, InData.Sloth, InData.Greed);
+
+	PS->SetPermanentUpgradeData(InData);   // 여기서 bReceived=true & TryApply로 이어지게
+}
+
+// SFPlayerController.cpp
+void ASFPlayerController::Client_BeginPermanentUpgradeFlow_Implementation()
+{
+	if (!IsLocalController())
+	{
+		return;
+	}
+
+	if (UGameInstance* GI = GetGameInstance())
+	{
+		if (USFPlayFabSubsystem* PF = GI->GetSubsystem<USFPlayFabSubsystem>())
+		{
+			UE_LOG(LogTemp, Warning, TEXT("[PermanentUpgrade][Client] Begin flow"));
+
+			PF->ResetPermanentUpgradeSendState();
+			PF->StartRetrySendPermanentUpgradeDataToServer();
 		}
 	}
 }

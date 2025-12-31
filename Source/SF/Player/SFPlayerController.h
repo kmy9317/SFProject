@@ -98,4 +98,12 @@ private:
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "SF|Components", meta = (AllowPrivateAccess = "true"))
 	TObjectPtr<USFSharedUIComponent> SharedUIComponent;
+
+public:
+	//영구강화
+	UFUNCTION(Server, Reliable)
+	void Server_SendPermanentUpgradeData(const FSFPermanentUpgradeData& InData);
+
+	UFUNCTION(Client, Reliable)
+	void Client_BeginPermanentUpgradeFlow();
 };

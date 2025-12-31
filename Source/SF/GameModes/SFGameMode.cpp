@@ -16,6 +16,7 @@
 #include "Character/SFPawnData.h"
 #include "Character/SFPawnExtensionComponent.h"
 #include "Engine/PlayerStartPIE.h"
+#include "Player/SFPlayerController.h"
 #include "System/SFGameInstance.h"
 
 ASFGameMode::ASFGameMode()
@@ -28,15 +29,6 @@ void ASFGameMode::InitGame(const FString& MapName, const FString& Options, FStri
 	Super::InitGame(MapName, Options, ErrorMessage);
 	
 	AssignedPlayerStarts.Empty();
-
-	if (USFGameInstance* GI = Cast<USFGameInstance>(GetGameInstance()))
-	{
-		if (USFPlayFabSubsystem* PF = GI->GetSubsystem<USFPlayFabSubsystem>())
-		{
-			PF->ResetPermanentUpgradeSendState();
-			PF->StartRetrySendPermanentUpgradeDataToServer();
-		}
-	}
 }
 
 void ASFGameMode::InitGameState()
@@ -75,6 +67,19 @@ void ASFGameMode::StartPlay()
 				}
 			}
 		});
+	}
+
+	if (!bPermanentUpgradeFlowStarted) // ← 네 프로젝트의 1-1 판별 로직
+	{
+		UE_LOG(LogTemp, Warning, TEXT("[PermanentUpgrade] Game START stage"));
+
+		for (FConstPlayerControllerIterator It = GetWorld()->GetPlayerControllerIterator(); It; ++It)
+		{
+			if (ASFPlayerController* PC = Cast<ASFPlayerController>(It->Get()))
+			{
+				PC->Client_BeginPermanentUpgradeFlow();
+			}
+		}
 	}
 }
 
@@ -137,6 +142,27 @@ void ASFGameMode::HandleStartingNewPlayer_Implementation(APlayerController* NewP
 		}
 		// 로드 중이면 OnPlayerPawnDataLoaded에서 처리
 	}
+
+	//서버만
+	if (!HasAuthority())
+	{
+		return;
+	}
+
+	UGameInstance* GI = GetGameInstance();
+	if (!GI)
+	{
+		return;
+	}
+
+	USFPlayFabSubsystem* PF = GI->GetSubsystem<USFPlayFabSubsystem>();
+	if (!PF)
+	{
+		return;
+	}
+
+	//PawnData 상태와 무관하게 "이번 게임 1회" 트리거
+	PF->TryStartPermanentUpgradeForThisGame();
 }
 
 UClass* ASFGameMode::GetDefaultPawnClassForController_Implementation(AController* Controller)
@@ -407,6 +433,8 @@ void ASFGameMode::RequestTravelToNextStage(TSoftObjectPtr<UWorld> NextStageLevel
 		}
 	}
 
+	bPermanentUpgradeFlowStarted = true;
+	
 	UE_LOG(LogSF, Log, TEXT("[GameMode] Traveling to next stage: %s"), *NextStageLevel.ToString());
 
 	if (USFGameInstance* SFGameInstance = Cast<USFGameInstance>(GetWorld()->GetGameInstance()))

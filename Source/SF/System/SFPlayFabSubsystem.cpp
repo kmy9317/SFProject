@@ -319,3 +319,33 @@ void USFPlayFabSubsystem::SetGold(int32 NewGold)
 	PlayerStats.Gold = NewGold;
 	UE_LOG(LogTemp, Warning, TEXT("[PlayFabSubsystem] SetGold | Gold=%d"), PlayerStats.Gold);
 }
+
+void USFPlayFabSubsystem::TryStartPermanentUpgradeForThisGame()
+{
+	UE_LOG(LogTemp, Warning, TEXT("[PermanentUpgrade] TryStartPermanentUpgradeForThisGame CALLED"));
+	
+	if (bPermanentUpgradeStartedThisGame)
+	{
+		UE_LOG(LogTemp, Warning,
+			TEXT("[PermanentUpgrade] Already started for this game"));
+		return;
+	}
+
+	bPermanentUpgradeStartedThisGame = true;
+
+	ResetPermanentUpgradeSendState();
+	StartRetrySendPermanentUpgradeDataToServer();
+
+	UE_LOG(LogTemp, Warning,
+		TEXT("[PermanentUpgrade] Start ONCE for this game"));
+}
+
+void USFPlayFabSubsystem::ResetPermanentUpgradeForNewGameSession()
+{
+	bPermanentUpgradeStartedThisGame = false;
+	ResetPermanentUpgradeSendState();
+
+	UE_LOG(LogTemp, Warning,
+		TEXT("[PermanentUpgrade] Reset for NEW game session"));
+}
+

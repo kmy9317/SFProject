@@ -93,4 +93,6 @@ private:
 	
 	UPROPERTY()
 	TArray<APlayerStart*> AssignedPlayerStarts;
+
+	bool bPermanentUpgradeFlowStarted = false;
 };

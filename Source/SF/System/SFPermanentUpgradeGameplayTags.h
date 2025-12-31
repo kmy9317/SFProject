@@ -16,6 +16,8 @@ namespace SFPermanentUpgradeTags
 	SF_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(Data_Upgrade_MaxStamina);
 	SF_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(Data_Upgrade_Luck);
 	SF_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(Data_Upgrade_CritChance);
+	SF_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(Data_Upgrade_ManaRegen);
+	SF_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(Data_Upgrade_StaminaRegen);
 	
 	SF_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(Data_Upgrade_CooldownReductionPct);
 	SF_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(Data_Upgrade_CurrencyGainPct);
