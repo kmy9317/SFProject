@@ -1,5 +1,6 @@
 #include "SFStageSubsystem.h"
 
+#include "SFAssetManager.h"
 #include "SFLogChannels.h"
 #include "Engine/AssetManager.h"
 #include "Engine/StreamableManager.h"
@@ -51,11 +52,13 @@ bool USFStageSubsystem::ShouldCreateSubsystem(UObject* Outer) const
 void USFStageSubsystem::OnPreLoadMap(const FString& MapName)
 {
     UpdateStageInfoFromLevel(MapName);
+    UpdateAssetBundlesForLevel(MapName);
 }
 
 void USFStageSubsystem::OnSeamlessTravelStart(UWorld* CurrentWorld, const FString& LevelName)
 {
     UpdateStageInfoFromLevel(LevelName);
+    UpdateAssetBundlesForLevel(LevelName);
 }
 
 void USFStageSubsystem::OnPostLoadMapWithWorld(UWorld* LoadedWorld)
@@ -128,4 +131,48 @@ void USFStageSubsystem::OnConfigTableLoaded()
     }
     
     ConfigTableLoadHandle.Reset();
+}
+
+void USFStageSubsystem::UpdateAssetBundlesForLevel(const FString& LevelName)
+{
+    FString ShortName = FPackageName::GetShortName(LevelName);
+    
+    // 중복 호출 방지
+    if (LastProcessedLevelForBundles == ShortName)
+    {
+        return;
+    }
+    LastProcessedLevelForBundles = ShortName;
+    
+    USFAssetManager& AssetManager = USFAssetManager::Get();
+    const FSFStageConfig* Config = GetStageConfigForLevel(LevelName);
+    ESFLevelType LevelType = Config ? Config->LevelType : ESFLevelType::Menu;
+    
+    // 현재 로드된 번들과 비교하여 필요한 것만 로드/언로드(이미 로드된 상태면 스킵)
+    switch (LevelType)
+    {
+    case ESFLevelType::InGame:
+        if (!AssetManager.AreInGameAssetsLoaded())
+        {
+            AssetManager.LoadInGameAssets();
+        }
+        // Lobby 번들은 유지 (InGame에서도 Hero 정보 필요할 수 있음)
+        break;
+        
+    case ESFLevelType::Lobby:
+        // InGame 번들 언로드, Lobby 유지
+        AssetManager.UnloadInGameAssets();
+        if (!AssetManager.AreLobbyAssetsLoaded())
+        {
+            AssetManager.LoadLobbyAssets();
+        }
+        break;
+        
+    case ESFLevelType::Menu:
+        // 모든 번들 언로드 (메모리 최소화)
+        AssetManager.UnloadInGameAssets();
+        // Lobby는 필요시 언로드 
+        // AssetManager.UnloadLobbyAssets();
+        break;
+    }
 }

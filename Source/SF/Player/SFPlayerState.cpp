@@ -12,6 +12,7 @@
 #include "Character/SFPawnData.h"
 #include "Character/SFPawnExtensionComponent.h"
 #include "Character/Hero/SFHeroDefinition.h"
+#include "Components/SFCommonUpgradeComponent.h"
 #include "Components/SFPlayerCombatStateComponent.h"
 #include "GameFramework/GameplayMessageSubsystem.h"
 #include "Messages/SFMessageGameplayTags.h"
@@ -22,22 +23,25 @@
 ASFPlayerState::ASFPlayerState(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 {
+	// Ability
 	AbilitySystemComponent = ObjectInitializer.CreateDefaultSubobject<USFAbilitySystemComponent>(this, TEXT("AbilitySystemComponent"));
 	AbilitySystemComponent->SetIsReplicated(true);
 	AbilitySystemComponent->SetReplicationMode(EGameplayEffectReplicationMode::Mixed);
 
+	// Hero Attribute
 	PrimarySet = CreateDefaultSubobject<USFPrimarySet_Hero>(TEXT("PrimarySet"));
 	CombatSet = CreateDefaultSubobject<USFCombatSet_Hero>(TEXT("CombatSet"));
 
 	// Upgrade
 	PermanentUpgradeComponent = CreateDefaultSubobject<USFPermanentUpgradeComponent>(TEXT("PermanentUpgradeComponent"));
 
+	// Common Upgrade
+	CommonUpgradeComponent = CreateDefaultSubobject<USFCommonUpgradeComponent>(TEXT("CommonUpgradeComponent"));
+
 	// CombatState
 	CombatStateComponent = CreateDefaultSubobject<USFPlayerCombatStateComponent>(TEXT("CombatStateComponent"));
 	
 	SetNetUpdateFrequency(100.f);
-
-
 }
 
 void ASFPlayerState::EndPlay(const EEndPlayReason::Type EndPlayReason)

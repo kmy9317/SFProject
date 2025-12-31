@@ -60,6 +60,8 @@ private:
 	// DataTable 비동기 로드 완료 콜백
 	void OnConfigTableLoaded();
 
+	void UpdateAssetBundlesForLevel(const FString& LevelName);
+
 private:
 	UPROPERTY()
 	FSFStageInfo CurrentStageInfo;
@@ -72,4 +74,7 @@ private:
 	TObjectPtr<UDataTable> CachedConfigTable;
 
 	TSharedPtr<FStreamableHandle> ConfigTableLoadHandle;
+
+	// 중복 번들 로드 방지
+	FString LastProcessedLevelForBundles;
 };

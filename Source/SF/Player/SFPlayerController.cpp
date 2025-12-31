@@ -128,16 +128,22 @@ void ASFPlayerController::PlayerTick(float DeltaTime)
 	}
 
 	// 일반 캐릭터 조종 중
-	if (SFPS)
+	if (SFPS && IsLocalController())
 	{
-		if (IsLocalController())
-		{
-			// 내 화면의 정확한 회전값 가져오기
-			FRotator MyViewRotation = GetControlRotation(); 
+		FRotator MyViewRotation = GetControlRotation();
+		
+		// [Client Local] 로컬 예측을 위해 내 변수 즉시 업데이트 (반응성)
+		SFPS->SetReplicatedViewRotation(MyViewRotation);
 
-			// [Client Local] 로컬 예측을 위해 내 변수 즉시 업데이트 (반응성)
-			SFPS->SetReplicatedViewRotation(MyViewRotation);
+		// 서버 전송 최적화: 변경 감지 + 빈도 제한
+		const float CurrentTime = GetWorld()->GetTimeSeconds();
+		const bool bRotationChanged = !MyViewRotation.Equals(LastSentViewRotation, ViewRotationThreshold);
+		const bool bEnoughTimePassed = (CurrentTime - LastViewRotationSendTime) >= ViewRotationSendInterval;
+		if (bRotationChanged && bEnoughTimePassed)
+		{
 			Server_UpdateViewRotation(MyViewRotation);
+			LastSentViewRotation = MyViewRotation;
+			LastViewRotationSendTime = CurrentTime;
 		}
 	}
 }

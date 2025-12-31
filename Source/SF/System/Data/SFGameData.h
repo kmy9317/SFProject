@@ -4,6 +4,7 @@
 #include "Engine/DataAsset.h"
 #include "SFGameData.generated.h"
 
+class USFCommonLootTable;
 class UGameplayEffect;
 
 /**
@@ -35,6 +36,8 @@ public:
 
 	UPROPERTY(EditDefaultsOnly, Category = "Default Gameplay Effects")
 	TSoftClassPtr<UGameplayEffect> AttributeModifierGameplayEffect;
-
 	
+	UPROPERTY(EditDefaultsOnly, Category = "Common Upgrade")
+	TSoftObjectPtr<USFCommonLootTable> DefaultCommonLootTable;
+
 };

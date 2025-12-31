@@ -2,6 +2,9 @@
 
 #include "SFLogChannels.h"
 #include "Character/Hero/SFHeroDefinition.h"
+#include "Data/Common/SFCommonLootTable.h"
+#include "Data/Common/SFCommonRarityConfig.h"
+#include "Data/Common/SFCommonUpgradeDefinition.h"
 
 void USFAssetManager::StartInitialLoading()
 {
@@ -57,8 +60,14 @@ const USFGameData& USFAssetManager::GetGameData()
 TArray<FPrimaryAssetType> USFAssetManager::GetManagedPrimaryAssetTypes() const
 {
 	TArray<FPrimaryAssetType> Types;
+
+    // HeroDefinition PrimaryDataAsset
 	Types.Add(USFHeroDefinition::GetHeroDefinitionAssetType());
-	// TODO: Types.Add(USFItemDefinition::GetItemDefinitionAssetType());
+
+    // CommonUpgrade PrimaryDataAssets
+    Types.Add(USFCommonUpgradeDefinition::GetCommonUpgradeDefinitionAssetType());
+    Types.Add(USFCommonRarityConfig::GetCommonRarityConfigAssetType());
+    Types.Add(USFCommonLootTable::GetCommonLootTableAssetType());
 	return Types;
 }
 
@@ -93,7 +102,7 @@ void USFAssetManager::LoadAllPrimaryAssets()
         }
     }
 
-    // 2단계: Lobby 번들 동기 로드
+    // 2단계: Lobby 번들 동기 로드(현재는 메인 메뉴 진입시에 Lobby에 필요한 에셋 번들 로드)
     TArray<FPrimaryAssetId> AllAssetIds;
     for (const FPrimaryAssetType& AssetType : ManagedTypes)
     {
@@ -281,6 +290,39 @@ void USFAssetManager::OnBundleLoaded(FName BundleName)
         }
     }
 
+    // InGame 번들 디버그용 로그
+    if (BundleName == TEXT("InGame"))
+    {
+        // CommonUpgradeDefinition 확인
+        TArray<UObject*> UpgradeObjects;
+        GetPrimaryAssetObjectList(USFCommonUpgradeDefinition::GetCommonUpgradeDefinitionAssetType(), UpgradeObjects);
+        
+        for (UObject* Obj : UpgradeObjects)
+        {
+            if (const USFCommonUpgradeDefinition* Def = Cast<USFCommonUpgradeDefinition>(Obj))
+            {
+                UE_LOG(LogSF, Log, TEXT("  - Upgrade [%s]: Icon=%s"),
+                    *Def->DisplayName.ToString(),
+                    Def->Icon.Get() ? TEXT("OK") : TEXT("NULL"));
+            }
+        }
+        
+        // CommonRarityConfig 확인
+        TArray<UObject*> RarityObjects;
+        GetPrimaryAssetObjectList(USFCommonRarityConfig::GetCommonRarityConfigAssetType(), RarityObjects);
+        
+        for (UObject* Obj : RarityObjects)
+        {
+            if (const USFCommonRarityConfig* Config = Cast<USFCommonRarityConfig>(Obj))
+            {
+                UE_LOG(LogSF, Log, TEXT("  - Rarity [%s]: Frame=%s, Curve=%s"),
+                    *Config->RarityTag.ToString(),
+                    Config->FrameTexture.Get() ? TEXT("OK") : TEXT("NULL"),
+                    Config->LuckWeightCurve.Get() ? TEXT("OK") : TEXT("NULL"));
+            }
+        }
+    }
+
     if (FStreamableDelegate* Callback = PendingBundleCallbacks.Find(BundleName))
     {
         Callback->ExecuteIfBound();
@@ -310,12 +352,17 @@ bool USFAssetManager::IsBundleLoaded(FName BundleName) const
 }
 
 //////////////////////////////////////////////////////////////////////////
-//                        LobbyAsset Helper
+//                        Load Asset Helper
 //////////////////////////////////////////////////////////////////////////
 
 void USFAssetManager::LoadLobbyAssets(const FStreamableDelegate& OnComplete)
 {
     LoadBundle(TEXT("Lobby"), GetManagedPrimaryAssetTypes(), OnComplete);
+}
+
+void USFAssetManager::LoadInGameAssets(const FStreamableDelegate& OnComplete)
+{
+    LoadBundle(TEXT("InGame"), GetManagedPrimaryAssetTypes(), OnComplete);
 }
 
 //////////////////////////////////////////////////////////////////////////

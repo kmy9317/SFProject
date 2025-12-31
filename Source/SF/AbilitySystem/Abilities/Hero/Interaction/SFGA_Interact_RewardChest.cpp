@@ -1,8 +1,14 @@
 #include "SFGA_Interact_RewardChest.h"
 
+#include "Abilities/Tasks/AbilityTask_NetworkSyncPoint.h"
 #include "Actors/SFRewardChest.h"
 #include "Player/SFPlayerController.h"
+#include "Player/SFPlayerState.h"
+#include "Player/Components/SFCommonUpgradeComponent.h"
+#include "System/Data/SFGameData.h"
 #include "UI/Common/SFSkillSelectionScreen.h"
+#include "UI/Common/SFStatBoostSelectionWidget.h"
+#include "System/Data/Common/SFCommonLootTable.h"
 
 USFGA_Interact_RewardChest::USFGA_Interact_RewardChest(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
@@ -20,19 +26,21 @@ void USFGA_Interact_RewardChest::OnChestOpened(ASFChestBase* ChestActor)
 
 	CachedRewardChest = RewardChest;
 
-	if (IsLocallyControlled())
+	switch (RewardChest->GetRewardType())
 	{
-		switch (RewardChest->GetRewardType())
+	case ESFRewardChestType::SkillUpgrade:
+		if (IsLocallyControlled())
 		{
-		case ESFRewardChestType::SkillUpgrade:
 			ShowSkillUpgradeUI(RewardChest->GetStageIndex());
-			return;
-		case ESFRewardChestType::StatBoost:
-			ShowStatBoostUI(RewardChest->GetStageIndex());
-			return;
-		default:
-			break;
 		}
+		break;
+
+	case ESFRewardChestType::StatBoost:
+		InitializeStatBoostSelection(RewardChest->GetStageIndex());
+		break;
+	default:
+		EndAbility(CurrentSpecHandle, CurrentActorInfo, CurrentActivationInfo, true, false);
+		break;
 	}
 }
 
@@ -72,25 +80,198 @@ void USFGA_Interact_RewardChest::ShowSkillUpgradeUI(int32 StageIndex)
 	PC->bShowMouseCursor = true;
 }
 
-void USFGA_Interact_RewardChest::ShowStatBoostUI(int32 StageIndex)
+void USFGA_Interact_RewardChest::OnSkillSelectionComplete()
 {
-	// TODO: 일반 강화 UI 구현 예정
-	// StatBoostWidgetClass 사용하여 위젯 생성
-	// OnStatBoostSelectionComplete 바인딩
-	// 특정 선택지 한번 더 뽑을수 있는 Tag가 부여된 플레이어 한테는 Widget 종료하지 않고 한번더 Refresh 해서 선택할 수 있도록 처리
 	EndAbility(CurrentSpecHandle, CurrentActorInfo, CurrentActivationInfo, true, false);
 }
 
-void USFGA_Interact_RewardChest::OnSkillSelectionComplete()
+void USFGA_Interact_RewardChest::InitializeStatBoostSelection(int32 StageIndex)
 {
-	CleanupUI();
-	EndAbility(CurrentSpecHandle, CurrentActorInfo, CurrentActivationInfo, true, false);
+	ASFPlayerState* PS = GetSFPlayerStateFromActorInfo();
+	if (!PS)
+	{
+		EndAbility(CurrentSpecHandle, CurrentActorInfo, CurrentActivationInfo, true, false);
+		return;
+	}
+
+	USFCommonUpgradeComponent* UpgradeComp = PS->FindComponentByClass<USFCommonUpgradeComponent>();
+	if (!UpgradeComp)
+	{
+		EndAbility(CurrentSpecHandle, CurrentActorInfo, CurrentActivationInfo, true, false);
+		return;
+	}
+
+	// 로컬: 델리게이트 바인딩
+	if (IsLocallyControlled() && !bStatBoostDelegatesBound)
+	{
+		UpgradeComp->OnChoicesReceived.AddDynamic(this, &ThisClass::OnStatBoostChoicesReceived);
+		UpgradeComp->OnUpgradeApplied.AddDynamic(this, &ThisClass::OnStatBoostApplied);
+		UpgradeComp->OnUpgradeApplyFailed.AddDynamic(this, &ThisClass::OnStatBoostApplyFailed);
+		UpgradeComp->OnRerollFailed.AddDynamic(this, &ThisClass::OnRerollFailed);
+		bStatBoostDelegatesBound = true;
+	}
+
+	CachedStageIndex = StageIndex;
+
+	if (UAbilityTask_NetworkSyncPoint* WaitTask = UAbilityTask_NetworkSyncPoint::WaitNetSync(this, EAbilityTaskNetSyncType::OnlyServerWait))
+	{
+		WaitTask->OnSync.AddDynamic(this, &ThisClass::OnClientReadyForStatBoost);
+		WaitTask->ReadyForActivation();
+	}
+}
+
+void USFGA_Interact_RewardChest::OnClientReadyForStatBoost()
+{
+	// 서버에서만 실행
+	if (!HasAuthority(&CurrentActivationInfo))
+	{
+		return;
+	}
+
+	ASFPlayerState* PS = GetSFPlayerStateFromActorInfo();
+	if (!PS)
+	{
+		EndAbility(CurrentSpecHandle, CurrentActorInfo, CurrentActivationInfo, true, false);
+		return;
+	}
+
+	USFCommonUpgradeComponent* UpgradeComp = PS->FindComponentByClass<USFCommonUpgradeComponent>();
+	if (!UpgradeComp)
+	{
+		EndAbility(CurrentSpecHandle, CurrentActorInfo, CurrentActivationInfo, true, false);
+		return;
+	}
+
+	const USFGameData& GameData = USFGameData::Get();
+	USFCommonLootTable* LootTable = GameData.DefaultCommonLootTable.LoadSynchronous();
+	if (!LootTable)
+	{
+		EndAbility(CurrentSpecHandle, CurrentActorInfo, CurrentActivationInfo, true, false);
+		return;
+	}
+
+	UpgradeComp->RequestGenerateChoices(LootTable, CachedStageIndex, 3);
+}
+
+void USFGA_Interact_RewardChest::OnStatBoostChoicesReceived(const TArray<FSFCommonUpgradeChoice>& Choices)
+{
+    if (Choices.IsEmpty())
+    {
+        CleanupStatBoostDelegates();
+        EndAbility(CurrentSpecHandle, CurrentActorInfo, CurrentActivationInfo, true, false);
+        return;
+    }
+
+	if (!StatBoostWidget)
+	{
+		ShowStatBoostUI(Choices);
+		return;
+	}
+
+	// 추가 선택 보너스 여부 확인
+	ASFPlayerState* PS = GetSFPlayerStateFromActorInfo();
+	USFCommonUpgradeComponent* UpgradeComp = PS ? PS->FindComponentByClass<USFCommonUpgradeComponent>() : nullptr;
+	if (UpgradeComp && UpgradeComp->IsPendingExtraSelection())
+	{
+		StatBoostWidget->RefreshChoicesWithExtraNotice(Choices);
+	}
+	else
+	{
+		StatBoostWidget->RefreshChoices(Choices);
+	}
+}
+
+void USFGA_Interact_RewardChest::ShowStatBoostUI(const TArray<FSFCommonUpgradeChoice>& Choices)
+{
+    ASFPlayerController* PC = GetSFPlayerControllerFromActorInfo();
+    if (!PC)
+    {
+        EndAbility(CurrentSpecHandle, CurrentActorInfo, CurrentActivationInfo, true, false);
+        return;
+    }
+
+    // 이미 위젯이 있으면 갱신만 (리롤/추가 선택 시)
+    if (StatBoostWidget)
+    {
+        StatBoostWidget->RefreshChoices(Choices);
+        return;
+    }
+
+    // 위젯 클래스 체크
+    if (!StatBoostWidgetClass)
+    {
+        EndAbility(CurrentSpecHandle, CurrentActorInfo, CurrentActivationInfo, true, false);
+        return;
+    }
+
+    // 새 위젯 생성
+    StatBoostWidget = CreateWidget<USFStatBoostSelectionWidget>(PC, StatBoostWidgetClass);
+    if (!StatBoostWidget)
+    {
+        EndAbility(CurrentSpecHandle, CurrentActorInfo, CurrentActivationInfo, true, false);
+        return;
+    }
+
+    StatBoostWidget->OnCardSelectedDelegate.AddDynamic(this, &ThisClass::OnStatBoostCardSelected);
+	StatBoostWidget->OnSelectionCompleteDelegate.AddDynamic(this, &ThisClass::OnStatBoostSelectionComplete);
+    StatBoostWidget->InitializeWithChoices(Choices);
+    StatBoostWidget->AddToViewport(50);
+
+    FInputModeUIOnly InputMode;
+    InputMode.SetWidgetToFocus(StatBoostWidget->TakeWidget());
+    InputMode.SetLockMouseToViewportBehavior(EMouseLockMode::DoNotLock);
+    PC->SetInputMode(InputMode);
+    PC->bShowMouseCursor = true;
+}
+
+void USFGA_Interact_RewardChest::OnStatBoostCardSelected(int32 ChoiceIndex)
+{
+    ASFPlayerState* PS = GetSFPlayerStateFromActorInfo();
+    if (!PS)
+    {
+        return;
+    }
+
+    USFCommonUpgradeComponent* UpgradeComp = PS->FindComponentByClass<USFCommonUpgradeComponent>();
+    if (UpgradeComp)
+    {
+        UpgradeComp->RequestApplyUpgradeByIndex(ChoiceIndex);
+    }
 }
 
 void USFGA_Interact_RewardChest::OnStatBoostSelectionComplete()
 {
-	CleanupUI();
 	EndAbility(CurrentSpecHandle, CurrentActorInfo, CurrentActivationInfo, true, false);
+}
+
+void USFGA_Interact_RewardChest::OnStatBoostApplied()
+{
+	if (StatBoostWidget)
+	{
+		StatBoostWidget->NotifyClose();
+	}
+	else
+	{
+		EndAbility(CurrentSpecHandle, CurrentActorInfo, CurrentActivationInfo, true, false);
+	}
+}
+
+void USFGA_Interact_RewardChest::OnStatBoostApplyFailed(const FText& Reason)
+{
+    // UI에 실패 메시지 표시 
+    if (StatBoostWidget)
+    {
+        StatBoostWidget->ShowErrorMessage(Reason);
+    }
+}
+
+void USFGA_Interact_RewardChest::OnRerollFailed(const FText& Reason)
+{
+    // UI에 리롤 실패 메시지 표시
+    if (StatBoostWidget)
+    {
+        StatBoostWidget->ShowErrorMessage(Reason);
+    }
 }
 
 void USFGA_Interact_RewardChest::CleanupUI()
@@ -104,6 +285,7 @@ void USFGA_Interact_RewardChest::CleanupUI()
 
 	if (StatBoostWidget)
 	{
+		StatBoostWidget->OnCardSelectedDelegate.RemoveAll(this);
 		StatBoostWidget->RemoveFromParent();
 		StatBoostWidget = nullptr;
 	}
@@ -115,11 +297,37 @@ void USFGA_Interact_RewardChest::CleanupUI()
 	}
 }
 
+void USFGA_Interact_RewardChest::CleanupStatBoostDelegates()
+{
+	if (!bStatBoostDelegatesBound)
+	{
+		return;
+	}
+
+	ASFPlayerState* PS = GetSFPlayerStateFromActorInfo();
+	if (!PS)
+	{
+		return;
+	}
+
+	USFCommonUpgradeComponent* UpgradeComp = PS->FindComponentByClass<USFCommonUpgradeComponent>();
+	if (UpgradeComp)
+	{
+		UpgradeComp->OnChoicesReceived.RemoveAll(this);
+		UpgradeComp->OnUpgradeApplied.RemoveAll(this);
+		UpgradeComp->OnUpgradeApplyFailed.RemoveAll(this);
+		UpgradeComp->OnRerollFailed.RemoveAll(this);
+	}
+
+	bStatBoostDelegatesBound = false;
+}
+
 void USFGA_Interact_RewardChest::EndAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, bool bReplicateEndAbility, bool bWasCancelled)
 {
 	if (IsLocallyControlled())
 	{
 		CleanupUI();
+		CleanupStatBoostDelegates();
 	}
 
 	CachedRewardChest.Reset();

@@ -5,6 +5,14 @@
 #include "SFStageInfo.generated.h"
 
 UENUM(BlueprintType)
+enum class ESFLevelType : uint8
+{
+	Menu      UMETA(DisplayName = "Menu"),      // 메인메뉴 - 최소 에셋
+	Lobby     UMETA(DisplayName = "Lobby"),     // 로비 - Lobby 번들
+	InGame    UMETA(DisplayName = "InGame")     // 인게임 - InGame 번들
+};
+
+UENUM(BlueprintType)
 enum class ESFStageType : uint8
 {
 	Normal    UMETA(DisplayName = "Normal"),
@@ -48,6 +56,10 @@ USTRUCT(BlueprintType)
 struct FSFStageConfig : public FTableRowBase
 {
 	GENERATED_BODY()
+
+	// 레벨 타입 (번들 로딩용)
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Level")
+	ESFLevelType LevelType = ESFLevelType::InGame;
 
 	// 스테이지 정보
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Stage")

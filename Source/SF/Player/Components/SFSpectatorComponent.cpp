@@ -14,8 +14,8 @@
 USFSpectatorComponent::USFSpectatorComponent(const FObjectInitializer& ObjectInitializer)
     : Super(ObjectInitializer)
 {
+    PrimaryComponentTick.bCanEverTick = false;
     SetIsReplicatedByDefault(true);
-
 }
 
 void USFSpectatorComponent::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const

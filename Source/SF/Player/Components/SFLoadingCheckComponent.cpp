@@ -10,7 +10,7 @@
 USFLoadingCheckComponent::USFLoadingCheckComponent(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 {
-
+	PrimaryComponentTick.bCanEverTick = false;
 }
 
 bool USFLoadingCheckComponent::ShouldShowLoadingScreen(FString& OutReason) const

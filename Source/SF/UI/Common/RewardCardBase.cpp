@@ -16,11 +16,10 @@ void URewardCardBase::NativeConstruct()
 
 	if (Btn_Click)
 	{
-		Btn_Click->OnClicked.AddDynamic(this, &URewardCardBase::OnCardClicked); 
+		Btn_Click->OnClicked.AddDynamic(this, &URewardCardBase::OnCardClicked);
+		Btn_Click->SetIsEnabled(false);
 	}
-
-	Btn_Click->SetIsEnabled(false);
-
+	
 	// 1초 후 활성화
 	if (UWorld* World = GetWorld())
 	{

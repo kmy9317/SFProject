@@ -60,6 +60,11 @@ public:
 	void UnloadLobbyAssets() { UnloadBundle(TEXT("Lobby")); }
 	bool AreLobbyAssetsLoaded() const { return IsBundleLoaded(TEXT("Lobby")); }
 
+	void LoadInGameAssets(const FStreamableDelegate& OnComplete = FStreamableDelegate());
+	void UnloadInGameAssets() { UnloadBundle(TEXT("InGame")); }
+	bool AreInGameAssetsLoaded() const { return IsBundleLoaded(TEXT("InGame")); }
+	
+
 protected:
 	template <typename GameDataClass>
 	const GameDataClass& GetOrLoadTypedGameData(const TSoftObjectPtr<GameDataClass>& DataPath)
