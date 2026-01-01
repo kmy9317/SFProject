@@ -456,9 +456,9 @@ float USFGA_Thrust_HeartBreaker::GetPhaseDamage() const
 {
 	if (PhaseInfos.IsValidIndex(CurrentPhaseIndex))
 	{
-		return BaseDamage * PhaseInfos[CurrentPhaseIndex].DamageMultiplier;
+		return GetScaledBaseDamage() * PhaseInfos[CurrentPhaseIndex].DamageMultiplier;
 	}
-	return BaseDamage;
+	return GetScaledBaseDamage();
 }
 
 float USFGA_Thrust_HeartBreaker::GetPhaseRushDistance() const

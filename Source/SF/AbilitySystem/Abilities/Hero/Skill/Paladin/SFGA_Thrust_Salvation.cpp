@@ -161,7 +161,7 @@ void USFGA_Thrust_Salvation::ApplyDamageAndKnockback(ASFCharacterBase* Source, A
 	// 데미지 적용
 	TSubclassOf<UGameplayEffect> DamageGE = USFAssetManager::GetSubclassByPath(USFGameData::Get().DamageGameplayEffect_SetByCaller);
 	FGameplayEffectSpecHandle DamageSpec = MakeOutgoingGameplayEffectSpec(DamageGE);
-	DamageSpec.Data->SetSetByCallerMagnitude(SFGameplayTags::Data_Damage_BaseDamage, BaseDamage);
+	DamageSpec.Data->SetSetByCallerMagnitude(SFGameplayTags::Data_Damage_BaseDamage, GetScaledBaseDamage());
 
 	FGameplayEffectContextHandle ContextHandle = GetAbilitySystemComponentFromActorInfo()->MakeEffectContext();
 	FHitResult HitResult;

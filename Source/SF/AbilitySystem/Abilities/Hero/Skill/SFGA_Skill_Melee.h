@@ -73,13 +73,16 @@ protected:
 
 	// Motion Warping 적용 
 	void ApplyWarpTarget(const FVector& Location, const FRotator& Rotation);
+
+	UFUNCTION(BlueprintCallable, Category = "SF|Damage")
+	float GetScaledBaseDamage() const;
 	
 protected:
 
 	// ========== Damage Settings ==========
 		
 	UPROPERTY(EditDefaultsOnly, Category="SF|Damage")
-	float BaseDamage = 10.f;
+	FScalableFloat BaseDamage = 10.f;
 
 	UPROPERTY(EditDefaultsOnly, Category = "SF|Debug")
 	bool bShowDebug = false;

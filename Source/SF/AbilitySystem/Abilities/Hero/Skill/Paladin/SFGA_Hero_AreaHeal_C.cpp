@@ -165,7 +165,7 @@ void USFGA_Hero_AreaHeal_C::OnLightningImpact(FGameplayEventData Payload)
 		if((OP&&TP)||(OE&&TE))continue;
 
 		//데미지 처리
-		ProcessHitResult(Hit,BaseDamage,nullptr);
+		ProcessHitResult(Hit,GetScaledBaseDamage(),nullptr);
 
 		//디버프 GE 적용
 		if(DebuffGE)

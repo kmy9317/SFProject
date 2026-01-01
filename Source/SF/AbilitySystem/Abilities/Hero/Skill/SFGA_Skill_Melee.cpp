@@ -157,7 +157,7 @@ void USFGA_Skill_Melee::OnTrace(FGameplayEventData Payload)
 		for (int32 ActorHitIndex : ActorHitIndexes)
 		{
 			FHitResult HitResult = *LocalTargetDataHandle.Data[ActorHitIndex]->GetHitResult();
-			ProcessHitResult(HitResult, BaseDamage * CurrentDamageMultiplier, WeaponActor);
+			ProcessHitResult(HitResult, GetScaledBaseDamage() * CurrentDamageMultiplier, WeaponActor);
 		}
 	}
 }
@@ -395,6 +395,11 @@ void USFGA_Skill_Melee::ApplyWarpTarget(const FVector& Location, const FRotator&
 	}
 
 	MotionWarpingComp->AddOrUpdateWarpTargetFromLocationAndRotation(ActiveWarpTargetName, Location, Rotation);
+}
+
+float USFGA_Skill_Melee::GetScaledBaseDamage() const
+{
+	return BaseDamage.GetValueAtLevel(GetAbilityLevel());
 }
 
 void USFGA_Skill_Melee::ResetHitActors()
