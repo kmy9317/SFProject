@@ -1,7 +1,7 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "AbilitySystem/Abilities/SFGameplayAbility.h"
+#include "SFGA_Hero_Base.h"
 #include "SFGA_Equipment_Base.generated.h"
 
 struct FSFWeaponWarpSettings;
@@ -31,7 +31,7 @@ struct FSFEquipmentInfo
  * 장비(무기, 방패 등)가 필요한 어빌리티의 베이스 클래스
  */
 UCLASS()
-class SF_API USFGA_Equipment_Base : public USFGameplayAbility
+class SF_API USFGA_Equipment_Base : public USFGA_Hero_Base
 {
 	GENERATED_BODY()
 

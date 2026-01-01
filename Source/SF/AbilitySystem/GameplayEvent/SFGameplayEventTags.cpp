@@ -84,6 +84,8 @@ namespace SFGameplayTags
 	UE_DEFINE_GAMEPLAY_TAG(Data_Hero_CooldownReduction, "Data.Attribute.Hero.CooldownReduction");
 	UE_DEFINE_GAMEPLAY_TAG(Data_Hero_Luck, "Data.Attribute.Hero.Luck");
 
+	// Cooldown
+	UE_DEFINE_GAMEPLAY_TAG(Data_Cooldown_Base, "Data.Cooldown.Base");
 
 	// Cost
 	UE_DEFINE_GAMEPLAY_TAG(Data_Cost_Stamina, "Data.Cost.Stamina");

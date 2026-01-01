@@ -23,6 +23,7 @@ protected:
 
 protected:
 	virtual void OnChainMontageCompleted() override;
+	virtual void OnComboStateRemoved(const FActiveGameplayEffect& RemovedEffect) override;
 
 	//Ability 종료 시 태그 제거
 	virtual void EndAbility(

@@ -41,6 +41,9 @@ protected:
 
 private:
 	void UpdateChainIcon(int32 ChainIndex);
+
+	// GE 복제 기반 체인 인덱스 갱신
+	void RefreshChainIndex(UAbilitySystemComponent* ASC);
 	
 protected:
 	UPROPERTY(meta = (BindWidget))

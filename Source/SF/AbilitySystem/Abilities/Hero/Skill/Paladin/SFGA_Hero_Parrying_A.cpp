@@ -5,84 +5,125 @@
 void USFGA_Hero_Parrying_A::OnChainMontageCompleted()
 {
 	UAbilitySystemComponent* ASC = GetAbilitySystemComponentFromActorInfo();
-	if (!ASC)
-	{
-		Super::OnChainMontageCompleted();
-		return;
-	}
+    if (!ASC)
+    {
+        Super::OnChainMontageCompleted();
+        return;
+    }
 
-	//부모 Parrying에서 부여한 태그로 패링 성공 여부 판별
-	const bool bParrySuccess = ASC->HasMatchingGameplayTag(ParryEventTag);
+    const bool bParrySuccess = ASC->HasMatchingGameplayTag(ParryEventTag);
 
-	//실패 시 → 기존 Parrying 로직 그대로
-	if (!bParrySuccess)
-	{
-		Super::OnChainMontageCompleted();
-		return;
-	}
+    // 패링 실패 → 부모 로직
+    if (!bParrySuccess)
+    {
+        Super::OnChainMontageCompleted();
+        return;
+    }
 
-	//패링 성공 시 쿨타임 90% 감소
-	if (HasAuthority(&CurrentActivationInfo))
-	{
-		TSubclassOf<UGameplayEffect> CooldownClass = GetCompleteCooldownEffectClass();
-		if (!CooldownClass)
-		{
-			CooldownClass = GetTimeoutCooldownEffectClass();
-		}
+    // ========== 패링 성공 ==========
+    
+    // 추가 GE 적용 (1회만)
+    if (HasAuthority(&CurrentActivationInfo)
+        && ParrySuccessExtraEffect
+        && ParryExtraEffectAppliedTag.IsValid()
+        && !ASC->HasMatchingGameplayTag(ParryExtraEffectAppliedTag))
+    {
+        FGameplayEffectSpecHandle ExtraSpecHandle =
+            MakeOutgoingGameplayEffectSpec(ParrySuccessExtraEffect, GetAbilityLevel());
 
-		if (CooldownClass)
-		{
-			FGameplayEffectSpecHandle SpecHandle =
-				MakeOutgoingGameplayEffectSpec(CooldownClass, GetAbilityLevel());
+        if (ExtraSpecHandle.IsValid())
+        {
+            ASC->ApplyGameplayEffectSpecToSelf(*ExtraSpecHandle.Data.Get());
+            ASC->AddLooseGameplayTag(ParryExtraEffectAppliedTag);
+            UE_LOG(LogTemp, Warning, TEXT("[Parry_A] Extra GE Applied ONCE"));
+        }
+    }
 
-			if (SpecHandle.IsValid())
-			{
-				FGameplayEffectSpec* Spec = SpecHandle.Data.Get();
-				if (Spec)
-				{
-					const float OriginalDuration = Spec->GetDuration();
-					const float Scale = FMath::Clamp(ParrySuccessCooldownScale, 0.0f, 1.0f);
+    // 패링 시도 완료 (Index 0) → 쿨다운 없이 카운터 대기
+    if (!IsLastChain(ExecutingChainIndex))
+    {
+        Super::OnChainMontageCompleted();
+        return;
+    }
 
-					if (OriginalDuration > 0.f && OriginalDuration < BIG_NUMBER)
-					{
-						Spec->SetDuration(OriginalDuration * Scale, true);
-					}
+    // 카운터 완료 (Index 1, 마지막) → 90% 감소 쿨타임 적용
+    TSubclassOf<UGameplayEffect> CooldownClass = GetCompleteCooldownEffectClass();
+    if (!CooldownClass)
+    {
+        CooldownClass = GetTimeoutCooldownEffectClass();
+    }
 
-					ASC->ApplyGameplayEffectSpecToSelf(*Spec);
-				}
-			}
-		}
-	}
+    if (CooldownClass)
+    {
+        float BaseDuration = GetCompleteCooldownDuration();
+        if (BaseDuration <= 0.f)
+        {
+            BaseDuration = GetTimeoutCooldownDuration();
+        }
+        
+        const float Scale = FMath::Clamp(ParrySuccessCooldownScale, 0.0f, 1.0f);
+        const float FinalDuration = BaseDuration * Scale;
 
-	//패링 성공 시 추가 GE(Ability 1회당 한번만 적용) - ★ 태그 방식
-	if (HasAuthority(&CurrentActivationInfo)
-		&& ParrySuccessExtraEffect
-		&& ParryExtraEffectAppliedTag.IsValid()
-		&& !ASC->HasMatchingGameplayTag(ParryExtraEffectAppliedTag))
-	{
-		FGameplayEffectSpecHandle ExtraSpecHandle =
-			MakeOutgoingGameplayEffectSpec(ParrySuccessExtraEffect, GetAbilityLevel());
+        ApplyChainCooldownInternal(this, CooldownClass, FinalDuration);
+        
+        UE_LOG(LogTemp, Warning, TEXT("[Parry_A] Counter Complete → %.0f%% Reduced Cooldown"), 
+            (1.f - Scale) * 100.f);
+    }
 
-		if (ExtraSpecHandle.IsValid())
-		{
-			ASC->ApplyGameplayEffectSpecToSelf(*ExtraSpecHandle.Data.Get());
+    RemoveChainEffects();
+    RestoreSlidingMode();
+    RemoveComboState(this);
 
-			//1회 적용 마킹 태그 부여
-			ASC->AddLooseGameplayTag(ParryExtraEffectAppliedTag);
+    EndAbility(CurrentSpecHandle, CurrentActorInfo, CurrentActivationInfo, true, false);
+}
 
-			UE_LOG(LogTemp, Warning, TEXT("[Parry_A] Extra GE Applied ONCE (Tag)"));
-		}
-	}
+void USFGA_Hero_Parrying_A::OnComboStateRemoved(const FActiveGameplayEffect& RemovedEffect)
+{
+    // ComboState GE인지 확인
+    TSubclassOf<UGameplayEffect> ComboStateClass = GetComboStateEffectClass();
+    if (!ComboStateClass || RemovedEffect.Spec.Def->GetClass() != ComboStateClass)
+    {
+        return;
+    }
 
+    UAbilitySystemComponent* ASC = GetChainASC();
+    if (!ASC)
+    {
+        return;
+    }
 
-	//태그 제거
-	EndAbility(
-		CurrentSpecHandle,
-		CurrentActorInfo,
-		CurrentActivationInfo,
-		false,
-		false
-	);
+    // 쿨다운 이미 적용됨 → 스킵 (CompleteCombo에서 처리됨)
+    FGameplayTagContainer CDTags = GetChainedSkillCooldownTags();
+    if (CDTags.Num() > 0 && ASC->HasAnyMatchingGameplayTags(CDTags))
+    {
+        return;
+    }
+
+    // 패링 성공 여부 확인
+    const bool bParrySuccess = ASC->HasMatchingGameplayTag(ParryEventTag);
+
+    TSubclassOf<UGameplayEffect> CooldownClass = GetTimeoutCooldownEffectClass();
+    if (!CooldownClass)
+    {
+        // 쿨다운 클래스 없어도 델리게이트 해제
+        UnbindComboStateRemovedDelegate();
+        return;
+    }
+
+    float BaseDuration = GetTimeoutCooldownDuration();
+    
+    // 패링 성공 시 90% 감소
+    if (bParrySuccess)
+    {
+        const float Scale = FMath::Clamp(ParrySuccessCooldownScale, 0.0f, 1.0f);
+        BaseDuration *= Scale;
+        UE_LOG(LogTemp, Warning, TEXT("[Parry_A] Timeout → %.0f%% Reduced Cooldown"), (1.f - Scale) * 100.f);
+    }
+
+    ApplyChainCooldownInternal(this, CooldownClass, BaseDuration);
+
+    // 타임아웃 쿨다운 적용 후 델리게이트 해제
+    UnbindComboStateRemovedDelegate();
 }
 
 void USFGA_Hero_Parrying_A::EndAbility(

@@ -64,7 +64,7 @@ protected:
 private:
 	bool CanEnterDownedState() const;
 
-private:
+public:
 	UPROPERTY(BlueprintReadOnly, ReplicatedUsing=OnRep_Mana, meta=(AllowPrivateAccess="true"))
 	FGameplayAttributeData Mana;
 	

@@ -119,7 +119,7 @@ void USFPrimarySet_Hero::ClampAttribute(const FGameplayAttribute& Attribute, flo
 	}
 	else if (Attribute == GetCooldownRateAttribute())
 	{
-		NewValue = FMath::Clamp(NewValue, 0.1f, 2.0f);
+		NewValue = FMath::Clamp(NewValue, 0.f, 0.8f);
 	}
 	else if (Attribute == GetManaRegenAttribute())
 	{

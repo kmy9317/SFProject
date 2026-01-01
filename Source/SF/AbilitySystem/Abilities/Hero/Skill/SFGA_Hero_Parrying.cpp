@@ -181,27 +181,40 @@ void USFGA_Hero_Parrying::OnChainMontageCompleted()
 		if (CurrentChainIndex < LastChainIndex)
 		{
 			// 실패 → 쿨타임 강제 적용
-			ApplyCooldown(CurrentSpecHandle, CurrentActorInfo, CurrentActivationInfo);
-			UE_LOG(LogTemp, Warning, TEXT("[Parry] FAILED → Apply Cooldown"));
+			CompleteCombo(this);
+			UE_LOG(LogTemp, Warning, TEXT("[Parry] FAILED → Apply Complete Cooldown"));
+            
+			RemoveChainEffects();
+			RestoreSlidingMode();
+			EndAbility(CurrentSpecHandle, CurrentActorInfo, CurrentActivationInfo, true, false);
+			return;
 		}
 	}
-	else
-	{
-		UE_LOG(LogTemp, Warning, TEXT("[Parry] SUCCESS → No cooldown"));
-	}
 
+	// 패링 성공 or 마지막 체인 → Super 호출
 	Super::OnChainMontageCompleted();
 }
 
 void USFGA_Hero_Parrying::OnChainMontageInterrupted()
 {
 	UAbilitySystemComponent* ASC = GetAbilitySystemComponentFromActorInfo();
-	bool bSuccess = ASC->HasMatchingGameplayTag(ParryEventTag);
-
-	if (!bSuccess)
+    
+	const int32 CurrentChainIndex = GetCurrentChain(); 
+	const int32 LastChainIndex = GetChainConfigs().Num() - 1;
+	
+	if (!ASC->HasMatchingGameplayTag(ParryEventTag))
 	{
-		ApplyCooldown(CurrentSpecHandle, CurrentActorInfo, CurrentActivationInfo);
-		UE_LOG(LogTemp, Warning, TEXT("[Parry] INTERRUPTED → Apply Cooldown"));
+		if (CurrentChainIndex < LastChainIndex)
+		{
+			// 패링 실패 (인터럽트) → Complete 쿨다운
+			CompleteCombo(this);
+			UE_LOG(LogTemp, Warning, TEXT("[Parry] INTERRUPTED → Apply Complete Cooldown"));
+            
+			RemoveChainEffects();
+			RestoreSlidingMode();
+			EndAbility(CurrentSpecHandle, CurrentActorInfo, CurrentActivationInfo, true, true);
+			return;
+		}
 	}
 
 	Super::OnChainMontageInterrupted();

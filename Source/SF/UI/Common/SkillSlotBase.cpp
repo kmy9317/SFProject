@@ -235,6 +235,8 @@ void USkillSlotBase::RefreshActiveDuration()
 	UAbilitySystemComponent* ASC = OverlayController->GetWidgetControllerParams().AbilitySystemComponent;
 	if (!ASC) return;
 
+	RefreshChainIndex(ASC);
+	
 	// 2. 현재 지속시간(Remaining)과 전체시간(Total)을 받아올 변수
 	float RemainingTime = 0.f;
 	float TotalDuration = 0.f;
@@ -463,6 +465,42 @@ void USkillSlotBase::UpdateChainIcon(int32 ChainIndex)
 		{
 			Img_SkillIcon->SetBrushFromTexture(ChainIcon);
 		}
+	}
+}
+
+void USkillSlotBase::RefreshChainIndex(UAbilitySystemComponent* ASC)
+{
+	if (!ASC || !CachedAbilitySpecHandle.IsValid())
+	{
+		return;
+	}
+
+	FGameplayAbilitySpec* Spec = ASC->FindAbilitySpecFromHandle(CachedAbilitySpecHandle);
+	if (!Spec || !Spec->Ability)
+	{
+		return;
+	}
+
+	const ISFChainedSkill* ChainedSkill = Cast<ISFChainedSkill>(Spec->Ability);
+	if (!ChainedSkill)
+	{
+		return;
+	}
+
+	TSubclassOf<UGameplayEffect> ComboStateClass = ChainedSkill->GetComboStateEffectClass();
+	if (!ComboStateClass)
+	{
+		return;
+	}
+
+	// GE 카운트로 현재 체인 인덱스 계산
+	int32 CurrentChain = ASC->GetGameplayEffectCount(ComboStateClass, nullptr);
+
+	// 변경됐을 때만 아이콘 갱신
+	if (CachedChainIndex != CurrentChain)
+	{
+		CachedChainIndex = CurrentChain;
+		UpdateChainIcon(CurrentChain);
 	}
 }
 
