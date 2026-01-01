@@ -2,6 +2,7 @@
 
 #include "AbilitySystemComponent.h"
 #include "SFHeroSkillTags.h"
+#include "SFLogChannels.h"
 #include "Abilities/Tasks/AbilityTask_PlayMontageAndWait.h"
 #include "Abilities/Tasks/AbilityTask_WaitGameplayEvent.h"
 #include "AbilitySystem/SFAbilitySystemComponent.h"
@@ -58,13 +59,34 @@ float USFGA_ChainedSkill_Melee::GetCompleteCooldownDuration() const
 	return CompleteCooldownDuration.GetValueAtLevel(GetAbilityLevel());
 }
 
+bool USFGA_ChainedSkill_Melee::CheckCost(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, FGameplayTagContainer* OptionalRelevantTags) const
+{
+	UAbilitySystemComponent* ASC = ActorInfo ? ActorInfo->AbilitySystemComponent.Get() : nullptr;
+	return CheckChainCost(GetCurrentChain(), ASC, GetAbilityLevel(Handle, ActorInfo), MakeEffectContext(Handle, ActorInfo), OptionalRelevantTags);
+}
+
+void USFGA_ChainedSkill_Melee::ApplyCost(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo) const
+{
+	UGameplayEffect* CostGE = GetChainCostEffect(GetCurrentChain());
+	if (CostGE)
+	{
+		ApplyGameplayEffectToOwner(Handle, ActorInfo, ActivationInfo, CostGE, GetAbilityLevel(Handle, ActorInfo));
+	}
+}
+
 void USFGA_ChainedSkill_Melee::ActivateAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, const FGameplayEventData* TriggerEventData)
 {
 	Super::ActivateAbility(Handle, ActorInfo, ActivationInfo, TriggerEventData);
-
+	
 	if (!GetChainASC())
 	{
 		CancelAbility(CurrentSpecHandle, CurrentActorInfo, CurrentActivationInfo, true);
+		return;
+	}
+
+	if (!CommitAbility(CurrentSpecHandle, CurrentActorInfo, CurrentActivationInfo))
+	{
+		EndAbility(CurrentSpecHandle, CurrentActorInfo, CurrentActivationInfo, true, true);
 		return;
 	}
 
@@ -105,7 +127,7 @@ void USFGA_ChainedSkill_Melee::ExecuteChainStep(int32 ChainIndex)
 		EndAbility(CurrentSpecHandle, CurrentActorInfo, CurrentActivationInfo, true, true);
 		return;
 	}
-
+	
 	const FSFChainConfig& ChainConfig = ChainConfigs[ChainIndex];
 	CurrentDamageMultiplier = ChainConfig.DamageMultiplier;
 

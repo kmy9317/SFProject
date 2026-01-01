@@ -1,6 +1,7 @@
 #include "SFChainedSkill.h"
 
 #include "AbilitySystemComponent.h"
+#include "AbilitySystemGlobals.h"
 #include "AbilitySystem/GameplayEvent/SFGameplayEventTags.h"
 #include "GameFramework/GameplayMessageSubsystem.h"
 #include "Messages/SFMessageGameplayTags.h"
@@ -105,7 +106,7 @@ bool ISFChainedSkill::HandleComboStateRemoved(UGameplayAbility* SourceAbility, c
 	return true;
 }
 
-bool ISFChainedSkill::ApplyChainCost(int32 ChainIndex, UGameplayAbility* SourceAbility)
+bool ISFChainedSkill::CheckChainCost(int32 ChainIndex, UAbilitySystemComponent* ASC, float AbilityLevel, const FGameplayEffectContextHandle& ContextHandle, FGameplayTagContainer* OptionalRelevantTags) const
 {
 	const TArray<FSFChainConfig>& Configs = GetChainConfigs();
 	if (!Configs.IsValidIndex(ChainIndex))
@@ -119,19 +120,45 @@ bool ISFChainedSkill::ApplyChainCost(int32 ChainIndex, UGameplayAbility* SourceA
 		return true;
 	}
 
-	UAbilitySystemComponent* ASC = GetChainASC();
-	if (!ASC || !SourceAbility)
+	if (!ASC)
 	{
 		return false;
 	}
 
-	FGameplayEffectSpecHandle CostSpec = SourceAbility->MakeOutgoingGameplayEffectSpec(ChainConfig.CostEffect);
-	if (CostSpec.IsValid())
+	UGameplayEffect* CostGE = ChainConfig.CostEffect.GetDefaultObject();
+	if (!CostGE)
 	{
-		FActiveGameplayEffectHandle Handle = ASC->ApplyGameplayEffectSpecToSelf(*CostSpec.Data.Get());
-		return Handle.IsValid();
+		return true;
 	}
-	return false;
+
+	if (!ASC->CanApplyAttributeModifiers(CostGE, AbilityLevel, ContextHandle))
+	{
+		const FGameplayTag& CostTag = UAbilitySystemGlobals::Get().ActivateFailCostTag;
+		if (OptionalRelevantTags && CostTag.IsValid())
+		{
+			OptionalRelevantTags->AddTag(CostTag);
+		}
+		return false;
+	}
+
+	return true;
+}
+
+UGameplayEffect* ISFChainedSkill::GetChainCostEffect(int32 ChainIndex) const
+{
+	const TArray<FSFChainConfig>& Configs = GetChainConfigs();
+	if (!Configs.IsValidIndex(ChainIndex))
+	{
+		return nullptr;
+	}
+
+	const FSFChainConfig& ChainConfig = Configs[ChainIndex];
+	if (!ChainConfig.CostEffect)
+	{
+		return nullptr;
+	}
+
+	return ChainConfig.CostEffect.GetDefaultObject();
 }
 
 void ISFChainedSkill::ApplyChainEffects(int32 ChainIndex, UGameplayAbility* SourceAbility)

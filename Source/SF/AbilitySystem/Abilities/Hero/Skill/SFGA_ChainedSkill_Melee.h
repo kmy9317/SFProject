@@ -33,6 +33,8 @@ public:
 	virtual float GetChainAbilityLevel() const override { return GetAbilityLevel(); }
 	// ~ End ISFChainedSkill
 
+	virtual bool CheckCost(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, OUT FGameplayTagContainer* OptionalRelevantTags = nullptr) const override ;
+	virtual void ApplyCost(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo) const override;
 	virtual UGameplayEffect* GetCooldownGameplayEffect() const override;
 	
 protected:

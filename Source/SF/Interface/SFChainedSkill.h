@@ -6,6 +6,10 @@
 #include "UObject/Interface.h"
 #include "SFChainedSkill.generated.h"
 
+struct FGameplayAbilitySpecHandle;
+struct FGameplayAbilityActorInfo;
+struct FGameplayAbilityActivationInfo;
+struct FGameplayEffectContextHandle;
 struct FActiveGameplayEffect;
 class UGameplayAbility;
 struct FActiveGameplayEffectHandle;
@@ -78,7 +82,9 @@ public:
 	// ComboState 제거 시 호출 (구현 클래스에서 델리게이트 콜백으로 호출)
 	bool HandleComboStateRemoved(UGameplayAbility* SourceAbility, const FActiveGameplayEffect& RemovedEffect);
 
-	bool ApplyChainCost(int32 ChainIndex, UGameplayAbility* SourceAbility);
+	bool CheckChainCost(int32 ChainIndex, UAbilitySystemComponent* ASC, float AbilityLevel, const FGameplayEffectContextHandle& ContextHandle, FGameplayTagContainer* OptionalRelevantTags = nullptr) const;
+	UGameplayEffect* GetChainCostEffect(int32 ChainIndex) const;
+	
 	void ApplyChainEffects(int32 ChainIndex, UGameplayAbility* SourceAbility);
 	void RemoveChainEffects();
 	
