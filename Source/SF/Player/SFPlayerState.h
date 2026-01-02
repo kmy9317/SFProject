@@ -128,6 +128,10 @@ public:
 	void Server_SubmitPermanentUpgradeData(const FSFPermanentUpgradeData& InData);
 	//===========================
 
+	int32 GetGold() const { return Gold; }
+	void SetGold(const int32 NewGold) { Gold = NewGold; }
+	void AddGold(const int32 Amount) { Gold += Amount; }
+
 private:
 	void OnPawnDataLoadComplete(const USFPawnData* LoadedPawnData);
 	void ApplySkillUpgrade(TSubclassOf<USFGameplayAbility> NewAbilityClass, FGameplayTag InputTag);
@@ -191,7 +195,7 @@ private:
 
 	// 재화
 	UPROPERTY(Replicated)
-	int32 Credits = 0;
+	int32 Gold = 0;
 
 	// Seamless Travel 간 ASC 데이터 저장용
 	UPROPERTY()

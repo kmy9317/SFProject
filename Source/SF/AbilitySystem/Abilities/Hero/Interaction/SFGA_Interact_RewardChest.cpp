@@ -122,7 +122,6 @@ void USFGA_Interact_RewardChest::InitializeStatBoostSelection(int32 StageIndex)
 
 void USFGA_Interact_RewardChest::OnClientReadyForStatBoost()
 {
-	// 서버에서만 실행
 	if (!HasAuthority(&CurrentActivationInfo))
 	{
 		return;
@@ -153,7 +152,7 @@ void USFGA_Interact_RewardChest::OnClientReadyForStatBoost()
 	UpgradeComp->RequestGenerateChoices(LootTable, CachedStageIndex, 3);
 }
 
-void USFGA_Interact_RewardChest::OnStatBoostChoicesReceived(const TArray<FSFCommonUpgradeChoice>& Choices)
+void USFGA_Interact_RewardChest::OnStatBoostChoicesReceived(const TArray<FSFCommonUpgradeChoice>& Choices, int32 NextRerollCost)
 {
     if (Choices.IsEmpty())
     {
@@ -164,7 +163,7 @@ void USFGA_Interact_RewardChest::OnStatBoostChoicesReceived(const TArray<FSFComm
 
 	if (!StatBoostWidget)
 	{
-		ShowStatBoostUI(Choices);
+		ShowStatBoostUI(Choices, NextRerollCost);
 		return;
 	}
 
@@ -173,15 +172,15 @@ void USFGA_Interact_RewardChest::OnStatBoostChoicesReceived(const TArray<FSFComm
 	USFCommonUpgradeComponent* UpgradeComp = PS ? PS->FindComponentByClass<USFCommonUpgradeComponent>() : nullptr;
 	if (UpgradeComp && UpgradeComp->IsPendingExtraSelection())
 	{
-		StatBoostWidget->RefreshChoicesWithExtraNotice(Choices);
+		StatBoostWidget->RefreshChoicesWithExtraNotice(Choices, NextRerollCost);
 	}
 	else
 	{
-		StatBoostWidget->RefreshChoices(Choices);
+		StatBoostWidget->RefreshChoices(Choices, NextRerollCost);
 	}
 }
 
-void USFGA_Interact_RewardChest::ShowStatBoostUI(const TArray<FSFCommonUpgradeChoice>& Choices)
+void USFGA_Interact_RewardChest::ShowStatBoostUI(const TArray<FSFCommonUpgradeChoice>& Choices, int32 NextRerollCost)
 {
     ASFPlayerController* PC = GetSFPlayerControllerFromActorInfo();
     if (!PC)
@@ -193,7 +192,7 @@ void USFGA_Interact_RewardChest::ShowStatBoostUI(const TArray<FSFCommonUpgradeCh
     // 이미 위젯이 있으면 갱신만 (리롤/추가 선택 시)
     if (StatBoostWidget)
     {
-        StatBoostWidget->RefreshChoices(Choices);
+        StatBoostWidget->RefreshChoices(Choices, NextRerollCost);
         return;
     }
 
@@ -214,7 +213,7 @@ void USFGA_Interact_RewardChest::ShowStatBoostUI(const TArray<FSFCommonUpgradeCh
 
     StatBoostWidget->OnCardSelectedDelegate.AddDynamic(this, &ThisClass::OnStatBoostCardSelected);
 	StatBoostWidget->OnSelectionCompleteDelegate.AddDynamic(this, &ThisClass::OnStatBoostSelectionComplete);
-    StatBoostWidget->InitializeWithChoices(Choices);
+    StatBoostWidget->InitializeWithChoices(Choices, NextRerollCost);
     StatBoostWidget->AddToViewport(50);
 
     FInputModeUIOnly InputMode;

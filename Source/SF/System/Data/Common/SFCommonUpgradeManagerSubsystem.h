@@ -29,6 +29,17 @@ struct FSFCommonUpgradeContext
 	UPROPERTY()
 	int32 SlotCount = 3;
 
+	UPROPERTY()
+	int32 RerollCount = 0;
+
+	// 무료 리롤 사용 여부 (상자당 1회)
+	UPROPERTY()
+	bool bUsedFreeReroll = false;
+
+	// 추가 선택 사용 여부 (상자당 1회)
+	UPROPERTY()
+	bool bUsedMoreEnhance = false;
+	
 	// 서버 검증용: 생성된 선택지들
 	UPROPERTY()
 	TArray<FSFCommonUpgradeChoice> PendingChoices;
@@ -37,6 +48,9 @@ struct FSFCommonUpgradeContext
 	{
 		SourceLootTable = nullptr;
 		SlotCount = 3;
+		RerollCount = 0;
+		bUsedFreeReroll = false;
+		bUsedMoreEnhance = false;
 		PendingChoices.Empty();
 	}
 };
@@ -69,6 +83,20 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "SF|Upgrade")
 	bool ApplyUpgradeChoiceByIndex(ASFPlayerState* PlayerState, int32 ChoiceIndex);
 
+	// 리롤 비용 계산 (FreeReroll 태그 고려)
+	UFUNCTION(BlueprintCallable, Category = "SF|Upgrade")
+	int32 CalculateRerollCost(ASFPlayerState* PlayerState) const;
+
+	// 리롤 가능 여부 (골드 또는 FreeReroll 태그)
+	UFUNCTION(BlueprintCallable, Category = "SF|Upgrade")
+	bool CanReroll(ASFPlayerState* PlayerState) const;
+
+	// 추가 선택 가능 여부 (MoreEnhance 태그)
+	UFUNCTION(BlueprintCallable, Category = "SF|Upgrade")
+	bool HasMoreEnhanceAvailable(ASFPlayerState* PlayerState) const;
+
+	void ClearUpgradeContext(ASFPlayerState* PlayerState);
+	
 protected:
 	void CacheCoreData();
 	float GetPlayerLuck(ASFPlayerState* PlayerState) const;
@@ -77,6 +105,8 @@ protected:
 
 	void ApplyStatBoostFragment(UAbilitySystemComponent* ASC, const USFCommonUpgradeFragment_StatBoost* Fragment, float FinalMagnitude);
 	void ApplySkillLevelFragment(UAbilitySystemComponent* ASC, const USFCommonUpgradeFragment_SkillLevel* Fragment);
+
+	int32 GetRerollCostByCount(int32 RerollCount) const;
 
 protected:
 	// 플레이어별 업그레이드 컨텍스트

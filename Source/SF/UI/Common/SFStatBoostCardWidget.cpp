@@ -4,6 +4,7 @@
 #include "Components/Image.h"
 #include "Components/Border.h"
 #include "Components/Button.h"
+#include "Components/Overlay.h"
 #include "System/Data/Common/SFCommonUpgradeChoice.h"
 #include "System/Data/Common/SFCommonUpgradeDefinition.h"
 #include "System/Data/Common/SFCommonRarityConfig.h"
@@ -37,6 +38,26 @@ void USFStatBoostCardWidget::NativeDestruct()
 void USFStatBoostCardWidget::SetCardData(const FSFCommonUpgradeChoice& Choice, int32 InCardIndex)
 {
     CurrentCardIndex = InCardIndex;
+
+    // Opacity 리셋 (선택 애니메이션으로 인한 Opacity 복구, PlayCardReveal 전에 필요)
+    // 선택 애니메이션 후 상태 리셋 → 카드 뒷면 상태로
+    if (Overlay_Entire)
+    {
+        Overlay_Entire->SetRenderOpacity(1.0f);
+        Overlay_Entire->SetRenderScale(FVector2D(1.0f, 1.0f));
+    }
+
+    // 카드 뒷면 보이게
+    if (Image_RarityFrame)
+    {
+        Image_RarityFrame->SetVisibility(ESlateVisibility::Visible);
+    }
+    
+    // 카드 앞면 숨기기
+    if (Overlay_Front)
+    {
+        Overlay_Front->SetVisibility(ESlateVisibility::Hidden);
+    }
 
     const USFCommonUpgradeDefinition* UpgradeDef = Choice.UpgradeDefinition;
     if (!UpgradeDef)
@@ -73,6 +94,13 @@ void USFStatBoostCardWidget::SetCardData(const FSFCommonUpgradeChoice& Choice, i
     EnableButtonWithDelay();
 }
 
+void USFStatBoostCardWidget::ResetCardVisuals()
+{
+    // 애니메이션 상태 리셋
+    SetRenderOpacity(1.0f);
+    SetRenderTransform(FWidgetTransform());
+}
+
 void USFStatBoostCardWidget::EnableButtonWithDelay()
 {
     if (Btn_Select)
@@ -103,6 +131,11 @@ void USFStatBoostCardWidget::SetButtonEnabled(bool bEnabled)
     {
         Btn_Select->SetIsEnabled(bEnabled);
     }
+}
+
+void USFStatBoostCardWidget::PlayCardReveal_Implementation()
+{
+
 }
 
 void USFStatBoostCardWidget::ApplyRarityVisuals(const USFCommonRarityConfig* RarityConfig)

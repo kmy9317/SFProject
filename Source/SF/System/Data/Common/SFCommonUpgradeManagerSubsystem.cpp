@@ -7,6 +7,7 @@
 #include "SFCommonUpgradeDefinition.h"
 #include "SFCommonUpgradeFragment.h"
 #include "SFLogChannels.h"
+#include "AbilitySystem/Abilities/Hero/Skill/SFHeroSkillTags.h"
 #include "AbilitySystem/Attributes/Hero/SFCombatSet_Hero.h"
 #include "Player/SFPlayerState.h"
 #include "System/SFAssetManager.h"
@@ -145,31 +146,40 @@ TArray<FSFCommonUpgradeChoice> USFCommonUpgradeManagerSubsystem::TryRerollOption
         return EmptyResult;
     }
     
+    FSFCommonUpgradeContext* Context = ActiveUpgradeContexts.Find(PlayerState);
+    if (!Context || !Context->SourceLootTable)
+    {
+        return EmptyResult;
+    }
+
     UAbilitySystemComponent* ASC = PlayerState->GetAbilitySystemComponent();
     if (!ASC)
     {
         return EmptyResult;
     }
-    
-    // 리롤 티켓 확인 (실제로는 PlayerCombatState의 bool값을 체크할 수도 있음)
-    int32 TicketCount = ASC->GetGameplayTagCount(RerollCostTag);
-    if (TicketCount <= 0)
-    {
-        return EmptyResult; // 티켓 부족 -> 리롤 실패
-    }
 
-    const FSFCommonUpgradeContext* ContextPtr = ActiveUpgradeContexts.Find(PlayerState);
-    if (!ContextPtr || !ContextPtr->SourceLootTable)
+    int32 Cost = CalculateRerollCost(PlayerState);
+    if (Cost == 0 && !Context->bUsedFreeReroll)
     {
-        return EmptyResult; // 이 플레이어는 현재 리롤할 수 있는 선택지가 없음
+        // 이번 상자에서만 사용 표시
+        Context->bUsedFreeReroll = true;  
+    }
+    else
+    {
+        // 골드 부족 체크
+        if (PlayerState->GetGold() < Cost)
+        {
+            return EmptyResult;
+        }
+
+        // 골드 차감
+        PlayerState->AddGold(-Cost);
+        Context->RerollCount++;
     }
 
     // GenerateUpgradeOptions 내부에서 Map을 갱신할 수 있으므로 필요한 정보를 미리 복사
-    USFCommonLootTable* SourceTable = ContextPtr->SourceLootTable;
-    int32 SlotCount = ContextPtr->SlotCount;
-
-    // 비용 소모(TODO : 추후 PlayerCombatState의 bool등을 설정할 수 있음)
-    // ASC->RemoveLooseGameplayTag(RerollCostTag, 1);
+    USFCommonLootTable* SourceTable = Context->SourceLootTable;
+    int32 SlotCount = Context->SlotCount;
 
     // 찾아낸 테이블과 개수 정보를 사용하여 리롤
     return GenerateUpgradeOptions(PlayerState, SourceTable, SlotCount);
@@ -230,6 +240,15 @@ bool USFCommonUpgradeManagerSubsystem::ApplyUpgradeChoice(ASFPlayerState* Player
         {
             ApplySkillLevelFragment(ASC, SkillLevel);
         }
+    }
+
+    // MoreEnhance 체크: 태그 있고 아직 사용 안 했으면 추가 선택
+    if (!Context->bUsedMoreEnhance && ASC->HasMatchingGameplayTag(SFGameplayTags::Ability_Skill_Passive_MoreEnhance))
+    {
+        // 상자당 소모
+        Context->bUsedMoreEnhance = true;
+        // true 반환하되 Context는 유지 (Component에서 추가 선택 처리)
+        return true; 
     }
 
     // 컨텍스트 정리
@@ -388,4 +407,100 @@ void USFCommonUpgradeManagerSubsystem::ApplySkillLevelFragment(UAbilitySystemCom
             break;
         }
     }
+}
+
+bool USFCommonUpgradeManagerSubsystem::CanReroll(ASFPlayerState* PlayerState) const
+{
+    if (!PlayerState)
+    {
+        return false;
+    }
+
+    const FSFCommonUpgradeContext* Context = ActiveUpgradeContexts.Find(PlayerState);
+    if (!Context || Context->PendingChoices.IsEmpty())
+    {
+        return false;
+    }
+
+    int32 Cost = CalculateRerollCost(PlayerState);
+	
+    // 무료이거나 골드가 충분하면 가능
+    return (Cost == 0) || (PlayerState->GetGold() >= Cost);
+}
+
+int32 USFCommonUpgradeManagerSubsystem::CalculateRerollCost(ASFPlayerState* PlayerState) const
+{
+    if (!PlayerState)
+    {
+        return 0;
+    }
+
+    const FSFCommonUpgradeContext* Context = ActiveUpgradeContexts.Find(PlayerState);
+    if (!Context)
+    {
+        return GetRerollCostByCount(0);
+    }
+
+    // FreeReroll 태그가 있고 아직 사용 안 했으면 무료
+    if (!Context->bUsedFreeReroll)
+    {
+        UAbilitySystemComponent* ASC = PlayerState->GetAbilitySystemComponent();
+        if (ASC && ASC->HasMatchingGameplayTag(SFGameplayTags::Ability_Skill_Passive_FreeReroll))
+        {
+            return 0;
+        }
+    }
+
+    return GetRerollCostByCount(Context->RerollCount);
+}
+
+
+bool USFCommonUpgradeManagerSubsystem::HasMoreEnhanceAvailable(ASFPlayerState* PlayerState) const
+{
+    if (!PlayerState)
+    {
+        return false;
+    }
+
+    const FSFCommonUpgradeContext* Context = ActiveUpgradeContexts.Find(PlayerState);
+    if (!Context)
+    {
+        return false;
+    }
+
+    // 이미 사용했으면 불가
+    if (Context->bUsedMoreEnhance)
+    {
+        return false;
+    }
+
+    UAbilitySystemComponent* ASC = PlayerState->GetAbilitySystemComponent();
+    return ASC && ASC->HasMatchingGameplayTag(SFGameplayTags::Ability_Skill_Passive_MoreEnhance);
+}
+
+void USFCommonUpgradeManagerSubsystem::ClearUpgradeContext(ASFPlayerState* PlayerState)
+{
+    if (PlayerState)
+    {
+        ActiveUpgradeContexts.Remove(PlayerState);
+    }
+}
+
+int32 USFCommonUpgradeManagerSubsystem::GetRerollCostByCount(int32 InRerollCount) const
+{
+    if (InRerollCount <= 0)
+    {
+        return 20;
+    }
+
+    int32 Cost = 20;
+    int32 Increment = 10;
+
+    for (int32 i = 0; i < InRerollCount; ++i)
+    {
+        Cost += Increment;
+        Increment *= 2;
+    }
+
+    return Cost;
 }

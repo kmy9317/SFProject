@@ -4,6 +4,7 @@
 #include "Blueprint/UserWidget.h"
 #include "SFStatBoostCardWidget.generated.h"
 
+class UOverlay;
 struct FSFCommonUpgradeChoice;
 class USFCommonRarityConfig;
 class UTextBlock;
@@ -30,6 +31,8 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "SF|UI")
 	void SetCardData(const FSFCommonUpgradeChoice& Choice, int32 InCardIndex);
 
+	void ResetCardVisuals();
+
 	UFUNCTION(BlueprintCallable, Category = "SF|UI")
 	void EnableButtonWithDelay();
 
@@ -38,7 +41,7 @@ public:
 	void SetButtonEnabled(bool bEnabled);
 
 	// 카드 공개 애니메이션 (BP에서 구현) 
-	UFUNCTION(BlueprintImplementableEvent, BlueprintCallable, Category = "SF|UI|Animation")
+	UFUNCTION(BlueprintNativeEvent, BlueprintCallable, Category = "SF|UI|Animation")
 	void PlayCardReveal();
 
 	// 선택 애니메이션 완료 알림 (BP에서 호출) 
@@ -62,6 +65,13 @@ public:
 	FOnCardAnimationFinished OnAnimationFinishedDelegate;
 
 protected:
+	
+	UPROPERTY(meta = (BindWidget))
+	TObjectPtr<UOverlay> Overlay_Entire;
+
+	UPROPERTY(meta = (BindWidget))
+	TObjectPtr<UOverlay> Overlay_Front;
+	
 	UPROPERTY(meta = (BindWidget))
 	TObjectPtr<UTextBlock> Text_Title;
 

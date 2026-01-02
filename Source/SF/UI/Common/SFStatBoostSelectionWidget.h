@@ -36,15 +36,15 @@ public:
 
     // 현재 주어진 선택지로  Card 세트 초기화 
     UFUNCTION(BlueprintCallable, Category = "SF|UI")
-    void InitializeWithChoices(const TArray<FSFCommonUpgradeChoice>& Choices);
+    void InitializeWithChoices(const TArray<FSFCommonUpgradeChoice>& Choices, int32 NextRerollCost);
 
     // 선택지 갱신 (리롤시) 
     UFUNCTION(BlueprintCallable, Category = "SF|UI")
-    void RefreshChoices(const TArray<FSFCommonUpgradeChoice>& Choices);
+    void RefreshChoices(const TArray<FSFCommonUpgradeChoice>& Choices, int32 NextRerollCost);
 
     // 선택지 갱신 (추가 선택시) 
     UFUNCTION(BlueprintCallable, Category = "SF|UI")
-    void RefreshChoicesWithExtraNotice(const TArray<FSFCommonUpgradeChoice>& Choices);
+    void RefreshChoicesWithExtraNotice(const TArray<FSFCommonUpgradeChoice>& Choices, int32 NextRerollCost);
 
     // 선택지 설정 (최초/리롤/추가 선택 시 공통으로 호출)
     UFUNCTION(BlueprintCallable, Category = "SF|UI")
@@ -72,7 +72,7 @@ public:
 
     UFUNCTION(BlueprintCallable, Category = "SF|UI")
     void NotifyClose();
-    
+
 protected:
     UFUNCTION()
     void OnCardSelected(int32 CardIndex);
@@ -86,6 +86,9 @@ protected:
     void EnableRerollButtonWithDelay();
 
     void UpdateRerollButtonState();
+
+    UFUNCTION(BlueprintCallable, Category = "SF|UI")
+    void UpdateRerollCostDisplay(int32 Cost);
 
     void DisableAllCards();
 
@@ -118,6 +121,12 @@ protected:
     UPROPERTY(BlueprintReadOnly, meta = (BindWidgetOptional))
     TObjectPtr<UTextBlock> Text_ExtraSelectionNotice;
 
+    UPROPERTY(BlueprintReadOnly, meta = (BindWidgetOptional))
+    TObjectPtr<UTextBlock> Text_RerollCost;
+
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "SF|UI|Settings")
+    float CardRevealDelay = 0.2f;
+
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "SF|UI|Settings")
     float RerollButtonEnableDelay = 1.0f;
 
@@ -131,6 +140,11 @@ private:
 
     // 대기 중인 새 선택지 (추가 보너스 선택용)
     TArray<FSFCommonUpgradeChoice> PendingChoices;
+
+    int32 CachedNextRerollCost = 0;
+
+    // 애니메이션 대기용
+    int32 PendingNextRerollCost = 0;  
 
     FTimerHandle RerollButtonEnableTimerHandle;
 };

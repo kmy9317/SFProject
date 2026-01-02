@@ -49,7 +49,7 @@ private:
 	
 	// 선택지 수신 시 UI 표시 
 	UFUNCTION()
-	void OnStatBoostChoicesReceived(const TArray<FSFCommonUpgradeChoice>& Choices);
+	void OnStatBoostChoicesReceived(const TArray<FSFCommonUpgradeChoice>& Choices, int32 NextRerollCost);
 
 	// UI에서 카드 선택 시 
 	UFUNCTION()
@@ -68,7 +68,7 @@ private:
 	UFUNCTION()
 	void OnRerollFailed(const FText& Reason);
 
-	void ShowStatBoostUI(const TArray<FSFCommonUpgradeChoice>& Choices);
+	void ShowStatBoostUI(const TArray<FSFCommonUpgradeChoice>& Choices, int32 NextRerollCost);
 
 private:
 	void CleanupUI();

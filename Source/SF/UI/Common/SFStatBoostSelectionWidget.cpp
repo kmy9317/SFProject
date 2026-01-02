@@ -60,35 +60,38 @@ void USFStatBoostSelectionWidget::NativeDestruct()
     Super::NativeDestruct();
 }
 
-void USFStatBoostSelectionWidget::InitializeWithChoices(const TArray<FSFCommonUpgradeChoice>& Choices)
+void USFStatBoostSelectionWidget::InitializeWithChoices(const TArray<FSFCommonUpgradeChoice>& Choices, int32 NextRerollCost)
 {
+    CachedNextRerollCost = NextRerollCost;
     SetChoices(Choices);
 }
 
-void USFStatBoostSelectionWidget::RefreshChoices(const TArray<FSFCommonUpgradeChoice>& Choices)
+void USFStatBoostSelectionWidget::RefreshChoices(const TArray<FSFCommonUpgradeChoice>& Choices, int32 NextRerollCost)
 {
-    // 애니메이션 중이면 대기
     if (bAnimationPlaying)
     {
-        // 애니메이션 중이면 대기
         PendingAction = EPendingAction::Refresh;
         PendingChoices = Choices;
+        PendingNextRerollCost = NextRerollCost; 
         return;
     }
     
+    CachedNextRerollCost = NextRerollCost;
     SetChoices(Choices);
     BP_OnChoicesRefreshed(); // TODO : 선택지 갱신시(리롤/추가 보너스) 애니메이션 Play 가능
 }
 
-void USFStatBoostSelectionWidget::RefreshChoicesWithExtraNotice(const TArray<FSFCommonUpgradeChoice>& Choices)
+void USFStatBoostSelectionWidget::RefreshChoicesWithExtraNotice(const TArray<FSFCommonUpgradeChoice>& Choices, int32 NextRerollCost)
 {
     if (bAnimationPlaying)
     {
         PendingAction = EPendingAction::RefreshWithNotice;
         PendingChoices = Choices;
+        PendingNextRerollCost = NextRerollCost;
         return;
     }
 
+    CachedNextRerollCost = NextRerollCost;
     ShowExtraSelectionNotice();
     SetChoices(Choices);
     BP_OnChoicesRefreshed();
@@ -102,10 +105,27 @@ void USFStatBoostSelectionWidget::SetChoices(const TArray<FSFCommonUpgradeChoice
         {
             CardWidgets[i]->SetCardData(Choices[i], i);
             CardWidgets[i]->SetVisibility(ESlateVisibility::Visible);
-        }
-        else if (CardWidgets[i])
-        {
-            CardWidgets[i]->SetVisibility(ESlateVisibility::Collapsed);
+            
+            // 순차 등장 애니메이션 (0.2초 간격)
+            float Delay = i * CardRevealDelay;
+            if (Delay > 0.0f)
+            {
+                FTimerHandle TempHandle;
+                GetWorld()->GetTimerManager().SetTimer(
+                    TempHandle,
+                    FTimerDelegate::CreateWeakLambda(CardWidgets[i].Get(), [Card = CardWidgets[i].Get()]()
+                    {
+                        Card->PlayCardReveal();
+                    }),
+                    Delay,
+                    false
+                );
+            }
+            else
+            {
+                // 첫 번째 카드는 바로 실행
+                CardWidgets[i]->PlayCardReveal();
+            }
         }
     }
     
@@ -225,20 +245,25 @@ void USFStatBoostSelectionWidget::UpdateRerollButtonState()
         return;
     }
 
-    USFCommonUpgradeComponent* UpgradeComp = PS->FindComponentByClass<USFCommonUpgradeComponent>();
-    if (UpgradeComp)
-    {
-        Btn_Reroll->SetIsEnabled(UpgradeComp->CanReroll());
+    bool bCanAfford = (CachedNextRerollCost == 0) || (PS->GetGold() >= CachedNextRerollCost);
+    Btn_Reroll->SetIsEnabled(bCanAfford);
+    UpdateRerollCostDisplay(CachedNextRerollCost);
+}
 
-        // 리롤 카운트 표시 (TODO : 필요시 추후 사용)
-        // if (Text_RerollCount)
-        // {
-        //     Text_RerollCount->SetText(FText::AsNumber(UpgradeComp->GetRerollCount()));
-        // }
+void USFStatBoostSelectionWidget::UpdateRerollCostDisplay(int32 Cost)
+{
+    if (!Text_RerollCost)
+    {
+        return;
+    }
+
+    if (Cost == 0)
+    {
+        Text_RerollCost->SetText(NSLOCTEXT("SF", "FreeReroll", "무료"));
     }
     else
     {
-        Btn_Reroll->SetIsEnabled(false);
+        Text_RerollCost->SetText(FText::Format(NSLOCTEXT("SF", "RerollCostFormat", "{0} G"), FText::AsNumber(Cost)));
     }
 }
 
@@ -274,12 +299,11 @@ void USFStatBoostSelectionWidget::ProcessPendingAction()
     switch (PendingAction)
     {
     case EPendingAction::Refresh:
-        RefreshChoices(PendingChoices);
+        RefreshChoices(PendingChoices, PendingNextRerollCost);
         PendingChoices.Empty();
         break;
     case EPendingAction::RefreshWithNotice:
-        ShowExtraSelectionNotice();
-        RefreshChoices(PendingChoices);
+        RefreshChoicesWithExtraNotice(PendingChoices, PendingNextRerollCost);
         PendingChoices.Empty();
         break;
     case EPendingAction::Close:

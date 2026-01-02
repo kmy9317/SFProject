@@ -42,22 +42,25 @@ void USFCommonUpgradeComponent::RequestGenerateChoices(USFCommonLootTable* LootT
 	CachedStageIndex = StageIndex;
 	CachedChoiceCount = Count;
 
+	// 새 상자이므로 이전 Context 정리
+	Subsystem->ClearUpgradeContext(PS);
+
 	// 서브시스템에서 선택지 생성
 	TArray<FSFCommonUpgradeChoice> GeneratedChoices = Subsystem->GenerateUpgradeOptions(PS, LootTable, Count);
 
+	// 다음 리롤 비용 계산
+	int32 NextCost = Subsystem->CalculateRerollCost(PS);
+
 	// 클라이언트로 전송
-	Client_ReceiveUpgradeChoices(GeneratedChoices, false);
+	Client_ReceiveUpgradeChoices(GeneratedChoices, false, NextCost);
 }
 
-void USFCommonUpgradeComponent::Client_ReceiveUpgradeChoices_Implementation(const TArray<FSFCommonUpgradeChoice>& Choices, bool bIsExtraSelection)
+void USFCommonUpgradeComponent::Client_ReceiveUpgradeChoices_Implementation(const TArray<FSFCommonUpgradeChoice>& Choices, bool bIsExtraSelection, int32 NextRerollCost)
 {
 	PendingChoices = Choices;
+	CachedNextRerollCost = NextRerollCost;
 	bPendingExtraSelection = bIsExtraSelection;
-	
-	// UI에 알림
-	OnChoicesReceived.Broadcast(Choices);
-
-	UE_LOG(LogSF, Warning, TEXT("Client_ReceiveUpgradeChoices: Received %d choices"), Choices.Num());
+	OnChoicesReceived.Broadcast(Choices, NextRerollCost);
 }
 
 void USFCommonUpgradeComponent::RequestApplyUpgrade(const FGuid& ChoiceId)
@@ -100,6 +103,8 @@ void USFCommonUpgradeComponent::Server_RequestApplyUpgrade_Implementation(const 
 		return;
 	}
 
+	bool bHasMoreEnhance = Subsystem->HasMoreEnhanceAvailable(PS);
+
 	// 서브시스템에서 검증 및 적용
 	bool bSuccess = Subsystem->ApplyUpgradeChoice(PS, ChoiceId);
 	if (!bSuccess)
@@ -108,17 +113,14 @@ void USFCommonUpgradeComponent::Server_RequestApplyUpgrade_Implementation(const 
 		return;
 	}
 
-	// 추가 선택 태그 체크
-	if (HasExtraSelectionTag())
+	// MoreEnhance가 있었으면 새 선택지 생성
+	if (bHasMoreEnhance)
 	{
-		// 태그 소모
-		ConsumeExtraSelectionTag();
-
-		// 새로운 선택지 생성
 		TArray<FSFCommonUpgradeChoice> NewChoices = Subsystem->GenerateUpgradeOptions(PS, CachedLootTable, CachedChoiceCount);
+		int32 NextCost = Subsystem->CalculateRerollCost(PS);
 
 		// 추가 선택임을 알리며 전송
-		Client_ReceiveUpgradeChoices(NewChoices, true);
+		Client_ReceiveUpgradeChoices(NewChoices, true, NextCost);
 		return;
 	}
 
@@ -160,7 +162,6 @@ void USFCommonUpgradeComponent::Server_RequestReroll_Implementation()
 	UWorld* World = GetWorld();
 	if (!World)
 	{
-		Client_NotifyRerollFailed(NSLOCTEXT("SF", "RerollFailed_InvalidWorld", "잘못된 요청입니다."));
 		return;
 	}
 
@@ -168,6 +169,13 @@ void USFCommonUpgradeComponent::Server_RequestReroll_Implementation()
 	if (!Subsystem)
 	{
 		Client_NotifyRerollFailed(NSLOCTEXT("SF", "RerollFailed_NoSubsystem", "시스템 오류입니다."));
+		return;
+	}
+	
+	// 리롤 가능 여부 체크
+	if (!Subsystem->CanReroll(PS))
+	{
+		Client_NotifyRerollFailed(NSLOCTEXT("SF", "RerollFailed_NotEnoughGold", "골드가 부족합니다."));
 		return;
 	}
 
@@ -179,7 +187,9 @@ void USFCommonUpgradeComponent::Server_RequestReroll_Implementation()
 		return;
 	}
 
-	Client_ReceiveUpgradeChoices(NewChoices, false);
+	int32 NextCost = Subsystem->CalculateRerollCost(PS);
+
+	Client_ReceiveUpgradeChoices(NewChoices, false, NextCost);
 }
 
 void USFCommonUpgradeComponent::Client_NotifyRerollFailed_Implementation(const FText& Reason)
@@ -201,52 +211,8 @@ bool USFCommonUpgradeComponent::CanReroll() const
 		return false;
 	}
 
-	UAbilitySystemComponent* ASC = PS->GetAbilitySystemComponent();
-	if (!ASC)
-	{
-		return false;
-	}
-
-	// TODO: 리롤 티켓 태그 정의 후 수정
-	// return ASC->GetGameplayTagCount(TAG_RerollTicket) > 0;
-	return true;
-}
-
-bool USFCommonUpgradeComponent::HasExtraSelectionTag() const
-{
-	ASFPlayerState* PS = GetOwner<ASFPlayerState>();
-	if (!PS)
-	{
-		return false;
-	}
-
-	UAbilitySystemComponent* ASC = PS->GetAbilitySystemComponent();
-	if (!ASC)
-	{
-		return false;
-	}
-
-	// TODO: 추가 선택 태그 정의 후 수정
-	// return ASC->HasMatchingGameplayTag(TAG_ExtraSelection);
-	return false;
-}
-
-void USFCommonUpgradeComponent::ConsumeExtraSelectionTag()
-{
-	ASFPlayerState* PS = GetOwner<ASFPlayerState>();
-	if (!PS)
-	{
-		return;
-	}
-
-	UAbilitySystemComponent* ASC = PS->GetAbilitySystemComponent();
-	if (!ASC)
-	{
-		return;
-	}
-
-	// TODO: 추가 선택 태그 정의 후 수정
-	// ASC->RemoveLooseGameplayTag(TAG_ExtraSelection);
+	// 무료이거나 골드 충분
+	return (CachedNextRerollCost == 0) || (PS->GetGold() >= CachedNextRerollCost);
 }
 
 void USFCommonUpgradeComponent::ClearPendingChoices()

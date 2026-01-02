@@ -42,6 +42,9 @@ ASFPlayerState::ASFPlayerState(const FObjectInitializer& ObjectInitializer)
 	CombatStateComponent = CreateDefaultSubobject<USFPlayerCombatStateComponent>(TEXT("CombatStateComponent"));
 	
 	SetNetUpdateFrequency(100.f);
+
+	// TODO : 테스트용 삭제 예정
+	Gold = 500;
 }
 
 void ASFPlayerState::EndPlay(const EEndPlayReason::Type EndPlayReason)
@@ -71,7 +74,7 @@ void ASFPlayerState::GetLifetimeReplicatedProps(TArray<class FLifetimeProperty>&
 
 	DOREPLIFETIME(ThisClass, PlayerSelection);
 	DOREPLIFETIME(ThisClass, PawnData);
-	DOREPLIFETIME(ThisClass, Credits);
+	DOREPLIFETIME(ThisClass, Gold);
 	DOREPLIFETIME(ThisClass, bIsReadyForTravel);
 	DOREPLIFETIME(ThisClass, PermanentUpgradeData);
 	
@@ -142,6 +145,10 @@ void ASFPlayerState::CopyProperties(APlayerState* PlayerState)
 	{
 		NewPlayerState->CombatStateComponent->RestoreCombatStateFromTravel(CombatStateComponent->GetCombatInfo());
 	}
+	
+
+	// TODO : 테스트용 삭제 예정
+	NewPlayerState->Gold = Gold;
 }
 
 void ASFPlayerState::OnDeactivated()
