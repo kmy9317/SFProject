@@ -71,4 +71,10 @@ namespace SFGameplayTags
 	UE_DEFINE_GAMEPLAY_TAG(Ability_Dragon_Movement_Land, "Ability.Dragon.Movement.Land");
 	UE_DEFINE_GAMEPLAY_TAG(Ability_Dragon_Movement_Swoop, "Ability.Dragon.Movement.Swoop");
 	UE_DEFINE_GAMEPLAY_TAG(Ability_Dragon_Movement_Hover, "Ability.Dragon.Movement.Hover");
+
+	// Sorcerer Skill Tag
+
+	UE_DEFINE_GAMEPLAY_TAG_COMMENT(Ability_Hero_Elemental_Fire, "Ability.Hero.Elemental.Fire", "Sorcerer Elemental Tag");
+	UE_DEFINE_GAMEPLAY_TAG_COMMENT(Ability_Hero_Elemental_Ice, "Ability.Hero.Elemental.Ice", "Sorcerer Elemental Tag");
+	UE_DEFINE_GAMEPLAY_TAG_COMMENT(Ability_Hero_Elemental_Electric, "Ability.Hero.Elemental.Electric", "Sorcerer Elemental Tag");
 }

@@ -72,6 +72,10 @@ namespace SFGameplayTags
 	SF_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(Ability_Dragon_Movement_Land);
 	SF_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(Ability_Dragon_Movement_Swoop);
 	SF_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(Ability_Dragon_Movement_Hover);
+
 	
-	
+	// Sorcerer Skill Tag
+	SF_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(Ability_Hero_Elemental_Fire);
+	SF_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(Ability_Hero_Elemental_Ice);
+	SF_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(Ability_Hero_Elemental_Electric);
 }
