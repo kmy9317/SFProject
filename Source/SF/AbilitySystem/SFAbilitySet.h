@@ -116,6 +116,11 @@ public:
 	// 반환된 OutGrantedHandles를 사용하여 어빌리티 셋을 해제할 수 있다
 	void GiveToAbilitySystem(USFAbilitySystemComponent* SFASC, FSFAbilitySet_GrantedHandles* OutGrantedHandles, UObject* SourceObject = nullptr) const;
 
+	// 소서러 때문이야
+	const TArray<FSFAbilitySet_GameplayAbility>& GetGrantedGameplayAbilities() const { return GrantedGameplayAbilities; }
+	const TArray<FSFAbilitySet_GameplayEffect>& GetGrantedGameplayEffects() const { return GrantedGameplayEffects; }
+	const TArray<FSFAbilitySet_AttributeSet>& GetGrantedAttributes() const { return GrantedAttributes; }
+
 protected:
 
 	// 어빌리티 셋이 부여될 떄  부여할 어빌리티
