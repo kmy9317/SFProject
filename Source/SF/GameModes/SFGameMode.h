@@ -48,6 +48,8 @@ public:
 	/** GameState에서 호출하는 Travel 요청 */
 	void RequestTravelToNextStage(TSoftObjectPtr<UWorld> NextStageLevel);
 
+	void RequestTravelToLobby(TSoftObjectPtr<UWorld> NextStageLevel);
+
 	/** 보스 스테이지 클리어 시 Dead/Downed 플레이어 모두 회복 */
 	void ReviveAllIncapacitatedPlayers();
 

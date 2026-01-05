@@ -55,6 +55,8 @@ namespace SFGameplayTags
 	UE_DEFINE_GAMEPLAY_TAG(Ability_Interact_Active, "Ability.Interact.Active")
 	UE_DEFINE_GAMEPLAY_TAG(Ability_Interact_Object, "Ability.Interact.Object")
 	
+	UE_DEFINE_GAMEPLAY_TAG(Ability_Hero_Drink, "Ability.Hero.Drink")
+	
 	UE_DEFINE_GAMEPLAY_TAG(Ability_Hero_Dodge, "Ability.Hero.Dodge");
 	UE_DEFINE_GAMEPLAY_TAG(Ability_Hero_Downed, "Ability.Hero.Downed");
 	UE_DEFINE_GAMEPLAY_TAG(Ability_Hero_Death, "Ability.Hero.Death");

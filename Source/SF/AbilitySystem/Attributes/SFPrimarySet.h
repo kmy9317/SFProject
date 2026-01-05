@@ -32,6 +32,8 @@ protected:
 
 	virtual void ClampAttribute(const FGameplayAttribute& Attribute, float& NewValue) const override;
 
+	void TrackDamageDealt(const FGameplayEffectModCallbackData& Data, float DamageAmount);
+
 public:
 	ATTRIBUTE_ACCESSORS(ThisClass, Health);
 	ATTRIBUTE_ACCESSORS(ThisClass, MaxHealth);

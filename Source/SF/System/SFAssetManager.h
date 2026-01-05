@@ -5,8 +5,10 @@
 #include "CoreMinimal.h"
 #include "Engine/AssetManager.h"
 #include "System/Data/SFGameData.h"
+#include "Item/SFItemData.h"
 #include "SFAssetManager.generated.h"
 
+class USFItemData;
 class USFGameData;
 class USFPawnData;
 class USFHeroDefinition;
@@ -39,6 +41,7 @@ public:
 	static TSubclassOf<AssetType> GetSubclassByPath(const TSoftClassPtr<AssetType>& AssetPointer, bool bKeepInMemory = true);
 
 	const USFGameData& GetGameData();
+	const USFItemData& GetItemData();
 
 	// HeroDefinition 로드 요청 (이미 로드되어 있으면 콜백 즉시 실행)
 	void LoadHeroDefinitions(const FStreamableDelegate& LoadFinishedCallback);
@@ -96,6 +99,9 @@ protected:
 	
 	UPROPERTY(Config)
 	TSoftObjectPtr<USFGameData> GameDataPath;
+
+	UPROPERTY(Config)
+	TSoftObjectPtr<USFItemData> ItemDataPath;
 
 	UPROPERTY(Transient)
 	TMap<TObjectPtr<UClass>, TObjectPtr<UPrimaryDataAsset>> GameDataMap;

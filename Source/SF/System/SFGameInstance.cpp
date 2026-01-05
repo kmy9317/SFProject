@@ -38,8 +38,8 @@ void USFGameInstance::LoadLevelAndListen(TSoftObjectPtr<UWorld> Level)
 
 	if (LevelURL != "")
 	{
-		//GetWorld()->ServerTravel(LevelURL.ToString() + "?listen");
-		GetWorld()->ServerTravel(LevelURL.ToString(), true);
+		GetWorld()->ServerTravel(LevelURL.ToString() + "?listen", false);
+		//GetWorld()->ServerTravel(LevelURL.ToString(), true);
 	}
 }
 

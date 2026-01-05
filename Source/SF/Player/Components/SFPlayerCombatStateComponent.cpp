@@ -127,17 +127,6 @@ void USFPlayerCombatStateComponent::ResetDownCount()
 	}
 }
 
-void USFPlayerCombatStateComponent::IncrementReviveCount()
-{
-	if (!GetOwner() || !GetOwner()->HasAuthority())
-	{
-		return;
-	}
-
-	CombatInfo.ReviveCount++;
-	BroadcastCombatInfoChanged();
-}
-
 void USFPlayerCombatStateComponent::OnRep_CombatInfo()
 {
 	bHasReceivedInitialCombatInfo = true;

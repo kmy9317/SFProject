@@ -6,6 +6,7 @@
 #include "AbilitySystem/Abilities/SFGameplayAbility.h"
 #include "SFGA_Hero_Downed.generated.h"
 
+class USFPlayerStatsComponent;
 class ASFHero;
 class USFPlayerCombatStateComponent;
 /**
@@ -68,5 +69,8 @@ private:
 
 	UPROPERTY()
 	TWeakObjectPtr<USFPlayerCombatStateComponent> CachedCombatStateComponent;
+
+	UPROPERTY()
+	TWeakObjectPtr<USFPlayerStatsComponent> CachedStatsComponent;
 	
 };

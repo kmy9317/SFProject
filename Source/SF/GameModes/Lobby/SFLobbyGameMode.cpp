@@ -47,6 +47,23 @@ void ASFLobbyGameMode::PostLogin(APlayerController* NewPlayer)
 	UpdateStartButtonState();
 }
 
+void ASFLobbyGameMode::HandleSeamlessTravelPlayer(AController*& Controller)
+{
+	Super::HandleSeamlessTravelPlayer(Controller);
+
+	APlayerController* PC = Cast<APlayerController>(Controller);
+	if (!PC)
+	{
+		return;
+	}
+
+	// PostLogin과 동일한 로직
+	PCs.AddUnique(PC);
+	WaitForPlayerSlotsAndUpdate();
+	
+	UpdateStartButtonState();
+}
+
 void ASFLobbyGameMode::Logout(AController* Exiting)
 {
 	Super::Logout(Exiting);
@@ -287,7 +304,7 @@ void ASFLobbyGameMode::UpdateStartButtonState()
 		{
 			if (USFLobbyWidget* LobbyWidget = Cast<USFLobbyWidget>(LobbyPC->GetMenuWidget()))
 			{
-				LobbyWidget->bAllPlayersReady = bAllReady;
+				LobbyWidget->SetAllPlayersReady(bAllReady);
 			}
 		}
 	}

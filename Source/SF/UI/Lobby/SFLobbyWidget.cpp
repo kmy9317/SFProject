@@ -19,8 +19,10 @@ void USFLobbyWidget::NativeConstruct()
 	SFLobbyPlayerController = GetOwningPlayer<ASFLobbyPlayerController>();
 	SFLobbyPlayerState = GetOwningPlayerState<ASFLobbyPlayerState>();
 	Button_Start->OnButtonClickedDelegate.AddDynamic(this, &ThisClass::StartMatchButtonClicked);
+	Button_Start->SetIsEnabled(false);
+	Button_Start->SetVisibility(ESlateVisibility::Hidden);
+	
 	Button_Ready->OnButtonClickedDelegate.AddDynamic(this, &ThisClass::ReadyButtonClicked);
-
 	Button_Ready->SetIsEnabled(false);
 	
 	USFAssetManager::Get().LoadHeroDefinitions(FStreamableDelegate::CreateUObject(this, &ThisClass::HeroDefinitionLoaded));
@@ -120,6 +122,19 @@ void USFLobbyWidget::UpdateReadyButtonEnabled(const TArray<FSFPlayerSelectionInf
 	const FSFPlayerSelectionInfo* MySelection = FindMySelection(PlayerSelections);
 	bool bHasHero = MySelection && MySelection->GetHeroDefinition() != nullptr;
 	Button_Ready->SetIsEnabled(bHasHero);
+}
+
+void USFLobbyWidget::SetAllPlayersReady(bool bInAllPlayersReady)
+{
+	if (bAllPlayersReady != bInAllPlayersReady)
+	{
+		bAllPlayersReady = bInAllPlayersReady;
+        
+		if (Button_Start)
+		{
+			Button_Start->SetIsEnabled(bAllPlayersReady);
+		}
+	}
 }
 
 const FSFPlayerSelectionInfo* USFLobbyWidget::FindMySelection(const TArray<FSFPlayerSelectionInfo>& PlayerSelections) const

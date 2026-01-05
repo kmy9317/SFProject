@@ -10,9 +10,8 @@ void USFAssetManager::StartInitialLoading()
 {
 	Super::StartInitialLoading();
 
-	// GameData 로드
 	GetGameData();
-
+    //GetItemData();
 }
 
 void USFAssetManager::FinishInitialLoading()
@@ -33,6 +32,7 @@ void USFAssetManager::PreBeginPIE(bool bStartSimulate)
 	Super::PreBeginPIE(bStartSimulate);
 
 	GetGameData();
+    //GetItemData();
 	if (!AreLobbyAssetsLoaded())
 	{
 		LoadAllPrimaryAssets();
@@ -55,6 +55,11 @@ USFAssetManager& USFAssetManager::Get()
 const USFGameData& USFAssetManager::GetGameData()
 {
 	return GetOrLoadTypedGameData<USFGameData>(GameDataPath);
+}
+
+const USFItemData& USFAssetManager::GetItemData()
+{
+    return GetOrLoadTypedGameData<USFItemData>(ItemDataPath);
 }
 
 TArray<FPrimaryAssetType> USFAssetManager::GetManagedPrimaryAssetTypes() const
@@ -409,7 +414,7 @@ TSharedPtr<FStreamableHandle> USFAssetManager::LoadPawnDataAsync(const TSoftObje
 }
 
 //////////////////////////////////////////////////////////////////////////
-// Utility
+//                              Utility
 //////////////////////////////////////////////////////////////////////////
 
 UObject* USFAssetManager::SynchronousLoadAsset(const FSoftObjectPath& AssetPath)

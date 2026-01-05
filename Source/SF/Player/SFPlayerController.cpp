@@ -13,6 +13,7 @@
 #include "Components/SFSharedUIComponent.h"
 #include "Components/SFSpectatorComponent.h"
 #include "GameFramework/Character.h"
+#include "GameModes/SFGameOverManagerComponent.h"
 #include "Kismet/GameplayStatics.h"
 #include "Pawn/SFSpectatorPawn.h"
 #include "System/SFPlayFabSubsystem.h"
@@ -314,6 +315,25 @@ void ASFPlayerController::Client_BeginPermanentUpgradeFlow_Implementation()
 
 			PF->ResetPermanentUpgradeSendState();
 			PF->StartRetrySendPermanentUpgradeDataToServer();
+		}
+	}
+}
+
+void ASFPlayerController::RequestReadyForLobby()
+{
+	Server_NotifyReadyForLobby();
+}
+
+void ASFPlayerController::Server_NotifyReadyForLobby_Implementation()
+{
+	if (UWorld* World = GetWorld())
+	{
+		if (AGameStateBase* GameState = World->GetGameState<AGameStateBase>())
+		{
+			if (USFGameOverManagerComponent* GameOverManager = GameState->FindComponentByClass<USFGameOverManagerComponent>())
+			{
+				GameOverManager->NotifyPlayerReadyForLobby(this);
+			}
 		}
 	}
 }

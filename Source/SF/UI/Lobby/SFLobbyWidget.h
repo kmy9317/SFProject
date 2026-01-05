@@ -26,8 +26,11 @@ UCLASS()
 class SF_API USFLobbyWidget : public UUserWidget
 {
 	GENERATED_BODY()
-	public:
+public:
 	virtual void NativeConstruct() override;
+
+public:
+	void SetAllPlayersReady(bool bInAllPlayersReady);
 
 private:
 	void ConfigureGameState();
@@ -48,10 +51,6 @@ private:
 	
 	UFUNCTION()
 	void StartMatchButtonClicked();
-
-public:
-	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite)
-	bool bAllPlayersReady = false;
 
 private:
 	UPROPERTY(meta=(BindWidget))
@@ -86,4 +85,6 @@ private:
 	TSubclassOf<ASFHeroDisplay> HeroDisplayClass;
 
 	FTimerHandle ConfigureGameStateTimerHandle;
+
+	bool bAllPlayersReady = false;
 };

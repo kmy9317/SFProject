@@ -8,6 +8,8 @@
 #include "AbilitySystem/GameplayEvent/SFGameplayEventTags.h"
 #include "Character/SFCharacterGameplayTags.h"
 #include "Libraries/SFAbilitySystemLibrary.h"
+#include "Player/SFPlayerState.h"
+#include "Player/Components/SFPlayerStatsComponent.h"
 
 
 USFPrimarySet::USFPrimarySet()
@@ -74,6 +76,14 @@ void USFPrimarySet::PostGameplayEffectExecute(const FGameplayEffectModCallbackDa
         if (DamageDone <= 0.0f) 
         {
             return;
+        }
+
+        if (AActor* OwnerActor = GetOwningActor())
+        {
+            if (OwnerActor->HasAuthority())
+            {
+                TrackDamageDealt(Data, DamageDone);
+            }
         }
         
         // Parry Check
@@ -175,6 +185,39 @@ void USFPrimarySet::ClampAttribute(const FGameplayAttribute& Attribute, float& N
     else if (Attribute == GetMoveSpeedAttribute())
     {
         NewValue = FMath::Max(NewValue, 0.0f);
+    }
+}
+
+void USFPrimarySet::TrackDamageDealt(const FGameplayEffectModCallbackData& Data, float DamageAmount)
+{
+    // Instigator 찾기
+    AActor* Instigator = Data.EffectSpec.GetContext().GetInstigator();
+    if (!Instigator)
+    {
+        return;
+    }
+
+    ASFPlayerState* InstigatorPS = nullptr;
+
+    // Instigator가 PlayerState인 경우
+    if (ASFPlayerState* PS = Cast<ASFPlayerState>(Instigator))
+    {
+        InstigatorPS = PS;
+    }
+    // Instigator가 Pawn인 경우
+    else if (APawn* InstigatorPawn = Cast<APawn>(Instigator))
+    {
+        InstigatorPS = InstigatorPawn->GetPlayerState<ASFPlayerState>();
+    }
+
+    if (!InstigatorPS)
+    {
+        return;
+    }
+
+    if (USFPlayerStatsComponent* StatsComp = USFPlayerStatsComponent::FindPlayerStatsComponent(InstigatorPS))
+    {
+        StatsComp->AddDamageDealt(DamageAmount);
     }
 }
 

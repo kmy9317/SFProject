@@ -17,4 +17,6 @@ namespace SFGameplayTags
 	UE_DEFINE_GAMEPLAY_TAG(Message_Player_DownedStateChanged, "Message.Player.DownedStateChanged");
 	UE_DEFINE_GAMEPLAY_TAG(Message_Player_DownedStateChangedUI, "Message.Player.DownedStateChangedUI");
 	UE_DEFINE_GAMEPLAY_TAG(Message_Game_GameOver, "Message.Game.GameOver");
+	UE_DEFINE_GAMEPLAY_TAG(Message_Game_GameOverStats, "Message.Game.GameOverStats");
+	UE_DEFINE_GAMEPLAY_TAG(Message_Game_LobbyReadyCount, "Message.Game.LobbyReadyCount");
 }

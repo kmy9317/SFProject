@@ -77,3 +77,15 @@ struct FSFGameOverMessage
 	UPROPERTY(BlueprintReadOnly)
 	float SurvivedTime = 0.f;
 };
+
+USTRUCT(BlueprintType)
+struct FSFLobbyReadyMessage
+{
+	GENERATED_BODY()
+
+	UPROPERTY(BlueprintReadOnly)
+	int32 ReadyCount = 0;
+
+	UPROPERTY(BlueprintReadOnly)
+	int32 TotalCount = 0;
+};

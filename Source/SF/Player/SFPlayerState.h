@@ -21,6 +21,7 @@ class ASFPlayerController;
 class USFPawnData;
 class USFAbilitySystemComponent;
 class USFPlayerCombatStateComponent;
+class USFPlayerStatsComponent;
 
 // PawnData 로드 완료 델리게이트
 DECLARE_MULTICAST_DELEGATE_OneParam(FOnPawnDataLoaded, const USFPawnData*);
@@ -226,6 +227,7 @@ private:
 	UPROPERTY(VisibleAnywhere)
 	TObjectPtr<USFPlayerCombatStateComponent> CombatStateComponent;
 	
-
-	
+	//=====Player Stats=====
+	UPROPERTY(VisibleAnywhere)
+	TObjectPtr<USFPlayerStatsComponent> StatsComponent;
 };

@@ -3,6 +3,7 @@
 #include "SFLogChannels.h"
 #include "SFUserWidget.h"
 #include "Blueprint/UserWidget.h"
+#include "Common/SFGameOverStatsWidget.h"
 #include "Controller/SFSharedOverlayWidgetController.h"
 #include "Controller/SFOverlayWidgetController.h"
 #include "Controller/Party/SFPartyWidgetController.h"
@@ -57,6 +58,9 @@ void ASFHUD::BeginPlay()
 			SharedUIComp->CheckDefaultInitialization();
 		}
 	}
+
+	// GameOverStats 초기화 (Hidden 상태로 미리 생성)
+	InitGameOverStats();
 }
 
 void ASFHUD::InitSharedOverlay(APlayerController* PC, APlayerState* PS, AGameStateBase* GS)
@@ -139,6 +143,21 @@ void ASFHUD::InitOverlay(APlayerController* PC, APlayerState* PS, UAbilitySystem
 			const FSFHeroCombatInfo& CombatInfo = CombatComp->GetCombatInfo();
 			UpdateHeroOverlayVisibility(CombatInfo.bIsDead);
 		}
+	}
+}
+
+void ASFHUD::InitGameOverStats()
+{
+	if (GameOverStatsWidget || !GameOverStatsWidgetClass)
+	{
+		return;
+	}
+
+	GameOverStatsWidget = CreateWidget<USFGameOverStatsWidget>(GetOwningPlayerController(), GameOverStatsWidgetClass);
+	if (GameOverStatsWidget)
+	{
+		GameOverStatsWidget->SetVisibility(ESlateVisibility::Collapsed);
+		GameOverStatsWidget->AddToViewport(GameOverStatsZOrder);
 	}
 }
 

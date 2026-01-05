@@ -2,6 +2,7 @@
 
 #include "AbilitySystemComponent.h"
 #include "Player/Components/SFPlayerCombatStateComponent.h"
+#include "Player/Components/SFPlayerStatsComponent.h"
 
 USFGA_Interact_Revive::USFGA_Interact_Revive(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
@@ -23,10 +24,9 @@ void USFGA_Interact_Revive::ActivateAbility(const FGameplayAbilitySpecHandle Han
 		return;
 	}
 
-	// 부활 횟수 증가
-	if (USFPlayerCombatStateComponent* CombatState = USFPlayerCombatStateComponent::FindPlayerCombatStateComponent(GetAvatarActorFromActorInfo()))
+	if (USFPlayerStatsComponent* StatsComp = USFPlayerStatsComponent::FindPlayerStatsComponent(GetAvatarActorFromActorInfo()))
 	{
-		CombatState->IncrementReviveCount();
+		StatsComp->IncrementReviveCount();
 	}
 
 	// TODO : 부활 보상 GE 적용

@@ -5,6 +5,7 @@
 #include "GameFramework/HUD.h"
 #include "SFHUD.generated.h"
 
+class USFGameOverStatsWidget;
 class USFSharedOverlayWidgetController;
 class USFPartyWidgetController;
 struct FWidgetControllerParams;
@@ -28,6 +29,9 @@ public:
 	
 	// HeroOverlay 초기화 (HeroComponent에서 호출)
 	void InitOverlay(APlayerController* PC, APlayerState* PS, UAbilitySystemComponent* ASC, USFPrimarySet_Hero* PrimaryAS, USFCombatSet_Hero* CombatAS, AGameStateBase* GS);
+
+	// GameOverStats 초기화 (게임 시작 시 Hidden 상태로 생성)
+	void InitGameOverStats();
 
 	UFUNCTION(BlueprintCallable, BlueprintPure)
 	USFSharedOverlayWidgetController* GetSharedOverlayWidgetController(const FWidgetControllerParams& WCParams = FWidgetControllerParams());
@@ -91,6 +95,16 @@ private:
 	// Party 위젯 컨트롤러의 블루프린트 클래스
 	UPROPERTY(EditDefaultsOnly, Category = "SF|Controller")
 	TSubclassOf<USFPartyWidgetController> PartyWidgetControllerClass;
+
+	// ========== GameOverStats ==========
+	UPROPERTY(EditAnywhere, Category = "SF|GameOverStats")
+	TSubclassOf<USFGameOverStatsWidget> GameOverStatsWidgetClass;
+
+	UPROPERTY()
+	TObjectPtr<USFGameOverStatsWidget> GameOverStatsWidget;
+
+	UPROPERTY(EditAnywhere, Category = "SF|GameOverStats")
+	int32 GameOverStatsZOrder = 550;
 
 	// ========== 공용 ==========
 	

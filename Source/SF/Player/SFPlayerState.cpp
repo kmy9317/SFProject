@@ -14,6 +14,7 @@
 #include "Character/Hero/SFHeroDefinition.h"
 #include "Components/SFCommonUpgradeComponent.h"
 #include "Components/SFPlayerCombatStateComponent.h"
+#include "Components/SFPlayerStatsComponent.h"
 #include "GameFramework/GameplayMessageSubsystem.h"
 #include "Messages/SFMessageGameplayTags.h"
 #include "Messages/SFPortalInfoMessages.h"
@@ -40,6 +41,9 @@ ASFPlayerState::ASFPlayerState(const FObjectInitializer& ObjectInitializer)
 
 	// CombatState
 	CombatStateComponent = CreateDefaultSubobject<USFPlayerCombatStateComponent>(TEXT("CombatStateComponent"));
+
+	// player Stats
+	StatsComponent = CreateDefaultSubobject<USFPlayerStatsComponent>(TEXT("StatsComponent"));
 	
 	SetNetUpdateFrequency(100.f);
 
@@ -145,10 +149,16 @@ void ASFPlayerState::CopyProperties(APlayerState* PlayerState)
 	{
 		NewPlayerState->CombatStateComponent->RestoreCombatStateFromTravel(CombatStateComponent->GetCombatInfo());
 	}
-	
 
+	if (StatsComponent && NewPlayerState->StatsComponent)
+	{
+		NewPlayerState->StatsComponent->CopyStatsFrom(StatsComponent);
+	}
+	
 	// TODO : 테스트용 삭제 예정
 	NewPlayerState->Gold = Gold;
+
+	// TODO: Lobby로 진입시에 넘겨줄 데이터 지정
 }
 
 void ASFPlayerState::OnDeactivated()

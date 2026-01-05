@@ -44,6 +44,10 @@ public:
 	
 	UFUNCTION(BlueprintCallable, Category = "SF|PlayerController")
 	USFAbilitySystemComponent* GetSFAbilitySystemComponent() const;
+
+	// 로비 복귀 준비 완료 
+	UFUNCTION(BlueprintCallable, Category = "SF|GameOver")
+	void RequestReadyForLobby();
   
 public:
   //영구강화
@@ -52,6 +56,7 @@ public:
 
   UFUNCTION(Client, Reliable)
   void Client_BeginPermanentUpgradeFlow();
+
 
 protected:
 	virtual void PostProcessInput(const float DeltaTime, const bool bGamePaused) override;
@@ -63,6 +68,9 @@ protected:
 	void ToggleInGameMenu();
 	// 팀원 위젯 생성 함수
 	void CreateTeammateIndicators();
+
+	UFUNCTION(Server, Reliable)
+	void Server_NotifyReadyForLobby();
 
 protected:
 	// ----------------[추가] 인게임 메뉴 관련 변수 및 함수----------------------

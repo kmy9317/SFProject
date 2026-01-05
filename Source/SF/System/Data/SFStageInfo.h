@@ -33,6 +33,10 @@ struct SF_API FSFStageInfo
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	int32 SubStageIndex = 0;
 
+	// UI 표시용 스테이지 이름
+	UPROPERTY(EditAnywhere, BlueprintReadOnly)
+	FText DisplayName;
+
 	// 스테이지 타입
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	ESFStageType StageType = ESFStageType::Normal;
@@ -44,7 +48,7 @@ struct SF_API FSFStageInfo
 	bool operator==(const FSFStageInfo& Other) const
 	{
 		return StageIndex == Other.StageIndex 
-			&& SubStageIndex == Other.SubStageIndex 
+			&& SubStageIndex == Other.SubStageIndex
 			&& StageType == Other.StageType;
 	}
 };
@@ -64,9 +68,4 @@ struct FSFStageConfig : public FTableRowBase
 	// 스테이지 정보
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Stage")
 	FSFStageInfo StageInfo;
-
-	// 스테이지 표시 이름 (UI용)
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Stage")
-	FText DisplayName;
-	
 };

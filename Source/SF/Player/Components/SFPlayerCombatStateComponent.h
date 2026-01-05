@@ -12,11 +12,7 @@ struct FSFHeroCombatInfo
 	// 남은 다운 가능 횟수
 	UPROPERTY(BlueprintReadOnly)
 	int32 RemainingDownCount = 3;
-
-	// 다른 플레이어 부활시킨 횟수
-	UPROPERTY(BlueprintReadOnly)
-	int32 ReviveCount = 0;
-
+	
 	// 다운 상태 (부활 게이지 진행 중)
 	UPROPERTY(BlueprintReadOnly)
 	bool bIsDowned = false;
@@ -31,7 +27,6 @@ struct FSFHeroCombatInfo
 	bool operator!=(const FSFHeroCombatInfo& Other) const
 	{
 		return RemainingDownCount != Other.RemainingDownCount 
-			|| ReviveCount != Other.ReviveCount
 			|| bIsDowned != Other.bIsDowned
 			|| bIsDead != Other.bIsDead;
 	}
@@ -76,10 +71,7 @@ public:
     
 	UFUNCTION(BlueprintPure, Category = "SF|Combat")
 	int32 GetRemainingDownCount() const { return CombatInfo.RemainingDownCount; }
-
-	UFUNCTION(BlueprintPure, Category = "SF|Combat")
-	int32 GetReviveCount() const { return CombatInfo.ReviveCount; }
-
+	
 	UFUNCTION(BlueprintPure, Category = "SF|Combat")
 	bool IsIncapacitated() const { return CombatInfo.IsIncapacitated(); }
 	
@@ -101,10 +93,7 @@ public:
 
 	UFUNCTION(BlueprintCallable, Category = "SF|Combat")
 	void ResetDownCount();
-
-	UFUNCTION(BlueprintCallable, Category = "SF|Combat")
-	void IncrementReviveCount();
-
+	
 	// Seamless Travel 복원
 	void RestoreCombatStateFromTravel(const FSFHeroCombatInfo& InCombatInfo);
 

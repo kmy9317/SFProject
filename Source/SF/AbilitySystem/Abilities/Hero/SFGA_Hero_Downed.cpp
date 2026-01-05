@@ -13,6 +13,7 @@
 #include "Libraries/SFAbilitySystemLibrary.h"
 #include "Player/SFPlayerController.h"
 #include "Player/Components/SFPlayerCombatStateComponent.h"
+#include "Player/Components/SFPlayerStatsComponent.h"
 
 USFGA_Hero_Downed::USFGA_Hero_Downed(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
@@ -65,7 +66,8 @@ void USFGA_Hero_Downed::ActivateAbility(const FGameplayAbilitySpecHandle Handle,
 	}
 
 	CachedCombatStateComponent = USFPlayerCombatStateComponent::FindPlayerCombatStateComponent(GetAvatarActorFromActorInfo());
-	if (!CachedCombatStateComponent.IsValid())
+	CachedStatsComponent = USFPlayerStatsComponent::FindPlayerStatsComponent(GetAvatarActorFromActorInfo());
+	if (!CachedCombatStateComponent.IsValid() || !CachedStatsComponent.IsValid())
 	{
 		EndAbility(CurrentSpecHandle, CurrentActorInfo, CurrentActivationInfo, true, true);
 		return;
@@ -73,6 +75,8 @@ void USFGA_Hero_Downed::ActivateAbility(const FGameplayAbilitySpecHandle Handle,
 
 	CachedCombatStateComponent->SetIsDowned(true);
 	float InitialGauge = CachedCombatStateComponent->GetInitialReviveGauge();
+	
+	CachedStatsComponent->IncrementDownedCount();
 	
 	// 즉시 사망 체크
 	if (InitialGauge <= 0.f)

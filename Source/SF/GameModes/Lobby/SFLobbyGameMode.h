@@ -22,6 +22,7 @@ public:
 	virtual void InitGameState() override;
 	virtual void BeginPlay() override;
 	virtual void PostLogin(APlayerController* NewPlayer) override;
+	virtual void HandleSeamlessTravelPlayer(AController*& Controller) override;
 	virtual void Logout(AController* Exiting) override;
 	//~End of AGameModeBase interface
 

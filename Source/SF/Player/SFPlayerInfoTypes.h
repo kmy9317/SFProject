@@ -138,3 +138,47 @@ struct FSFHeroDisplayInfo
 	UPROPERTY()
 	FString PlayerName;
 };
+
+/**
+ * GameOver 시 표시할 플레이어 통계
+ */
+USTRUCT(BlueprintType)
+struct FSFPlayerGameStats
+{
+	GENERATED_BODY()
+
+	UPROPERTY(BlueprintReadOnly)
+	FString PlayerName;
+
+	UPROPERTY(BlueprintReadOnly)
+	TObjectPtr<UTexture2D> HeroIcon;
+
+	UPROPERTY(BlueprintReadOnly)
+	float TotalDamageDealt = 0.f;
+
+	UPROPERTY(BlueprintReadOnly)
+	int32 DownedCount = 0;
+
+	UPROPERTY(BlueprintReadOnly)
+	int32 ReviveCount = 0;
+};
+
+/**
+ * GameOver 결과 전체
+ */
+USTRUCT(BlueprintType)
+struct FSFGameOverResult
+{
+	GENERATED_BODY()
+
+	UPROPERTY(BlueprintReadOnly)
+	TArray<FSFPlayerGameStats> PlayerStats;
+
+	// 서버 시간 기준 로비 이동 시각
+	UPROPERTY(BlueprintReadOnly)
+	float TargetLobbyTime = 0.f;
+
+	// 마지막으로 진행했던 스테이지 이름
+	UPROPERTY(BlueprintReadOnly)
+	FText StageName;
+};
