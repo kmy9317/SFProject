@@ -69,7 +69,6 @@ void ASFEnemyController::InitializeAIController()
 
     if (HasAuthority())
     {
-        // CombatComponent의 전투 상태 변경 이벤트 구독
         if (CombatComponent)
         {
             CombatComponent->OnCombatStateChanged.AddDynamic(
@@ -83,14 +82,13 @@ void ASFEnemyController::OnCombatStateChanged(bool bInCombat)
 {
     bIsInCombat = bInCombat;
     
-    // 시야각 조정
+    
     if (SightConfig && AIPerception)
     {
         SightConfig->PeripheralVisionAngleDegrees = bInCombat ? 180.f : PeripheralVisionAngleDegrees;
         AIPerception->ConfigureSense(*SightConfig);
     }
-
-    // 전투 모드에 따라 회전 방식 변경
+    
     if (bInCombat)
     {
         SetRotationMode(EAIRotationMode::ControllerYaw);
@@ -142,9 +140,8 @@ void ASFEnemyController::RotateActorTowardsController(float DeltaTime)
 
 bool ASFEnemyController::ShouldRotateActorByController() const
 {
-    return true;
+    return bIsInCombat;
 }
-
 float ASFEnemyController::GetTurnThreshold() const
 {
     // 일반 적은 임계값이 필요 없음 (항상 부드럽게 회전)

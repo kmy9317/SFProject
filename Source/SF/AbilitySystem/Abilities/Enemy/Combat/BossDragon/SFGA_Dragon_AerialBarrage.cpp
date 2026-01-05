@@ -21,6 +21,7 @@ USFGA_Dragon_AerialBarrage::USFGA_Dragon_AerialBarrage()
     AbilityTags.AddTag(SFGameplayTags::Ability_Dragon_FlameBreath_Spin);
     ActivationOwnedTags.AddTag(SFGameplayTags::Character_State_UsingAbility);
     ActivationOwnedTags.AddTag(SFGameplayTags::Character_State_Invulnerable);
+    ActivationOwnedTags.AddTag(SFGameplayTags::Dragon_Movement_Flying);
 }
 
 void USFGA_Dragon_AerialBarrage::ActivateAbility(
@@ -138,7 +139,6 @@ void USFGA_Dragon_AerialBarrage::StartAscend()
             {
                 GetWorld()->GetTimerManager().ClearTimer(AscendCheckTimerHandle);
                 
-                // 태스크 종료
                 if (AscendTask)
                 {
                     AscendTask->EndTask();
@@ -147,7 +147,6 @@ void USFGA_Dragon_AerialBarrage::StartAscend()
                 
                 WeakChar->GetCharacterMovement()->Velocity = FVector::ZeroVector;
                 
-                // 몽타주 정지
                 if (TakeOffMontage)
                 {
                     WeakChar->StopAnimMontage(TakeOffMontage);
@@ -198,7 +197,6 @@ void USFGA_Dragon_AerialBarrage::StartOrbitAttack()
 
     CurrentFireballCount = 0;
     
-    // 공격 몽타주 재생
     if (FlyingAttackMontage)
     {
         UAbilityTask_PlayMontageAndWait* MontageTask = 
@@ -214,7 +212,6 @@ void USFGA_Dragon_AerialBarrage::StartOrbitAttack()
         }
     }
     
-    // 투사체 발사 이벤트 대기
     UAbilityTask_WaitGameplayEvent* WaitEventTask = 
         UAbilityTask_WaitGameplayEvent::WaitGameplayEvent(
             this, SFGameplayTags::GameplayEvent_Dragon_Fireball_Launch);
@@ -348,7 +345,6 @@ void USFGA_Dragon_AerialBarrage::OnMontageEnded()
 
 void USFGA_Dragon_AerialBarrage::TryChainToDive()
 {
-    // 이동 타이머 정리
     if (GetWorld())
     {
         GetWorld()->GetTimerManager().ClearTimer(OrbitTimerHandle);
@@ -364,8 +360,7 @@ void USFGA_Dragon_AerialBarrage::TryChainToDive()
         MoveComp->Velocity = FVector::ZeroVector;
         // 주의: 마찰력 복구는 EndAbility에서 수행
     }
-
-    // 다음 어빌리티(Dive) 연계 시도
+    
     FGameplayTagContainer DiveTag;
     DiveTag.AddTag(SFGameplayTags::Ability_Dragon_DiveAttack);
 

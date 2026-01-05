@@ -24,10 +24,7 @@ public:
 	virtual void BeginPlay() override;
 
 	virtual void PossessedBy(AController* NewController) override;
-
-	virtual UAbilitySystemComponent* GetAbilitySystemComponent() const override;
-
-	virtual USFAbilitySystemComponent* GetSFAbilitySystemComponent() const override { return AbilitySystemComponent;}
+	
 
 	virtual void InitializeComponents();
 	
@@ -46,6 +43,7 @@ public:
 
 protected:
 
+	virtual void OnAbilitySystemInitialized() override;
 	//PawnData에 있는 AbilitySet GIVE
 	void GrantAbilitiesFromPawnData();
 

@@ -7,6 +7,7 @@
 #include "SFDragon.generated.h"
 
 
+
 class USFDragonMovementComponent;
 
 UCLASS()
@@ -16,10 +17,12 @@ class SF_API ASFDragon : public ASFEnemy
 
 public:
 	ASFDragon();
-
-	virtual void InitializeMovementComponent() override;
-
+	
 	virtual void InitializeComponents() override;
+
+protected:
+
+	virtual void OnAbilitySystemInitialized() override;
 
 
 };

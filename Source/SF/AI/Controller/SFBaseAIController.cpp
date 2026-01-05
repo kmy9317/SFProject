@@ -13,6 +13,7 @@
 #include "GameFramework/Character.h"
 #include "Team/SFTeamTypes.h"
 #include "AbilitySystemBlueprintLibrary.h"
+#include "AbilitySystem/SFAbilitySystemComponent.h"
 #include "AbilitySystem/GameplayEvent/SFGameplayEventTags.h"
 #include "GameFramework/CharacterMovementComponent.h"
 
@@ -45,8 +46,7 @@ void ASFBaseAIController::InitializeAIController()
     if (APawn* InPawn = GetPawn())
     {
         BindingStateMachine(InPawn);
-
-        // StateReactionComponent 제거 - 직접 Tag 감지
+        
         if (UAbilitySystemComponent* ASC = UAbilitySystemBlueprintLibrary::GetAbilitySystemComponent(InPawn))
         {
             RegisterCCTagEvents(ASC);
@@ -121,18 +121,7 @@ void ASFBaseAIController::EndPlay(const EEndPlayReason::Type EndPlayReason)
 void ASFBaseAIController::OnPossess(APawn* InPawn)
 {
     Super::OnPossess(InPawn);
-    if (!InPawn) return;
 
-    USFPawnExtensionComponent* PawnExtensionComp = USFPawnExtensionComponent::FindPawnExtensionComponent(InPawn);
-    if (!PawnExtensionComp) return;
-
-    const USFEnemyData* EnemyData = PawnExtensionComp->GetPawnData<USFEnemyData>();
-    if (!EnemyData) return;
-
-    BehaviorTreeContainer = EnemyData->BehaviourContainer;
-
-    UBehaviorTree* BT = BehaviorTreeContainer.GetBehaviourTree(EnemyData->DefaultBehaviourTag);
-    if (BT) SetBehaviorTree(BT);
 }
 
 void ASFBaseAIController::OnUnPossess()
@@ -213,10 +202,7 @@ void ASFBaseAIController::OnCCEnd(FGameplayTag StateTag)
     {
         BTComp->ResumeLogic(TEXT("CC End"));
     }
-
-    // CC 해제 후 현재 전투 상태에 맞는 회전 모드로 복원
-    // 하위 클래스(Enemy, Dragon)가 각자의 방식으로 처리하므로
-    // Base에서는 기본 MovementDirection으로만 설정
+    
     SetRotationMode(EAIRotationMode::MovementDirection);
 }
 
@@ -290,7 +276,7 @@ bool ASFBaseAIController::ShouldRotateActorByController() const
     return true;
 }
 
-// SFBaseAIController.cpp
+
 void ASFBaseAIController::UpdateControlRotation(float DeltaTime, bool bUpdatePawn)
 {
     APawn* MyPawn = GetPawn();
@@ -302,15 +288,19 @@ void ASFBaseAIController::UpdateControlRotation(float DeltaTime, bool bUpdatePaw
     
     if (CombatComponent && CombatComponent->GetCurrentTarget())
     {
-        AActor* Target = CombatComponent->GetCurrentTarget();
-        FVector ToTarget = Target->GetActorLocation() - MyPawn->GetActorLocation();
-        ToTarget.Z = 0.f;
-        if (!ToTarget.IsNearlyZero())
+        
+        if (GetFocusActor() != CombatComponent->GetCurrentTarget())
         {
-            SetControlRotation(ToTarget.Rotation()); 
+            SetFocus(CombatComponent->GetCurrentTarget());
         }
     }
-
+    else
+    {
+        if (GetFocusActor())
+        {
+            ClearFocus(EAIFocusPriority::Gameplay);
+        }
+    }
     
     if (ShouldRotateActorByController())
     {
@@ -320,7 +310,6 @@ void ASFBaseAIController::UpdateControlRotation(float DeltaTime, bool bUpdatePaw
 
 void ASFBaseAIController::SetRotationMode(EAIRotationMode NewMode)
 {
-    if (CurrentRotationMode == NewMode) return;
 
     ACharacter* Char = Cast<ACharacter>(GetPawn());
     if (!Char) return;
@@ -339,8 +328,7 @@ void ASFBaseAIController::SetRotationMode(EAIRotationMode NewMode)
 
     case EAIRotationMode::ControllerYaw:
         MoveComp->bOrientRotationToMovement = false; 
-        MoveComp->bUseControllerDesiredRotation = true; 
-        MoveComp->RotationRate = FRotator(0.f, 360.f, 0.f); 
+        MoveComp->bUseControllerDesiredRotation = false; 
         break;
 
     case EAIRotationMode::None: 

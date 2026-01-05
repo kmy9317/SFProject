@@ -67,10 +67,7 @@ public:
 protected:
 
     virtual void EvaluateTarget() override;
-
-    virtual void UpdateTargetActor(AActor* NewTarget) override;
-
-
+    
     void UpdateSpatialData();
 
  

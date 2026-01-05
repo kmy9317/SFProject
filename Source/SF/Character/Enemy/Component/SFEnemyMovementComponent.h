@@ -3,6 +3,7 @@
 #pragma once
 
 #include "CoreMinimal.h"
+#include "GameplayEffectTypes.h"
 #include "GameplayTagContainer.h"
 #include "GameFramework/CharacterMovementComponent.h"
 #include "Templates/Function.h"
@@ -18,7 +19,8 @@ public:
 
 	static USFEnemyMovementComponent* FindSFEnemyMovementComponent(const AActor* Actor) {return (Actor ? Actor->FindComponentByClass<USFEnemyMovementComponent>() : nullptr);}
 
-	
+
+	void OnMoveSpeedChanged(const FOnAttributeChangeData& OnAttributeChangeData);
 	virtual void InitializeMovementComponent();
 
 protected:

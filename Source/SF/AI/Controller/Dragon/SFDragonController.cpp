@@ -17,7 +17,7 @@ ASFDragonController::ASFDragonController()
 	
 	RotationInterpSpeed = 5.f;
 }
-
+ 
 void ASFDragonController::InitializeAIController()
 {
 	Super::InitializeAIController();
@@ -51,6 +51,7 @@ bool ASFDragonController::ShouldRotateActorByController() const
 {
 	return false;
 }
+
 void ASFDragonController::SetRotationMode(EAIRotationMode NewMode)
 {
 	if (CurrentRotationMode == NewMode) return;
@@ -68,14 +69,12 @@ void ASFDragonController::SetRotationMode(EAIRotationMode NewMode)
 	switch (NewMode)
 	{
 	case EAIRotationMode::MovementDirection:
-		
 		MoveComp->bOrientRotationToMovement = true; 
 		MoveComp->bUseControllerDesiredRotation = false; 
 		MoveComp->RotationRate = FRotator(0.f, DragonRotationRate, 0.f); 
 		break;
 
 	case EAIRotationMode::ControllerYaw:
-
 		MoveComp->bOrientRotationToMovement = false; 
 		MoveComp->bUseControllerDesiredRotation = false; 
 		MoveComp->RotationRate = FRotator(0.f, DragonRotationRate, 0.f); 

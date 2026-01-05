@@ -85,10 +85,17 @@ void USFDragonCombatComponent::AddThreat(float ThreatValue, AActor* Actor)
 
 void USFDragonCombatComponent::CleanupThreatMap()
 {
+	
 	for (auto It = ThreatMap.CreateIterator(); It; ++It)
 	{
-		AActor* Key = It.Key();
-		if (!IsValidTarget(Key))
+		AActor* ActorKey = It.Key();
+		
+		if (!IsValid(ActorKey)) 
+		{
+			It.RemoveCurrent();
+			continue;
+		}
+		if (!IsValidTarget(ActorKey))
 		{
 			It.RemoveCurrent();
 		}
@@ -168,45 +175,6 @@ void USFDragonCombatComponent::EvaluateTarget()
 		}
 	}
 
-}
-
-void USFDragonCombatComponent::UpdateTargetActor(AActor* NewTarget)
-{
-	Super::UpdateTargetActor(NewTarget);
-	
-	if (CurrentTarget == NewTarget)
-		return;
-
-	AAIController* AIC = GetController<AAIController>();
-	if (!AIC)
-		return;
-
-	bool bWasInCombat = (CurrentTarget != nullptr);
-	CurrentTarget = NewTarget;
-	
-	if (ASFBaseAIController* SFAIC = Cast<ASFBaseAIController>(AIC))
-	{
-		SFAIC->TargetActor = NewTarget;
-
-		if (NewTarget)
-		{
-			SFAIC->SetFocus(NewTarget, EAIFocusPriority::Gameplay);
-			SFAIC->SetRotationMode(EAIRotationMode::ControllerYaw);
-		}
-		else
-		{
-			SFAIC->ClearFocus(EAIFocusPriority::Gameplay);
-			SFAIC->SetRotationMode(EAIRotationMode::MovementDirection);
-		}
-	}
-
-	bool bNowInCombat = (NewTarget != nullptr);
-	SetGameplayTagStatus(SFGameplayTags::AI_State_Combat, bNowInCombat);
-
-	if (bWasInCombat != bNowInCombat)
-	{
-		OnCombatStateChanged.Broadcast(bNowInCombat);
-	}
 }
 
 bool USFDragonCombatComponent::SelectAbility(const FEnemyAbilitySelectContext& Context, const FGameplayTagContainer& SearchTags, FGameplayTag& OutSelectedTag)

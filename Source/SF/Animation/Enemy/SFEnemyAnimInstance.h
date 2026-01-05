@@ -4,6 +4,7 @@
 
 #include "CoreMinimal.h"
 #include "GameplayEffectTypes.h"
+#include "AI/SFAIGameplayTags.h"
 #include "Animation/AnimInstance.h"
 #include "SFEnemyAnimInstance.generated.h"
 
@@ -183,10 +184,9 @@ protected:
 
     UPROPERTY(BlueprintReadOnly, Category = "Acceleration Data")
     FVector LocalAcceleration2D;
-
-    // ========== Turn In Place Data ==========
-
-    // TurnInPlace 중인지 (GAS 태그 기반으로 업데이트됨)
-    UPROPERTY(BlueprintReadOnly, Category = "Turn In Place")
+    
+public:
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="State")
     bool bIsTurningInPlace = false;
+
 };

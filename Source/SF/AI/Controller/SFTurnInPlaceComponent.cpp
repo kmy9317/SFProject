@@ -106,22 +106,19 @@ void USFTurnInPlaceComponent::RequestTurnToTarget(AActor* Target)
 
     if (AbsYaw >= TurnThreshold)
     {
-        if (CanTurnInPlace())
+        
+        DisableSmoothRotation();
+        AI->SetRotationMode(EAIRotationMode::None);
+
+        if (ACharacter* Char = Cast<ACharacter>(Pawn))
         {
-            DisableSmoothRotation();
-            AI->SetRotationMode(EAIRotationMode::None);
-
-            if (ACharacter* Char = Cast<ACharacter>(Pawn))
-            {
-                Char->bUseControllerRotationYaw = false;
-            }
-            AI->SetControlRotation(TargetRot);
-            ExecuteTurn(YawDelta);
-            return;
+            Char->bUseControllerRotationYaw = false;
         }
+        AI->SetControlRotation(TargetRot);
+        ExecuteTurn(YawDelta);
+        return;
     }
-
-    if (AbsYaw > AcceptableAngle)
+    if (AbsYaw > AcceptableAngle) 
     {
         FRotator NewRot = FMath::RInterpTo(Pawn->GetActorRotation(), TargetRot, GetWorld()->GetDeltaSeconds(), RotationInterpSpeed);
         Pawn->SetActorRotation(NewRot);
@@ -168,9 +165,17 @@ void USFTurnInPlaceComponent::OnTurnFinished()
 
     bIsTurning = false;
     LockedDeltaYaw = 0.f;
-
+    
     AI->SetControlRotation(Pawn->GetActorRotation());
-    AI->SetRotationMode(EAIRotationMode::MovementDirection);
+    
+    if (AI->TargetActor)
+    {
+        AI->SetRotationMode(EAIRotationMode::ControllerYaw);
+    }
+    else
+    {
+        AI->SetRotationMode(EAIRotationMode::MovementDirection);
+    }
 
     if (ACharacter* Char = Cast<ACharacter>(Pawn))
     {
@@ -194,10 +199,19 @@ bool USFTurnInPlaceComponent::CanTurnInPlace() const
 {
     APawn* Pawn = GetControlledPawn();
     if (!Pawn || !Pawn->HasAuthority()) return false;
+    
+    
     if (bIsTurning) return false;
-    if (Pawn->GetVelocity().Size2D() > 10.f) return false;
     if (!GetTargetActor()) return false;
-
+    
+    if (Pawn->GetVelocity().Size2D() > 10.f) return false;
+    
+    if (UCharacterMovementComponent* MoveComp = Cast<UCharacterMovementComponent>(Pawn->GetMovementComponent()))
+    {
+        if (MoveComp->IsFalling()) return false; 
+        if (MoveComp->GetCurrentAcceleration().Size2D() > 0.f) return false;
+    }
+    
     UAbilitySystemComponent* ASC = GetASC();
     if (!ASC) return false;
 

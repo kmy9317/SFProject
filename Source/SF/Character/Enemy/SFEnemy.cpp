@@ -1,8 +1,5 @@
 // Fill out your copyright notice in the Description page of Project Settings.
-
-
 #include "SFEnemy.h"
-
 #include "AbilitySystem/SFAbilitySet.h"
 #include "AbilitySystem/SFAbilitySystemComponent.h"
 #include "AbilitySystem/Attributes/SFCombatSet.h"
@@ -11,6 +8,7 @@
 #include "AbilitySystem/Attributes/Enemy/SFPrimarySet_Enemy.h"
 #include "AbilitySystem/GameplayEvent/SFGameplayEventTags.h"
 #include "AI/Controller/SFEnemyController.h"
+#include "Animation/Enemy/SFEnemyAnimInstance.h"
 #include "Character/SFCharacterGameplayTags.h"
 #include "Character/SFPawnData.h"
 #include "Character/SFPawnExtensionComponent.h"
@@ -33,7 +31,7 @@ ASFEnemy::ASFEnemy(const FObjectInitializer& ObjectInitializer)
 	
 	AbilitySystemComponent = ObjectInitializer.CreateDefaultSubobject<USFAbilitySystemComponent>(this, TEXT("AbilitySystemComponent"));
 	AbilitySystemComponent->SetIsReplicated(true);
-	AbilitySystemComponent->SetReplicationMode(EGameplayEffectReplicationMode::Mixed);
+	AbilitySystemComponent->SetReplicationMode(EGameplayEffectReplicationMode::Minimal);
 
 	//AttributeSet
 	PrimarySet = CreateDefaultSubobject<USFPrimarySet_Enemy>(TEXT("PrimarySet"));
@@ -46,22 +44,15 @@ ASFEnemy::ASFEnemy(const FObjectInitializer& ObjectInitializer)
 	SetNetUpdateFrequency(100.f);
 	//사실 PlayerState에서 Ability세팅할때랑 똑같이 세팅을 라이라에서는 하는것 같다
 
-    // ✅ Souls-like 철학: Character는 Controller 회전을 직접 따라가지 않음
-    // 회전은 AIController의 SetMovementBasedRotation() 또는 TurnInPlace 시스템으로 처리
     bUseControllerRotationYaw = false;
 	bUseControllerRotationPitch = false;
 	bUseControllerRotationRoll = false;
 
     if (UCharacterMovementComponent* MoveComp = GetCharacterMovement())
     {
-    	// ✅ Souls-like: 기본값 false - 정지 상태에서 회전하지 않음
-    	// AIController의 SetMovementBasedRotation()이 이동 상태에 따라 동적으로 설정
-    	// 이동 중에만 true로 변경되어 Strafe 동작 수행
         MoveComp->bUseControllerDesiredRotation = false;
-    	// 이동 방향으로 자동 회전 비활성화 (ControllerYaw 우선)
         MoveComp->bOrientRotationToMovement = false;
-
-        // 회전 속도 (AIController가 동적으로 변경)
+    	
         MoveComp->RotationRate = FRotator::ZeroRotator;
 
     	MoveComp->MaxAcceleration = 500.0f;
@@ -113,26 +104,17 @@ void ASFEnemy::PossessedBy(AController* NewController)
 		return;
 	}
 	PawnExtComp->SetPawnData(EnemyPawnData);
+	
+
 }
 
-UAbilitySystemComponent* ASFEnemy::GetAbilitySystemComponent() const
-{
-	if (USFPawnExtensionComponent* PawnExtComp = FindComponentByClass<USFPawnExtensionComponent>())
-	{
-		if (USFAbilitySystemComponent* ASC = PawnExtComp->GetSFAbilitySystemComponent())
-		{
-			return ASC;
-		}
-	}
-	return AbilitySystemComponent;
-}
 
 #pragma region InitializeComponents
 void ASFEnemy::InitializeComponents()
 {
-	InitializeAbilitySystem();
 	InitializeMovementComponent();
 	RegisterCollisionTagEvents();
+	EnemyWidgetComponent->InitializeWidget();
 }
 
 void ASFEnemy::InitializeAbilitySystem()
@@ -289,7 +271,7 @@ void ASFEnemy::SetLastAttacker(AActor* Attacker)
 	
 	LastAttacker = Attacker;
 
-	// [추가] 공격자가 있다면 컨트롤러에게 타겟 강제 변경 요청
+
 	if (Attacker)
 	{
 		// 내 컨트롤러를 ASFEnemyController로 캐스팅하여 함수 호출
@@ -352,4 +334,23 @@ void ASFEnemy::TurnCollisionOff()
 {
 	GetCapsuleComponent()->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 	GetCapsuleComponent()->SetGenerateOverlapEvents(false);
+}
+
+void ASFEnemy::OnAbilitySystemInitialized()
+{
+	Super::OnAbilitySystemInitialized();
+	
+	InitializeComponents();
+	if (UAbilitySystemComponent* ASC = GetAbilitySystemComponent())
+	{
+		if (USkeletalMeshComponent* MeshComp = GetMesh())
+		{
+			if (USFEnemyAnimInstance* AnimInst = Cast<USFEnemyAnimInstance>(MeshComp->GetAnimInstance()))
+			{
+				AnimInst->InitializeWithAbilitySystem(ASC);
+			}
+		}
+		
+	}
+	
 }

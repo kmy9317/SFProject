@@ -1,48 +1,62 @@
 #include "SFEnemyWidgetComponent.h"
 
 #include "AbilitySystemBlueprintLibrary.h"
-#include "Kismet/GameplayStatics.h"
 #include "AbilitySystemComponent.h"
-#include "GameplayEffectExtension.h"
 #include "AbilitySystem/Attributes/Enemy/SFPrimarySet_Enemy.h"
-#include "GameFramework/PlayerController.h"
+#include "Character/SFPawnExtensionComponent.h" // [필수] 헤더 추가
+#include "GameFramework/Character.h"
+#include "Kismet/GameplayStatics.h"
 #include "Camera/PlayerCameraManager.h"
+#include "Character/SFCharacterBase.h"
 #include "Components/CapsuleComponent.h"
 #include "UI/Common/CommonBarBase.h"
-
 
 USFEnemyWidgetComponent::USFEnemyWidgetComponent()
 {
     SetWidgetSpace(EWidgetSpace::World);
     PrimaryComponentTick.bCanEverTick = true;
+    PrimaryComponentTick.bStartWithTickEnabled = false; 
 
     SetDrawSize(FVector2D(100.f, 10.f));
     SetPivot(FVector2D(0.5f, 0.f));
     SetTwoSided(true);
     SetVisibility(false);
-
-    VisibleDurationAfterHit = 3.f;
-    CurrentVisibleTime = 0.f;
-    MaxRenderDistance = 3000.f;
-    HideOnAngle = 90.f;
 }
 
-void USFEnemyWidgetComponent::BeginPlay()
+void USFEnemyWidgetComponent::InitWidget()
 {
-    Super::BeginPlay();
-    TryInitializeComponent();
+    Super::InitWidget();
+    EnemyWidget = Cast<UCommonBarBase>(GetUserWidgetObject());
 }
 
-void USFEnemyWidgetComponent::TryInitializeComponent()
+void USFEnemyWidgetComponent::InitializeWidget()
 {
-    UAbilitySystemComponent* ASC = UAbilitySystemBlueprintLibrary::GetAbilitySystemComponent(GetOwner());
+    ASFCharacterBase* OwnerCharacter = Cast<ASFCharacterBase>(GetOwner());
+    if (!OwnerCharacter) return;
+    UAbilitySystemComponent* ASC = OwnerCharacter->GetAbilitySystemComponent();
     if (IsValid(ASC))
     {
-        InitializeWidget();
+        const USFPrimarySet_Enemy* PrimarySet = ASC->GetSet<USFPrimarySet_Enemy>();
+        if (IsValid(PrimarySet))
+        {
+            ASC->GetGameplayAttributeValueChangeDelegate(PrimarySet->GetHealthAttribute())
+               .AddUObject(this, &ThisClass::OnHealthChanged);
+
+            CachedMaxHealth = PrimarySet->GetMaxHealth();
+        }
     }
-    else
+    if (OwnerCharacter && OwnerCharacter->GetCapsuleComponent())
     {
-        GetWorld()->GetTimerManager().SetTimerForNextTick(this, &ThisClass::TryInitializeComponent);
+        float CapsuleHalfHeight = OwnerCharacter->GetCapsuleComponent()->GetScaledCapsuleHalfHeight();
+        SetRelativeLocation(FVector(0.f, 0.f, CapsuleHalfHeight + WidgetVerticalOffset));
+    }
+    
+    // 위젯 초기 설정
+    if (EnemyWidget)
+    {
+        EnemyWidget->SetBarColor(HealthBarColor);
+        EnemyWidget->SetPercentVisuals(1.f);
+        UpdateHealthPercent(); 
     }
 }
 
@@ -57,47 +71,6 @@ void USFEnemyWidgetComponent::OnHealthChanged(const FOnAttributeChangeData& OnAt
     }
 }
 
-void USFEnemyWidgetComponent::InitWidget()
-{
-    Super::InitWidget();
-
-    EnemyWidget = Cast<UCommonBarBase>(GetUserWidgetObject());
-}
-
-void USFEnemyWidgetComponent::InitializeWidget()
-{
-    UAbilitySystemComponent* ASC = UAbilitySystemBlueprintLibrary::GetAbilitySystemComponent(GetOwner());
-    if (IsValid(ASC))
-    {
-        const USFPrimarySet_Enemy* PrimarySet = ASC->GetSet<USFPrimarySet_Enemy>();
-        if (IsValid(PrimarySet))
-        {
-           
-            ASC->GetGameplayAttributeValueChangeDelegate(PrimarySet->GetHealthAttribute()).AddUObject(this, &ThisClass::OnHealthChanged);
-
-            // MaxHealth 캐싱
-            CachedMaxHealth = PrimarySet->GetMaxHealth();
-        }
-    }
-    
-    ACharacter* OwnerCharacter = Cast<ACharacter>(GetOwner());
-    if (OwnerCharacter && OwnerCharacter->GetCapsuleComponent())
-    {
-        // 캡슐의 절반 높이 (중심에서 머리끝까지)를 가져옴
-        float CapsuleHalfHeight = OwnerCharacter->GetCapsuleComponent()->GetScaledCapsuleHalfHeight();
-
-        // 위젯의 새로운 위치 설정
-        // X, Y는 0 (중앙), Z는 캡슐 높이 + 우리가 설정한 여유 공간(Offset)
-        SetRelativeLocation(FVector(0.f, 0.f, CapsuleHalfHeight + WidgetVerticalOffset));
-    }
-    
-    if (EnemyWidget)
-    {
-        EnemyWidget->SetBarColor(HealthBarColor);
-        EnemyWidget->SetPercentVisuals(1.f);
-    }
-}
-
 void USFEnemyWidgetComponent::MarkAsAttackedByLocalPlayer()
 {
     bEngagedByLocalPlayer = true;
@@ -109,15 +82,16 @@ void USFEnemyWidgetComponent::ShowHealthBar()
 {
     SetVisibility(true);
     CurrentVisibleTime = VisibleDurationAfterHit;
+    SetComponentTickEnabled(true);
 }
 
 void USFEnemyWidgetComponent::OnEngagementExpired()
 {
     bEngagedByLocalPlayer = false;
     SetVisibility(false);
+    SetComponentTickEnabled(false);
 }
 
-//이게 교전 중일때 일정 시간 데미지 안받으면 RESET
 void USFEnemyWidgetComponent::ResetEngagementTimer()
 {
     if (UWorld* World = GetWorld())
@@ -135,25 +109,16 @@ void USFEnemyWidgetComponent::ResetEngagementTimer()
 
 void USFEnemyWidgetComponent::UpdateHealthPercent()
 {
-    if (!EnemyWidget)
-    {
-        return;
-    }
+    if (!EnemyWidget) return;
 
     UAbilitySystemComponent* ASC = UAbilitySystemBlueprintLibrary::GetAbilitySystemComponent(GetOwner());
     if (IsValid(ASC))
     {
         const USFPrimarySet_Enemy* PrimarySet = ASC->GetSet<USFPrimarySet_Enemy>();
-        if (IsValid(PrimarySet))
+        if (IsValid(PrimarySet) && CachedMaxHealth > 0.f)
         {
-            float Health = PrimarySet->GetHealth();
-            float MaxHealth = PrimarySet->GetMaxHealth();
-
-            if (MaxHealth > 0.f)
-            {
-                float Percent = Health / MaxHealth;
-                EnemyWidget->SetPercentVisuals(Percent);
-            }
+            float Percent = PrimarySet->GetHealth() / CachedMaxHealth;
+            EnemyWidget->SetPercentVisuals(Percent);
         }
     }
 }
@@ -161,12 +126,7 @@ void USFEnemyWidgetComponent::UpdateHealthPercent()
 void USFEnemyWidgetComponent::TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction)
 {
     Super::TickComponent(DeltaTime, TickType, ThisTickFunction);
-
-    if (!IsVisible())
-    {
-        return;
-    }
-       
+    
     FaceToCamera();
     UpdateVisibility(DeltaTime);
 }
@@ -174,10 +134,7 @@ void USFEnemyWidgetComponent::TickComponent(float DeltaTime, ELevelTick TickType
 void USFEnemyWidgetComponent::FaceToCamera()
 {
     APlayerCameraManager* Cam = UGameplayStatics::GetPlayerCameraManager(this, 0);
-    if (!Cam)
-    {
-        return;
-    }
+    if (!Cam) return;
 
     FVector Dir = Cam->GetCameraLocation() - GetComponentLocation();
     FRotator Rot = FRotationMatrix::MakeFromX(Dir).Rotator();
@@ -187,34 +144,24 @@ void USFEnemyWidgetComponent::FaceToCamera()
 
 void USFEnemyWidgetComponent::UpdateVisibility(float DeltaTime)
 {
-    APlayerCameraManager* Cam = UGameplayStatics::GetPlayerCameraManager(this, 0);
-    if (!Cam)
-    {
-        return;
-    }
-
-    FVector CamLoc = Cam->GetCameraLocation();
-    FVector Loc = GetComponentLocation();
-    float Dist = FVector::Dist(CamLoc, Loc);
-
     if (CurrentVisibleTime > 0.f)
     {
         CurrentVisibleTime -= DeltaTime;
-        return; 
     }
-
-    if (Dist > MaxRenderDistance)
+    else
     {
-        SetVisibility(false);
+        OnEngagementExpired(); 
         return;
     }
 
-    FVector CamForward = Cam->GetActorForwardVector();
-    FVector ToEnemy = (Loc - CamLoc).GetSafeNormal();
-    float Angle = FMath::RadiansToDegrees(FMath::Acos(FVector::DotProduct(CamForward, ToEnemy)));
+    // 거리 및 각도 체크 
+    APlayerCameraManager* Cam = UGameplayStatics::GetPlayerCameraManager(this, 0);
+    if (!Cam) return;
 
-    if (Angle > HideOnAngle)
+    float Dist = FVector::Dist(Cam->GetCameraLocation(), GetComponentLocation());
+    if (Dist > MaxRenderDistance)
     {
-        SetVisibility(false);
+        SetVisibility(false); 
+        return;
     }
 }

@@ -19,14 +19,10 @@ class SF_API USFCombatComponentBase : public UControllerComponent
     GENERATED_BODY()
 
 public:
-
-    
     
     USFCombatComponentBase(const FObjectInitializer& ObjectInitializer = FObjectInitializer::Get());
-
     
     virtual void InitializeCombatComponent();
-
     
     UFUNCTION(BlueprintPure, Category = "SF|Combat")
     AActor* GetCurrentTarget() const { return CurrentTarget; }

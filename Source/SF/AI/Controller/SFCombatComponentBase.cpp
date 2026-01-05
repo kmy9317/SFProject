@@ -30,43 +30,36 @@ void USFCombatComponentBase::InitializeCombatComponent()
 
 void USFCombatComponentBase::UpdateTargetActor(AActor* NewTarget)
 {
-    if (CurrentTarget == NewTarget)
-        return;
+    if (CurrentTarget == NewTarget) return;
 
     AAIController* AIC = GetController<AAIController>();
-    if (!AIC)
-        return;
+    if (!AIC) return;
 
     bool bWasInCombat = (CurrentTarget != nullptr);
     CurrentTarget = NewTarget;
-
     if (UBlackboardComponent* BB = AIC->GetBlackboardComponent())
     {
         BB->SetValueAsObject("TargetActor", NewTarget);
         BB->SetValueAsBool("bHasTarget", NewTarget != nullptr);
     }
-
+    
     if (ASFBaseAIController* SFAIC = Cast<ASFBaseAIController>(AIC))
     {
         SFAIC->TargetActor = NewTarget;
 
         if (NewTarget)
         {
-            // 전투 모드: Controller가 타겟을 바라보고, Actor는 부드럽게 따라감
             SFAIC->SetFocus(NewTarget, EAIFocusPriority::Gameplay);
-            SFAIC->SetRotationMode(EAIRotationMode::ControllerYaw);
         }
         else
         {
-            // 비전투 모드: 이동 방향으로 회전
             SFAIC->ClearFocus(EAIFocusPriority::Gameplay);
-            SFAIC->SetRotationMode(EAIRotationMode::MovementDirection);
         }
     }
 
     bool bNowInCombat = (NewTarget != nullptr);
     SetGameplayTagStatus(SFGameplayTags::AI_State_Combat, bNowInCombat);
-
+    
     if (bWasInCombat != bNowInCombat)
     {
         OnCombatStateChanged.Broadcast(bNowInCombat);

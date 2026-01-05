@@ -48,6 +48,7 @@ USFEnemyAnimInstance::USFEnemyAnimInstance(const FObjectInitializer& ObjectIniti
 	, CardinalDirectionDeadZone(10.f)
 	, bWasMovingLastFrame(false)
 
+
 {
 }
 
@@ -104,6 +105,7 @@ void USFEnemyAnimInstance::NativeUpdateAnimation(float DeltaSeconds)
 			CachedAIController = Cast<ASFBaseAIController>(Controller);
 		}
 	}
+	
 
 	if (!Character || !CachedMovementComponent) return;
 
@@ -119,8 +121,6 @@ void USFEnemyAnimInstance::NativeUpdateAnimation(float DeltaSeconds)
 	if (CachedAbilitySystemComponent)
 	{
 		bUsingAbility = CachedAbilitySystemComponent->HasMatchingGameplayTag(SFGameplayTags::Character_State_UsingAbility);
-
-	
 		bIsTurningInPlace = CachedAbilitySystemComponent->HasMatchingGameplayTag(SFGameplayTags::Character_State_TurningInPlace);
 	}
 

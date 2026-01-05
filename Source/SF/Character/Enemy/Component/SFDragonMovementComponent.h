@@ -5,6 +5,8 @@
 #include "Character/Enemy/Component/SFEnemyMovementComponent.h"
 #include "SFDragonMovementComponent.generated.h"
 
+
+
 UCLASS(ClassGroup=(Custom), meta=(BlueprintSpawnableComponent))
 class SF_API USFDragonMovementComponent : public USFEnemyMovementComponent
 {
@@ -46,6 +48,8 @@ protected:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Dragon Movement")
 	float HeavyBrakingDeceleration = 1000.f;
 
+;
 private:
 	uint8 bIsSprinting : 1;
+	
 };

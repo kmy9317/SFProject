@@ -51,7 +51,7 @@ EBTNodeResult::Type UUSFBTTask_ExecuteAbilityByTag::ExecuteTask(
         return EBTNodeResult::Failed;
     }
 
-    FGameplayTag AbilityTag = FGameplayTag::RequestGameplayTag(AbilityTagName);
+    FGameplayTag AbilityTag = FGameplayTag::RequestGameplayTag(AbilityTagName, false);
     if (!AbilityTag.IsValid())
     {
         return EBTNodeResult::Failed;

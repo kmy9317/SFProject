@@ -5,21 +5,33 @@
 
 #include "AbilitySystemGlobals.h"
 #include "AbilitySystemComponent.h"
+#include "AbilitySystem/SFAbilitySystemComponent.h"
+#include "AbilitySystem/Attributes/SFPrimarySet.h"
+#include "AbilitySystem/Attributes/Enemy/SFPrimarySet_Enemy.h"
 #include "AI/SFAIGameplayTags.h"
 #include "Character/SFCharacterGameplayTags.h"
+#include "Character/SFPawnExtensionComponent.h"
 #include "GameFramework/Character.h"
+
 
 void USFEnemyMovementComponent::InitializeMovementComponent()
 {
     MappingStateFunction();
 
-    // StateReactionComponent 제거 - 직접 Tag 감지
-    if (UAbilitySystemComponent* ASC = UAbilitySystemGlobals::GetAbilitySystemComponentFromActor(GetOwner()))
-    {
-        RegisterStateTagEvents(ASC);
-    }
-
     bUseRVOAvoidance = false;
+    
+    UAbilitySystemComponent* ASC = UAbilitySystemGlobals::GetAbilitySystemComponentFromActor(GetOwner());
+    if (!ASC) return;
+    
+    ASC->GetGameplayAttributeValueChangeDelegate(USFPrimarySet_Enemy::GetMoveSpeedAttribute())
+              .AddUObject(this, &ThisClass::OnMoveSpeedChanged);
+    
+    RegisterStateTagEvents(ASC);
+}
+
+void USFEnemyMovementComponent::OnMoveSpeedChanged(const FOnAttributeChangeData& OnAttributeChangeData)
+{
+    MaxWalkSpeed = OnAttributeChangeData.NewValue;
 }
 
 void USFEnemyMovementComponent::MappingStateFunction()
