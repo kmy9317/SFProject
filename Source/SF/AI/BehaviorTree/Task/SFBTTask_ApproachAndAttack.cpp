@@ -1,4 +1,4 @@
-// Fill out your copyright notice in the Description page of Project Settings.
+// SF/AI/BehaviorTree/Task/SFBTTask_ApproachAndAttack.cpp
 
 #include "SFBTTask_ApproachAndAttack.h"
 #include "AIController.h"
@@ -9,6 +9,9 @@
 #include "Character/SFCharacterGameplayTags.h" // 프로젝트 태그 헤더
 #include "Navigation/PathFollowingComponent.h"
 #include "Kismet/KismetMathLibrary.h" // 회전 계산용
+
+// [추가] 태그 인터페이스 (죽음 확인용)
+#include "GameplayTagAssetInterface.h"
 
 USFBTTask_ApproachAndAttack::USFBTTask_ApproachAndAttack(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
@@ -31,6 +34,25 @@ UAbilitySystemComponent* USFBTTask_ApproachAndAttack::GetASC(UBehaviorTreeCompon
 	return nullptr;
 }
 
+// [추가] 타겟이 살아있는지 확인하는 함수
+bool USFBTTask_ApproachAndAttack::IsTargetAlive(AActor* Target) const
+{
+	if (!IsValid(Target)) return false;
+
+	// IGameplayTagAssetInterface를 통해 태그 확인
+	const IGameplayTagAssetInterface* TagInterface = Cast<IGameplayTagAssetInterface>(Target);
+	if (TagInterface)
+	{
+		// Character.State.Dead 태그가 있으면 죽은 것 -> false 반환
+		if (TagInterface->HasMatchingGameplayTag(SFGameplayTags::Character_State_Dead))
+		{
+			return false;
+		}
+	}
+	// 태그 인터페이스가 없으면 일단 살아있다고 가정 (일반 액터 등)
+	return true;
+}
+
 EBTNodeResult::Type USFBTTask_ApproachAndAttack::ExecuteTask(UBehaviorTreeComponent& OwnerComp, uint8* NodeMemory)
 {
 	AAIController* AIController = OwnerComp.GetAIOwner();
@@ -50,34 +72,32 @@ EBTNodeResult::Type USFBTTask_ApproachAndAttack::ExecuteTask(UBehaviorTreeCompon
 	ElapsedTime = 0.0f;
 
 	AActor* TargetActor = Cast<AActor>(BB->GetValueAsObject(TargetActorKey.SelectedKeyName));
-	if (!TargetActor)
+
+	// [수정] 시작할 때 타겟이 없거나 죽어있으면 즉시 실패 처리
+	if (!TargetActor || !IsTargetAlive(TargetActor))
 	{
 		return EBTNodeResult::Failed;
 	}
 
-	// 1. 회전 필요 여부 체크 (Rotate Phase Check)
+	// 1. 회전 필요 여부 체크
 	FVector ToTarget = TargetActor->GetActorLocation() - OwnerPawn->GetActorLocation();
-	ToTarget.Z = 0.0f; // 높이 무시
+	ToTarget.Z = 0.0f; 
 
 	if (!ToTarget.IsNearlyZero())
 	{
 		FRotator TargetRot = ToTarget.Rotation();
 		FRotator CurrentRot = OwnerPawn->GetActorRotation();
 		
-		// 각도 차이 계산 (Yaw)
 		float DeltaYaw = FMath::Abs(FMath::FindDeltaAngleDegrees(CurrentRot.Yaw, TargetRot.Yaw));
 
 		if (DeltaYaw > FacingThreshold)
 		{
-			// 각도가 크면 회전부터 시작
 			bIsRotating = true;
-			// 이동 중지 (제자리 회전)
 			AIController->StopMovement();
 			return EBTNodeResult::InProgress;
 		}
 	}
 
-	// 회전이 필요 없으면 바로 이동/공격 단계로 진입
 	StartApproachOrAttack(OwnerComp);
 
 	return EBTNodeResult::InProgress;
@@ -101,7 +121,15 @@ void USFBTTask_ApproachAndAttack::TickTask(UBehaviorTreeComponent& OwnerComp, ui
 		return;
 	}
 
-	// [안전장치] 타임아웃
+	// [수정] 이동 중 타겟이 죽으면 즉시 중단 (공격 중일 때는 제외)
+	if (!bIsAttacking && !IsTargetAlive(TargetActor))
+	{
+		AIController->StopMovement();
+		FinishLatentTask(OwnerComp, EBTNodeResult::Failed);
+		return;
+	}
+
+	// 타임아웃 체크
 	if (MaxDuration > 0.0f && ElapsedTime >= MaxDuration)
 	{
 		bFinished = true;
@@ -111,7 +139,7 @@ void USFBTTask_ApproachAndAttack::TickTask(UBehaviorTreeComponent& OwnerComp, ui
 		return;
 	}
 
-	// 1단계: 회전 (Rotating Phase)
+	// 1단계: 회전
 	if (bIsRotating)
 	{
 		FVector ToTarget = TargetActor->GetActorLocation() - OwnerPawn->GetActorLocation();
@@ -122,38 +150,33 @@ void USFBTTask_ApproachAndAttack::TickTask(UBehaviorTreeComponent& OwnerComp, ui
 			FRotator TargetRot = ToTarget.Rotation();
 			FRotator CurrentRot = OwnerPawn->GetActorRotation();
 
-			// 부드럽게 회전 (RInterpTo)
 			FRotator NewRot = FMath::RInterpTo(CurrentRot, TargetRot, DeltaSeconds, RotationSpeed);
 			OwnerPawn->SetActorRotation(NewRot);
 
-			// 각도 체크
 			float DeltaYaw = FMath::Abs(FMath::FindDeltaAngleDegrees(NewRot.Yaw, TargetRot.Yaw));
 			if (DeltaYaw <= FacingThreshold)
 			{
-				// 충분히 바라보았음 -> 다음 단계(이동/공격)로 전환
 				bIsRotating = false;
 				StartApproachOrAttack(OwnerComp);
 			}
 		}
 		else
 		{
-			// 타겟과 겹쳐있으면 회전 종료
 			bIsRotating = false;
 			StartApproachOrAttack(OwnerComp);
 		}
 	}
-	// 2단계: 이동 (Moving Phase)
+	// 2단계: 이동
 	else if (bIsMoving)
 	{
 		float DistSq = FVector::DistSquared(OwnerPawn->GetActorLocation(), TargetActor->GetActorLocation());
 		float AttackRadiusSq = AttackRadius * AttackRadius;
 
-		// 사거리 안에 들어왔는지 체크
 		if (DistSq <= AttackRadiusSq)
 		{
 			bIsMoving = false;
-			AIController->StopMovement(); // 멈추고
-			PerformAttack(OwnerComp);     // 공격 (3단계)
+			AIController->StopMovement(); 
+			PerformAttack(OwnerComp);     
 		}
 	}
 }
@@ -167,17 +190,22 @@ void USFBTTask_ApproachAndAttack::StartApproachOrAttack(UBehaviorTreeComponent& 
 
 	if (OwnerPawn && TargetActor)
 	{
+		// [수정] 최종 공격/이동 결정 전 한번 더 생존 확인
+		if (!IsTargetAlive(TargetActor))
+		{
+			FinishLatentTask(OwnerComp, EBTNodeResult::Failed);
+			return;
+		}
+
 		float DistSq = FVector::DistSquared(OwnerPawn->GetActorLocation(), TargetActor->GetActorLocation());
 		float AttackRadiusSq = AttackRadius * AttackRadius;
 
 		if (DistSq <= AttackRadiusSq)
 		{
-			// 이미 사거리 안 -> 공격 (3단계)
 			PerformAttack(OwnerComp);
 		}
 		else
 		{
-			// 사거리 밖 -> 이동 시작 (2단계)
 			bIsMoving = true;
 			AIController->MoveToActor(TargetActor, AttackRadius * 0.5f, true, true, false, 0, true);
 		}
@@ -192,9 +220,6 @@ void USFBTTask_ApproachAndAttack::PerformAttack(UBehaviorTreeComponent& OwnerCom
 		FinishLatentTask(OwnerComp, EBTNodeResult::Failed);
 		return;
 	}
-
-	// [수정됨] 여기서는 더 이상 강제 회전을 하지 않습니다. 
-	// (이미 앞 단계에서 회전을 완료하고 이동했기 때문)
 
 	FGameplayAbilitySpec* FoundSpec = nullptr;
 	for (const FGameplayAbilitySpec& Spec : ASC->GetActivatableAbilities())

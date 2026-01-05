@@ -2,91 +2,107 @@
 
 #include "BTService_UpdateTarget.h"
 
-#include "AbilitySystemComponent.h"
+// Engine & AI
 #include "AIController.h"
-#include "AI/Controller/SFEnemyController.h"
 #include "BehaviorTree/BlackboardComponent.h"
 #include "Perception/AIPerceptionComponent.h"
 #include "Perception/AISense_Sight.h"
 #include "GameFramework/Pawn.h"
+
+// [중요] EnemyController의 SetTargetForce를 쓰기 위해 헤더 포함
+#include "SF/AI/Controller/SFEnemyController.h"
+
+// GAS & Custom Headers
 #include "AbilitySystemGlobals.h"
-#include "Character/SFCharacterGameplayTags.h"
-#include "Character/Enemy/SFEnemyGameplayTags.h"
+#include "AbilitySystemComponent.h"
+#include "GameplayTagAssetInterface.h"
+#include "SF/Character/SFCharacterGameplayTags.h"
 
 UBTService_UpdateTarget::UBTService_UpdateTarget()
 {
-	NodeName = "Update Target";
-	Interval = 0.2f; 
-	RandomDeviation = 0.05f;
+	NodeName = "Update Target (Integrated)";
+	
+	// 반응 속도: 0.1s
+	Interval = 0.1f; 
+	RandomDeviation = 0.0f;
 
+	// 거리 우선 즉시 교체
+	ScoreDifferenceThreshold = 0.0f; 
+
+	// 블랙보드 필터
 	TargetActorKey.AddObjectFilter(this, GET_MEMBER_NAME_CHECKED(UBTService_UpdateTarget, TargetActorKey), AActor::StaticClass());
 	HasTargetKey.AddBoolFilter(this, GET_MEMBER_NAME_CHECKED(UBTService_UpdateTarget, HasTargetKey));
+	DistanceToTargetKey.AddFloatFilter(this, GET_MEMBER_NAME_CHECKED(UBTService_UpdateTarget, DistanceToTargetKey));
+	LastKnownPositionKey.AddVectorFilter(this, GET_MEMBER_NAME_CHECKED(UBTService_UpdateTarget, LastKnownPositionKey));
 }
 
-float UBTService_UpdateTarget::CalculateTargetScore(UBehaviorTreeComponent& OwnerComp, AActor* Target, ASFBaseAIController* AIController) const
+bool UBTService_UpdateTarget::IsTargetValid(AActor* TargetActor) const
 {
-	if (!Target || !AIController) return -1.f;
-	APawn* ControlledPawn = AIController->GetPawn();
-	if (!ControlledPawn) return -1.f;
+	if (!IsValid(TargetActor)) return false;
 
-	const float Distance = FVector::Dist(ControlledPawn->GetActorLocation(), Target->GetActorLocation());
-	// 가까울수록 높은 점수
-	return FMath::Clamp(1000.f - (Distance / 10.f), 0.f, 1000.f);
+	const IGameplayTagAssetInterface* TagInterface = Cast<IGameplayTagAssetInterface>(TargetActor);
+	if (TagInterface)
+	{
+		if (TagInterface->HasMatchingGameplayTag(SFGameplayTags::Character_State_Dead)) return false;
+		if (TagInterface->HasMatchingGameplayTag(SFGameplayTags::Character_State_Invulnerable)) return false;
+	}
+	
+	return true;
+}
+
+float UBTService_UpdateTarget::CalculateTargetScore(APawn* MyPawn, AActor* Target) const
+{
+	if (!MyPawn || !Target) return -1.f;
+	float Distance = FVector::Dist(MyPawn->GetActorLocation(), Target->GetActorLocation());
+	return FMath::Clamp(2000.f - (Distance / 5.f), 0.f, 2000.f);
 }
 
 void UBTService_UpdateTarget::TickNode(UBehaviorTreeComponent& OwnerComp, uint8* NodeMemory, float DeltaSeconds)
 {
 	Super::TickNode(OwnerComp, NodeMemory, DeltaSeconds);
 
-	ASFBaseAIController* AIController = Cast<ASFBaseAIController>(OwnerComp.GetAIOwner());
-	if (!AIController) return;
-
-	// Ability 사용 중에는 타겟 업데이트 스킵
-	APawn* MyPawn = AIController->GetPawn();
-	if (MyPawn)
-	{
-		if (UAbilitySystemComponent* ASC = UAbilitySystemGlobals::GetAbilitySystemComponentFromActor(MyPawn))
-		{
-			if (ASC->HasMatchingGameplayTag(SFGameplayTags::Character_State_UsingAbility))
-			{
-				return;
-			}
-		}
-	}
+	AAIController* AIController = OwnerComp.GetAIOwner();
+	UBlackboardComponent* Blackboard = OwnerComp.GetBlackboardComponent();
 	
+	if (!AIController || !Blackboard) return;
+
+	APawn* MyPawn = AIController->GetPawn();
 	if (!MyPawn) return;
 
-	UBlackboardComponent* BlackboardComp = OwnerComp.GetBlackboardComponent();
-	if (!BlackboardComp) return;
+	// [Check 0] 공격 중 처리 (거리 갱신만 수행)
+	if (UAbilitySystemComponent* ASC = UAbilitySystemGlobals::GetAbilitySystemComponentFromActor(MyPawn))
+	{
+		if (ASC->HasMatchingGameplayTag(SFGameplayTags::Character_State_UsingAbility))
+		{
+			AActor* LockedTarget = Cast<AActor>(Blackboard->GetValueAsObject(TargetActorKey.SelectedKeyName));
+			if (LockedTarget)
+			{
+				float Dist = FVector::Dist(MyPawn->GetActorLocation(), LockedTarget->GetActorLocation());
+				if (DistanceToTargetKey.SelectedKeyName != NAME_None)
+				{
+					Blackboard->SetValueAsFloat(DistanceToTargetKey.SelectedKeyName, Dist);
+				}
+			}
+			return; // 타겟 변경 로직 스킵
+		}
+	}
 
-	AActor* CurrentTarget = Cast<AActor>(BlackboardComp->GetValueAsObject(TargetActorKey.SelectedKeyName));
-
-	// 1. 현재 타겟과의 거리 체크
-	// (MaxChaseDistance를 999999로 늘렸으므로, 이제 여기서 타겟이 갑자기 사라지지 않습니다)
+	// [Check 1] 현재 타겟 상태 검증
+	AActor* CurrentTarget = Cast<AActor>(Blackboard->GetValueAsObject(TargetActorKey.SelectedKeyName));
+	
 	if (CurrentTarget)
 	{
 		float Dist = FVector::Dist(MyPawn->GetActorLocation(), CurrentTarget->GetActorLocation());
-		
-		if (Dist > MaxChaseDistance)
+
+		if (Dist > MaxChaseDistance || !IsTargetValid(CurrentTarget))
 		{
-			BlackboardComp->ClearValue(TargetActorKey.SelectedKeyName);
-			BlackboardComp->SetValueAsBool(HasTargetKey.SelectedKeyName, false);
-			AIController->TargetActor = nullptr;
-
-			//  CombatComponent도 클리어
-			if (AIController->CombatComponent && CurrentTarget)
-			{
-				//AIController->CombatComponent->HandleTargetPerceptionUpdated(CurrentTarget, false);
-			}
-
-			// 타겟을 지웠으니 이번 틱 종료
-			return;
+			CurrentTarget = nullptr; 
 		}
 	}
 
-	// 2. 시야(Perception)에 보이는 적들 탐색
+	// [Check 2] Perception으로 감지된 적 탐색
 	TArray<AActor*> PerceivedActors;
-	if (auto* PerceptionComp = AIController->GetPerceptionComponent())
+	if (UAIPerceptionComponent* PerceptionComp = AIController->GetPerceptionComponent())
 	{
 		PerceptionComp->GetCurrentlyPerceivedActors(UAISense_Sight::StaticClass(), PerceivedActors);
 	}
@@ -94,90 +110,84 @@ void UBTService_UpdateTarget::TickNode(UBehaviorTreeComponent& OwnerComp, uint8*
 	AActor* BestTarget = nullptr;
 	float BestScore = -1.f;
 
-	if (PerceivedActors.Num() > 0)
+	for (AActor* Actor : PerceivedActors)
 	{
-		for (AActor* Actor : PerceivedActors)
-		{
-			// 플레이어 태그 확인
-			if (!Actor->ActorHasTag(FName("Player"))) continue;
+		if (!Actor) continue;
+		if (!Actor->ActorHasTag(TargetTag)) continue;
+		if (!IsTargetValid(Actor)) continue;
 
-			const float ActorScore = CalculateTargetScore(OwnerComp, Actor, AIController);
-			if (ActorScore > BestScore)
-			{
-				BestScore = ActorScore;
-				BestTarget = Actor;
-			}
+		float Score = CalculateTargetScore(MyPawn, Actor);
+		if (Score > BestScore)
+		{
+			BestScore = Score;
+			BestTarget = Actor;
 		}
 	}
 
-	// 3. 타겟 갱신 로직 (더 좋은 타겟이 있거나, 타겟이 없을 때)
+	// [Check 3] 타겟 교체 판단
+	bool bShouldUpdate = false;
+
 	if (BestTarget)
 	{
-		bool bShouldSwitch = false;
-
-		if (CurrentTarget && BestTarget != CurrentTarget)
+		if (!CurrentTarget)
 		{
-			float CurrentScore = CalculateTargetScore(OwnerComp, CurrentTarget, AIController);
-			// 점수 차이가 날 때만 교체
+			CurrentTarget = BestTarget;
+			bShouldUpdate = true;
+		}
+		else if (CurrentTarget != BestTarget)
+		{
+			float CurrentScore = CalculateTargetScore(MyPawn, CurrentTarget);
 			if ((BestScore - CurrentScore) >= ScoreDifferenceThreshold)
 			{
-				bShouldSwitch = true;
+				CurrentTarget = BestTarget;
+				bShouldUpdate = true;
 			}
-		}
-		else if (!CurrentTarget)
-		{
-			bShouldSwitch = true;
-		}
-
-		if (bShouldSwitch)
-		{
-
-			CurrentTarget = BestTarget; // 로컬 변수 갱신
-
-			// 블랙보드 및 컨트롤러 갱신
-			BlackboardComp->SetValueAsObject(TargetActorKey.SelectedKeyName, CurrentTarget);
-			BlackboardComp->SetValueAsBool(HasTargetKey.SelectedKeyName, true);
-			AIController->TargetActor = CurrentTarget;
-
-			//  CombatComponent도 업데이트 (UpdateDesiredControlYaw가 올바른 타겟 사용)
-			if (AIController->CombatComponent)
-			{
-				//
-			}
-
-			// [중요] 타겟을 새로 찾았을 때만 LastKnownPosition 업데이트 (추격용)
-			// 시야에서 사라져도 마지막 위치로 가게 하려면 이 부분이 중요함
-			BlackboardComp->SetValueAsVector("LastKnownPosition", CurrentTarget->GetActorLocation());
 		}
 	}
 	else if (!CurrentTarget)
 	{
-		// 기존 타겟이 있었다면? -> [수정 1]에서 거리 체크를 통과했으므로 "유지"합니다.
-		if (CurrentTarget)
-		{
-			// 시야에는 없지만 추격 거리 안이므로 유지됨.
-			// 아무 작업 안 함 (Keep)
-		}
-		else
-		{
-			// 타겟도 없고, 보이는 적도 없음 -> 클리어 (안전 장치)
-			BlackboardComp->ClearValue(TargetActorKey.SelectedKeyName);
-			BlackboardComp->SetValueAsBool(HasTargetKey.SelectedKeyName, false);
-			AIController->TargetActor = nullptr;
-
-			//  CombatComponent도 클리어
-			if (AIController->CombatComponent && CurrentTarget)
-			{
-				//
-			}
-
-			return;
-		}
+		bShouldUpdate = true; 
 	}
 
-	// 타겟 추적 중이면 마지막 위치 업데이트
+	// [Check 4] 블랙보드 및 컨트롤러 업데이트
 	if (CurrentTarget)
 	{
-		BlackboardComp->SetValueAsVector("LastKnownPosition", CurrentTarget->GetActorLocation());
+		// 타겟 변경 시
+		if (Blackboard->GetValueAsObject(TargetActorKey.SelectedKeyName) != CurrentTarget)
+		{
+			Blackboard->SetValueAsObject(TargetActorKey.SelectedKeyName, CurrentTarget);
+			Blackboard->SetValueAsBool(HasTargetKey.SelectedKeyName, true);
+			AIController->SetFocus(CurrentTarget);
+			
+			// ★ [핵심] 컨트롤러의 SetTargetForce 직접 호출
+			if (ASFEnemyController* EnemyController = Cast<ASFEnemyController>(AIController))
+			{
+				EnemyController->SetTargetForce(CurrentTarget);
+			}
+		}
+		
+		// 위치와 거리 정보는 매 프레임(Tick) 갱신
+		float DistToTarget = FVector::Dist(MyPawn->GetActorLocation(), CurrentTarget->GetActorLocation());
+		Blackboard->SetValueAsVector(LastKnownPositionKey.SelectedKeyName, CurrentTarget->GetActorLocation());
+		
+		if (DistanceToTargetKey.SelectedKeyName != NAME_None)
+		{
+			Blackboard->SetValueAsFloat(DistanceToTargetKey.SelectedKeyName, DistToTarget);
+		}
+	}
+	else if (bShouldUpdate) // 타겟 잃음
+	{
+		Blackboard->ClearValue(TargetActorKey.SelectedKeyName);
+		Blackboard->SetValueAsBool(HasTargetKey.SelectedKeyName, false);
+		
+		if (DistanceToTargetKey.SelectedKeyName != NAME_None)
+		{
+			Blackboard->ClearValue(DistanceToTargetKey.SelectedKeyName);
+		}
+		
+		AIController->ClearFocus(EAIFocusPriority::Gameplay);
+		
+		// 컨트롤러 타겟 해제 시도 (필요하다면 CombatComponent 직접 접근 등 추가 가능하나 SetTargetForce는 null 체크로 리턴됨)
+		// 일반적인 경우 여기서 ClearFocus만으로 충분할 수 있습니다.
 	}
 }

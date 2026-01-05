@@ -182,8 +182,11 @@ void ASFEnemy::InitializeAttributeSet(USFPawnExtensionComponent* PawnExtComp)
 		AttrMap.Add(SFGameplayTags::Data_CriticalChance, AttrData->CriticalChance);
 		AttrMap.Add(SFGameplayTags::Data_Enemy_MaxStagger, AttrData->MaxStagger);
 		AttrMap.Add(SFGameplayTags::Data_Enemy_GuardRange, AttrData->GuardRange);
-		AttrMap.Add(SFGameplayTags::Data_Enemy_SightRadius, AttrData->SightRadius);
-		AttrMap.Add(SFGameplayTags::Data_Enemy_LoseSightRadius, AttrData->LoseSightRadius);
+		
+		// [수정] 데이터 테이블 값을 불러오지 않도록 주석 처리
+		// 이렇게 하면 컨트롤러(Blueprint)에서 설정한 시야 값을 사용하게 됩니다.
+		// AttrMap.Add(SFGameplayTags::Data_Enemy_SightRadius, AttrData->SightRadius);
+		// AttrMap.Add(SFGameplayTags::Data_Enemy_LoseSightRadius, AttrData->LoseSightRadius);
 	}
 	if (IsValid(InitializeEffect))
 	{

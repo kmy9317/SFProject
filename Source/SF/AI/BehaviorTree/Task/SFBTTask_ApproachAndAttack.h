@@ -1,4 +1,4 @@
-// Fill out your copyright notice in the Description page of Project Settings.
+// SF/AI/BehaviorTree/Task/SFBTTask_ApproachAndAttack.h
 
 #pragma once
 
@@ -11,10 +11,12 @@
 class UAbilitySystemComponent;
 
 /**
- * [순서]
+ * [복합 태스크] 접근 후 공격
+ * 순서:
  * 1. 회전 (Rotate): 타겟을 바라볼 때까지 부드럽게 회전
  * 2. 이동 (Approach): 사거리 밖이라면 타겟에게 접근
  * 3. 공격 (Attack): 사거리 내라면 멈추고 어빌리티 실행
+ * * [수정사항] 타겟이 죽었는지(Dead 태그) 수시로 확인하여, 죽었다면 즉시 중단.
  */
 UCLASS()
 class SF_API USFBTTask_ApproachAndAttack : public UBTTask_BlackboardBase
@@ -32,8 +34,6 @@ protected:
 private:
 	// 내부 헬퍼 함수
 	UAbilitySystemComponent* GetASC(UBehaviorTreeComponent& OwnerComp) const;
-	
-	// 회전 후 이동 또는 공격 결정
 	void StartApproachOrAttack(UBehaviorTreeComponent& OwnerComp);
 	
 	// 실제 공격 실행
@@ -41,6 +41,9 @@ private:
 	
 	void OnTagChanged(const FGameplayTag Tag, int32 NewCount);
 	void CleanupDelegate(UBehaviorTreeComponent& OwnerComp);
+
+	// [추가] 타겟 생존 여부 확인 함수
+	bool IsTargetAlive(AActor* Target) const;
 
 	// 내부 상태 변수
 	bool bIsRotating = false;  // 회전 중인가? (1단계)
@@ -64,23 +67,24 @@ public:
 	UPROPERTY(EditAnywhere, Category = "Attack")
 	FBlackboardKeySelector TargetActorKey;
 
-	// [설정] 공격 사거리 (이 거리 안으로 들어오면 이동 멈춤)
+	// [설정] 공격 사거리 (이 거리 안으로 들어오면 공격)
 	UPROPERTY(EditAnywhere, Category = "Attack")
 	float AttackRadius = 150.0f;
 
-	// [설정] 회전 속도 (Interpolation Speed)
-	UPROPERTY(EditAnywhere, Category = "Attack")
+	// [설정] 회전 속도
+	UPROPERTY(EditAnywhere, Category = "Rotate")
 	float RotationSpeed = 5.0f;
 
-	// [설정] 타겟을 바라보는 것으로 간주할 각도 오차 (이 각도 이내로 들어오면 이동/공격 시작)
-	UPROPERTY(EditAnywhere, Category = "Attack")
+	// [설정] 정면 판정 각도 (이 각도 안으로 들어오면 회전 끝)
+	UPROPERTY(EditAnywhere, Category = "Rotate")
 	float FacingThreshold = 10.0f;
 
-	// [옵션] 공격 상태 태그 (이 태그가 사라지면 공격이 끝난 것으로 간주)
+	// [설정] 공격 애니메이션이 끝났다고 판단할 태그 (기본: Character.State.Attacking)
+	// 이 태그가 사라지면 태스크 종료
 	UPROPERTY(EditAnywhere, Category = "Attack")
 	FGameplayTag WaitForTag;
 
-	// [안전장치] 최대 제한 시간
-	UPROPERTY(EditAnywhere, Category = "Safety")
+	// [설정] 최대 대기 시간 (버그 방지용 타임아웃)
+	UPROPERTY(EditAnywhere, Category = "Attack")
 	float MaxDuration = 5.0f;
 };
