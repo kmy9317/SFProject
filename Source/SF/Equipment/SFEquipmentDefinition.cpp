@@ -7,3 +7,4 @@ FPrimaryAssetId USFEquipmentDefinition::GetPrimaryAssetId() const
 {
 	return FPrimaryAssetId(GetEquipmentAssetType(), GetFName());
 }
+

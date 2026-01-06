@@ -10,6 +10,7 @@
 #include "GameFramework/CharacterMovementComponent.h"
 #include "AbilitySystem/SFAbilitySystemComponent.h"
 #include "AbilitySystem/GameplayEffect/Hero/EffectContext/SFTargetDataTypes.h"
+#include "Character/SFCharacterGameplayTags.h"
 
 USFGA_Dodge::USFGA_Dodge(FObjectInitializer const& ObjectInitializer)
 	: Super(ObjectInitializer)
@@ -19,28 +20,37 @@ USFGA_Dodge::USFGA_Dodge(FObjectInitializer const& ObjectInitializer)
 
 void USFGA_Dodge::ActivateAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, const FGameplayEventData* TriggerEventData)
 {
-	Super::ActivateAbility(Handle, ActorInfo, ActivationInfo, TriggerEventData);
-
 	ASFCharacterBase* Character = GetSFCharacterFromActorInfo();
 	if (!Character)
 	{
-		CancelAbility(Handle, ActorInfo, ActivationInfo, true);
+		EndAbility(Handle, ActorInfo, ActivationInfo, true, true);
 		return;
 	}
 
-	// 1. 공중 사용 불가
+	// 1. [순서 변경] 가능 여부 먼저 판단 (공중 불가)
 	if (Character->GetCharacterMovement()->IsFalling())
 	{
-		CancelAbility(Handle, ActorInfo, ActivationInfo, true);
+		EndAbility(Handle, ActorInfo, ActivationInfo, true, true);
 		return;
 	}
 
-	// 2. 비용(스태미나) 지불
+	// 2. [순서 변경] 비용(스태미나) 먼저 지불
+	// 실패하면 아무 일도 일어나지 않아야 함 (달리기가 끊기면 안 됨)
 	if (!CommitAbility(Handle, ActorInfo, ActivationInfo))
 	{
-		CancelAbility(Handle, ActorInfo, ActivationInfo, true);
+		EndAbility(Handle, ActorInfo, ActivationInfo, true, true);
 		return;
 	}
+
+	// 3. [로직 수행] 비용 지불 성공 후, 상충되는 어빌리티(달리기) 취소
+	if (UAbilitySystemComponent* ASC = ActorInfo->AbilitySystemComponent.Get())
+	{
+		FGameplayTagContainer CancelTags;
+		CancelTags.AddTag(SFGameplayTags::Character_State_Sprint); 
+		ASC->CancelAbilities(&CancelTags, nullptr, this);
+	}
+	
+	Super::ActivateAbility(Handle, ActorInfo, ActivationInfo, TriggerEventData);
 
 	// =================================================================
 	// 클라이언트와 서버의 로직 분기
@@ -102,7 +112,7 @@ void USFGA_Dodge::OnServerTargetDataReceived(const FGameplayAbilityTargetDataHan
 {
 	// 데이터 사용 처리 (메모리 해제 등)
 	GetAbilitySystemComponentFromActorInfo()->ConsumeClientReplicatedTargetData(CurrentSpecHandle, CurrentActivationInfo.GetActivationPredictionKey());
-
+	
 	// 데이터 꺼내기
 	const FSFGameplayAbilityTargetData_ChargePhase* ReceivedData = static_cast<const FSFGameplayAbilityTargetData_ChargePhase*>(DataHandle.Get(0));
 	

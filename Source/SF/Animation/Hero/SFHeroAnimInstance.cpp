@@ -8,6 +8,7 @@
 #include "Character/SFCharacterBase.h"
 #include "AbilitySystem/SFAbilitySystemComponent.h"
 #include "Character/SFCharacterGameplayTags.h"
+#include "Equipment/EquipmentComponent/SFEquipmentComponent.h"
 
 USFHeroAnimInstance::USFHeroAnimInstance()
 {
@@ -33,6 +34,21 @@ void USFHeroAnimInstance::NativeInitializeAnimation()
 		{
 			InitializeWithAbilitySystem(ASC);
 		}
+		
+		// 애니메이션 시스템 초기화 시점에 이미 장착된 장비가 있다면 레이어 링크 수행
+		if (USkeletalMeshComponent* OwnerMesh = GetOwningComponent())
+		{
+			UAnimInstance* MainAnimInst = OwnerMesh->GetAnimInstance();
+            
+			// 조건 확인
+			if (MainAnimInst == this)
+			{
+				if (USFEquipmentComponent* EquipComp = USFEquipmentComponent::FindEquipmentComponent(OwnerCharacter))
+				{
+					EquipComp->ReapplyItemAnimLayers();
+				}
+			}
+		}
 	}
 }
 
@@ -54,19 +70,16 @@ void USFHeroAnimInstance::NativeThreadSafeUpdateAnimation(float DeltaSeconds)
 	LocomotionDirection = OwnerCharacter->GetDirection(); // ASFCharacterBase의 GetDirection() 사용
 	bIsFalling = OwnerCharacter->IsFalling(); // ASFCharacterBase의 IsFalling() 사용
 
-	// bShouldMove는 GroundSpeed로 대체 가능하지만, 기존 로직이 있다면 유지
-	// 현재는 ASFCharacterBase에서 가속도 정보를 직접 노출하지 않으므로 기존 로직 유지
-	// if (MovementComponent)
-	// {
-	// 	bShouldMove = (GroundSpeed > 3.0f) || (MovementComponent->GetCurrentAcceleration().SizeSquared() > 0.0f);
-	// }
-	// else
-	// {
-	// 	bShouldMove = (GroundSpeed > 3.0f);
-	// }
+	if (MovementComponent)
+	{
+		// 입력(가속도)이 있을 때만 True. (감속 중일 때는 False가 됨 -> Stop 모션 발동)
+		bShouldMove = (MovementComponent->GetCurrentAcceleration().SizeSquared() > 0.0f);
+	}
+	else
+	{
+		bShouldMove = false;
+	}
 
-	// 앉기 여부 (ASFCharacterBase에 IsCrouching이 있다면 사용, 없으면 MovementComponent 사용)
-	// 현재 ASFCharacterBase에는 IsCrouching 게터가 없으므로 MovementComponent 사용
 	if (MovementComponent)
 	{
 		bIsCrouching = MovementComponent->IsCrouching();
@@ -75,9 +88,13 @@ void USFHeroAnimInstance::NativeThreadSafeUpdateAnimation(float DeltaSeconds)
 	{
 		bIsCrouching = false;
 	}
+	
+	if (bShouldMove)
+	{
+		LastMoveSpeed = GroundSpeed;
+	}
 
-
-	// 5. GameplayTag 확인 (스레드 안전하게)
+	// GameplayTag 확인
 	// OwnerCharacter가 ASFCharacterBase 타입이므로, 직접 GetSFAbilitySystemComponent() 호출 가능
 	if (const USFAbilitySystemComponent* ASC = OwnerCharacter->GetSFAbilitySystemComponent())
 	{
@@ -85,5 +102,6 @@ void USFHeroAnimInstance::NativeThreadSafeUpdateAnimation(float DeltaSeconds)
 		bIsAttacking = ASC->HasMatchingGameplayTag(SFGameplayTags::Character_State_Attacking);
 		bIsBlocking = ASC->HasMatchingGameplayTag(SFGameplayTags::Character_State_Blocking);
 		bIsStunned = ASC->HasMatchingGameplayTag(SFGameplayTags::Character_State_Stunned);
+		bIsSprinting = ASC->HasMatchingGameplayTag(SFGameplayTags::Character_State_Sprint);
 	}
 }

@@ -11,6 +11,7 @@
 #include "Net/UnrealNetwork.h"
 #include "Weapons/Actor/SFEquipmentBase.h"
 #include "Weapons/Actor/SFMeleeWeaponActor.h"
+#include "GameFramework/Character.h"
 
 
 USFEquipmentComponent::USFEquipmentComponent(const FObjectInitializer& ObjectInitializer)
@@ -139,6 +140,18 @@ void USFEquipmentComponent::EquipItem(USFEquipmentDefinition* EquipmentDefinitio
 	FSFAppliedEquipmentEntry& NewEntry = EquipmentList.Entries.AddDefaulted_GetRef();
 	NewEntry.Instance = NewObject<USFEquipmentInstance>(this);
 	NewEntry.Instance->Initialize(EquipmentDefinition, Pawn, ASC);
+	
+	// 애니메이션 레이어 링크
+	if (EquipmentDefinition->AnimLayerInfo)
+	{
+		if (ACharacter* Character = Cast<ACharacter>(Pawn))
+		{
+			if (USkeletalMeshComponent* TargetMesh = Character->GetMesh())
+			{
+				TargetMesh->LinkAnimClassLayers(EquipmentDefinition->AnimLayerInfo);
+			}
+		}
+	}
 
 	if (IsUsingRegisteredSubObjectList() && IsReadyForReplication())
 	{
@@ -284,6 +297,22 @@ void USFEquipmentComponent::UnequipItemByInstance(USFEquipmentInstance* Equipmen
 		FSFAppliedEquipmentEntry& Entry = *EntryIt;
 		if (Entry.Instance == EquipmentInstance)
 		{
+			// 장비 해제 시 애니메이션 레이어 언링크
+			if (USFEquipmentDefinition* Def = Entry.Instance->GetEquipmentDefinition())
+			{
+				if (Def->AnimLayerInfo)
+				{
+					// 위에서 선언한 Pawn 변수를 재사용하여 Character로 캐스팅
+					if (ACharacter* Character = Cast<ACharacter>(Pawn))
+					{
+						if (USkeletalMeshComponent* TargetMesh = Character->GetMesh())
+						{
+							TargetMesh->UnlinkAnimClassLayers(Def->AnimLayerInfo);
+						}
+					}
+				}
+			}
+			
 			// SubObject 등록 해제
 			if (IsUsingRegisteredSubObjectList())
 			{
@@ -295,6 +324,26 @@ void USFEquipmentComponent::UnequipItemByInstance(USFEquipmentInstance* Equipmen
 			EntryIt.RemoveCurrent();
 			EquipmentList.MarkArrayDirty();
 			return;
+		}
+	}
+}
+
+void USFEquipmentComponent::ReapplyItemAnimLayers()
+{
+	APawn* Pawn = GetPawn<APawn>();
+	if (!Pawn) return;
+    
+	ACharacter* Char = Cast<ACharacter>(Pawn);
+	if (!Char || !Char->GetMesh()) return;
+
+	for (const FSFAppliedEquipmentEntry& Entry : EquipmentList.Entries)
+	{
+		if (Entry.Instance && Entry.Instance->GetEquipmentDefinition())
+		{
+			if (TSubclassOf<UAnimInstance> LayerClass = Entry.Instance->GetEquipmentDefinition()->AnimLayerInfo)
+			{
+				Char->GetMesh()->LinkAnimClassLayers(LayerClass);
+			}
 		}
 	}
 }

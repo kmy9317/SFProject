@@ -17,6 +17,7 @@ namespace SFGameplayTags
 	UE_DEFINE_GAMEPLAY_TAG_COMMENT(Character_State_Charging, "Character.State.Charging", "Character is currently charging an attack");
 	UE_DEFINE_GAMEPLAY_TAG_COMMENT(Character_State_Downed, "Character.State.Downed", "Character is downed");
 	UE_DEFINE_GAMEPLAY_TAG_COMMENT(Character_State_TurningInPlace, "Character.State.TurningInPlace", "Character is turning in place");
+	UE_DEFINE_GAMEPLAY_TAG_COMMENT(Character_State_Sprint, "Character.State.Sprint", "Character is sprinting");
 	UE_DEFINE_GAMEPLAY_TAG_COMMENT(Character_State_Drink, "Character.State.Drink", "Character is drinking a potion/healing item");
 
 	// ========== 방어/회피 ==========
