@@ -328,6 +328,26 @@ void USFEquipmentComponent::UnequipItemByInstance(USFEquipmentInstance* Equipmen
 	}
 }
 
+void USFEquipmentComponent::ReapplyItemAnimLayers()
+{
+	APawn* Pawn = GetPawn<APawn>();
+	if (!Pawn) return;
+    
+	ACharacter* Char = Cast<ACharacter>(Pawn);
+	if (!Char || !Char->GetMesh()) return;
+
+	for (const FSFAppliedEquipmentEntry& Entry : EquipmentList.Entries)
+	{
+		if (Entry.Instance && Entry.Instance->GetEquipmentDefinition())
+		{
+			if (TSubclassOf<UAnimInstance> LayerClass = Entry.Instance->GetEquipmentDefinition()->AnimLayerInfo)
+			{
+				Char->GetMesh()->LinkAnimClassLayers(LayerClass);
+			}
+		}
+	}
+}
+
 TArray<USFEquipmentInstance*> USFEquipmentComponent::GetEquippedItems() const
 {
 	TArray<USFEquipmentInstance*> Results;
