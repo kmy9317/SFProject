@@ -5,6 +5,8 @@
 #include "System/Data/SFStageInfo.h"
 #include "SFPlayerController.generated.h"
 
+class USFItemManagerComponent;
+class USFInventoryManagerComponent;
 class USFSharedUIComponent;
 class USFDeathUIComponent;
 class USFSpectatorComponent;
@@ -112,6 +114,12 @@ private:
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "SF|Components", meta = (AllowPrivateAccess = "true"))
 	TObjectPtr<USFSharedUIComponent> SharedUIComponent;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "SF|Components", meta = (AllowPrivateAccess = "true"))
+	TObjectPtr<USFInventoryManagerComponent> InventoryManagerComponent;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "SF|Components", meta = (AllowPrivateAccess = "true"))
+	TObjectPtr<USFItemManagerComponent> ItemManagerComponent;
 
 private:
 	// ViewRotation 전송 최적화 

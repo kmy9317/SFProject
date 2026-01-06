@@ -4,6 +4,7 @@
 #include "Engine/DataAsset.h"
 #include "SFItemData.generated.h"
 
+class ASFPickupableItemBase;
 struct FGameplayTag;
 class USFItemDefinition;
 class USFItemRarityConfig;
@@ -57,6 +58,10 @@ public:
     const TArray<TSubclassOf<USFItemDefinition>>& GetEquippableItems() const { return EquippableItemClasses; }
     const TArray<TSubclassOf<USFItemDefinition>>& GetConsumableItems() const { return ConsumableItemClasses; }
 
+public:
+    UPROPERTY(EditDefaultsOnly, Category = "Drop")
+    TSubclassOf<ASFPickupableItemBase> PickupableItemClass;
+
 private:
     // ========== Item ID 매핑 ==========
     UPROPERTY(EditDefaultsOnly, Category = "Items")
@@ -76,4 +81,5 @@ private:
 
     UPROPERTY()
     TArray<TSubclassOf<USFItemDefinition>> ConsumableItemClasses;
+    
 };

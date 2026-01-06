@@ -14,6 +14,8 @@
 #include "Components/SFSpectatorComponent.h"
 #include "GameFramework/Character.h"
 #include "GameModes/SFGameOverManagerComponent.h"
+#include "Inventory/SFInventoryManagerComponent.h"
+#include "Item/SFItemManagerComponent.h"
 #include "Kismet/GameplayStatics.h"
 #include "Pawn/SFSpectatorPawn.h"
 #include "System/SFPlayFabSubsystem.h"
@@ -26,6 +28,8 @@ ASFPlayerController::ASFPlayerController(const FObjectInitializer& ObjectInitial
 	SpectatorComponent = CreateDefaultSubobject<USFSpectatorComponent>(TEXT("SpectatorComponent"));
 	DeathUIComponent = CreateDefaultSubobject<USFDeathUIComponent>(TEXT("DeathUIComponent"));
 	SharedUIComponent = CreateDefaultSubobject<USFSharedUIComponent>(TEXT("SharedUIComponent"));
+	InventoryManagerComponent = CreateDefaultSubobject<USFInventoryManagerComponent>(TEXT("InventoryManagerComponent"));
+	ItemManagerComponent = CreateDefaultSubobject<USFItemManagerComponent>(TEXT("ItemManagerComponent"));
 }
 
 void ASFPlayerController::BeginPlay()

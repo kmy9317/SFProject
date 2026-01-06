@@ -11,7 +11,7 @@ void USFAssetManager::StartInitialLoading()
 	Super::StartInitialLoading();
 
 	GetGameData();
-    //GetItemData();
+    GetItemData();
 }
 
 void USFAssetManager::FinishInitialLoading()
@@ -32,7 +32,7 @@ void USFAssetManager::PreBeginPIE(bool bStartSimulate)
 	Super::PreBeginPIE(bStartSimulate);
 
 	GetGameData();
-    //GetItemData();
+    GetItemData();
 	if (!AreLobbyAssetsLoaded())
 	{
 		LoadAllPrimaryAssets();

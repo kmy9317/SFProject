@@ -8,6 +8,7 @@
 #include "Character/SFPawnData.h"
 #include "SFEnemyData.generated.h"
 
+class USFDropTable;
 class USFState;
 class UBehaviorTree;
 struct FSFPhaseData;
@@ -102,5 +103,10 @@ public:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Enemy|Phase|Boss")
 	TArray<FSFPhaseData> PhaseData;
 
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Enemy|Drop")
+	TObjectPtr<USFDropTable> DropTable;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Enemy|Drop")
+	TArray<TObjectPtr<USFDropTable>> AdditionalDropTables;
 
 };

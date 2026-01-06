@@ -44,6 +44,8 @@ public:
 	void TurnCollisionOn();
 	void TurnCollisionOff();
 
+	AActor* GetLastAttacker() const { return LastAttacker; }
+
 protected:
 
 	//PawnData에 있는 AbilitySet GIVE
