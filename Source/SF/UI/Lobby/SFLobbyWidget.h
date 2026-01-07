@@ -15,6 +15,7 @@ class ASFLobbyPlayerController;
 class USFTeamSelectionWidget;
 class UUniformGridPanel;
 class UButton;
+class UUserWidget;
 class UCommonButtonBase;
 class UWidgetSwitcher;
 class UWidget;
@@ -52,6 +53,13 @@ private:
 	UFUNCTION()
 	void StartMatchButtonClicked();
 
+	UFUNCTION()
+	void UpgradeButtonClicked();
+
+protected:
+	UPROPERTY(EditAnywhere,	BlueprintReadOnly, Category = "UI|Upgrade")
+	TSubclassOf<UUserWidget> UpgradeWidgetClass;
+	
 private:
 	UPROPERTY(meta=(BindWidget))
 	TObjectPtr<UWidgetSwitcher> MainSwitcher;
@@ -71,6 +79,9 @@ private:
 
 	UPROPERTY(meta=(BindWidget))
 	TObjectPtr<UCommonButtonBase> Button_Ready;
+
+	UPROPERTY(meta=(BindWidget))
+	TObjectPtr<UCommonButtonBase> Button_Upgrade;
 
 	UPROPERTY()
 	TObjectPtr<ASFLobbyPlayerController> SFLobbyPlayerController;

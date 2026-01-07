@@ -12,6 +12,7 @@ class UTextBlock;
 class UButton;
 class UHorizontalBox;
 class USFPermanentUpgradeCardWidget;
+class UCommonButtonBase;
 
 UCLASS()
 class SF_API USFPermanentUpgradeWidget : public USFUserWidget
@@ -27,9 +28,9 @@ protected:
 
 	UPROPERTY(meta=(BindWidget)) UHorizontalBox* BoxCards = nullptr;
 
-	UPROPERTY(meta=(BindWidget)) UButton* ButtonApply = nullptr;
-	UPROPERTY(meta=(BindWidget)) UButton* ButtonCancel = nullptr;
-	UPROPERTY(meta=(BindWidget)) UButton* ButtonReset = nullptr;
+	UPROPERTY(meta=(BindWidget)) UCommonButtonBase* Button_Apply = nullptr;
+	UPROPERTY(meta=(BindWidget)) UCommonButtonBase* Button_Cancel = nullptr;
+	UPROPERTY(meta=(BindWidget)) UButton* Button_Reset = nullptr;
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="SF|UI")
 	TSubclassOf<USFPermanentUpgradeCardWidget> CardWidgetClass;

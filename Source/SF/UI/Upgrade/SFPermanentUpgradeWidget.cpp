@@ -4,6 +4,7 @@
 #include "UI/Upgrade/SFPermanentUpgradeWidget.h"
 
 #include "UI/Upgrade/SFPermanentUpgradeCardWidget.h"
+#include "UI/Common/CommonButtonBase.h"
 #include "Components/TextBlock.h"
 #include "Components/Button.h"
 #include "Components/HorizontalBox.h"
@@ -33,9 +34,9 @@ void USFPermanentUpgradeWidget::NativeConstruct()
 {
 	Super::NativeConstruct();
 
-	if (ButtonApply)  ButtonApply->OnClicked.AddDynamic(this, &USFPermanentUpgradeWidget::HandleApply);
-	if (ButtonCancel) ButtonCancel->OnClicked.AddDynamic(this, &USFPermanentUpgradeWidget::HandleCancel);
-	if (ButtonReset)  ButtonReset->OnClicked.AddDynamic(this, &USFPermanentUpgradeWidget::HandleReset);
+	if (Button_Apply)  Button_Apply->OnButtonClickedDelegate.AddDynamic(this, &USFPermanentUpgradeWidget::HandleApply);
+	if (Button_Cancel) Button_Cancel->OnButtonClickedDelegate.AddDynamic(this, &USFPermanentUpgradeWidget::HandleCancel);
+	if (Button_Reset)  Button_Reset->OnClicked.AddDynamic(this, &USFPermanentUpgradeWidget::HandleReset);
 
 	if (UGameInstance* GI = GetGameInstance())
 	{
@@ -147,7 +148,7 @@ void USFPermanentUpgradeWidget::RefreshAll()
 	// Soul
 	if (TextSoul)
 	{
-		TextSoul->SetText(FText::FromString(FString::Printf(TEXT("Soul : %d"), WorkingStats.Gold)));
+		TextSoul->SetText(FText::FromString(FString::Printf(TEXT("%d"), WorkingStats.Gold)));
 	}
 
 	// 남은 업그레이드 가능 포인트
@@ -156,7 +157,7 @@ void USFPermanentUpgradeWidget::RefreshAll()
 
 	if (TextCanUpgradeCount)
 	{
-		TextCanUpgradeCount->SetText(FText::FromString(FString::Printf(TEXT("Can Upgrade Count : %d"), Remaining)));
+		TextCanUpgradeCount->SetText(FText::FromString(FString::Printf(TEXT("%d"), Remaining)));
 	}
 
 	// Cards
@@ -177,9 +178,9 @@ void USFPermanentUpgradeWidget::RefreshAll()
 	}
 
 	// Apply는 변경 있을 때만
-	if (ButtonApply)
+	if (Button_Apply)
 	{
-		ButtonApply->SetIsEnabled(IsDirty());
+		Button_Apply->SetIsEnabled(IsDirty());
 	}
 }
 

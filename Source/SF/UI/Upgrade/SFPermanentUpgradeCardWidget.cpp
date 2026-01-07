@@ -76,12 +76,12 @@ FText USFPermanentUpgradeCardWidget::GetCategoryLabel() const
 {
 	switch (Category)
 	{
-	case ESFUpgradeCategory::Wrath: return FText::FromString(TEXT("Wrath"));
-	case ESFUpgradeCategory::Pride: return FText::FromString(TEXT("Pride"));
-	case ESFUpgradeCategory::Lust:  return FText::FromString(TEXT("Lust"));
-	case ESFUpgradeCategory::Sloth: return FText::FromString(TEXT("Sloth"));
-	case ESFUpgradeCategory::Greed: return FText::FromString(TEXT("Greed"));
-	default: return FText::FromString(TEXT("Unknown"));
+	case ESFUpgradeCategory::Wrath: return FText::FromString(TEXT("분노"));
+	case ESFUpgradeCategory::Pride: return FText::FromString(TEXT("오만"));
+	case ESFUpgradeCategory::Lust:  return FText::FromString(TEXT("색욕"));
+	case ESFUpgradeCategory::Sloth: return FText::FromString(TEXT("나태"));
+	case ESFUpgradeCategory::Greed: return FText::FromString(TEXT("탐욕"));
+	default: return FText::FromString(TEXT("미상"));
 	}
 }
 
@@ -101,7 +101,10 @@ void USFPermanentUpgradeCardWidget::SetTierLine(UBorder* Border, UImage* CheckIm
 	// “활성화 느낌” = 불투명도(밝기) + (선택) 체크 아이콘 표시
 	if (Border)
 	{
-		Border->SetRenderOpacity(bActive ? 1.0f : 0.35f);
+		const FLinearColor ActiveColor(1.0f, 0.75, 0.0f, 1.0f);
+		const FLinearColor InactiveColor = FLinearColor::White;
+		
+		Border->SetBrushColor(bActive ? ActiveColor : InactiveColor);
 	}
 
 	if (CheckImage)

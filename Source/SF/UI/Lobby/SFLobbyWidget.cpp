@@ -11,6 +11,7 @@
 #include "Player/Lobby/SFLobbyPlayerState.h"
 #include "System/SFAssetManager.h"
 #include "UI/Common/CommonButtonBase.h"
+#include "UI/Upgrade//SFPermanentUpgradeWidget.h"
 
 void USFLobbyWidget::NativeConstruct()
 {
@@ -18,12 +19,24 @@ void USFLobbyWidget::NativeConstruct()
 	ConfigureGameState();
 	SFLobbyPlayerController = GetOwningPlayer<ASFLobbyPlayerController>();
 	SFLobbyPlayerState = GetOwningPlayerState<ASFLobbyPlayerState>();
-	Button_Start->OnButtonClickedDelegate.AddDynamic(this, &ThisClass::StartMatchButtonClicked);
-	Button_Start->SetIsEnabled(false);
-	Button_Start->SetVisibility(ESlateVisibility::Hidden);
-	
-	Button_Ready->OnButtonClickedDelegate.AddDynamic(this, &ThisClass::ReadyButtonClicked);
-	Button_Ready->SetIsEnabled(false);
+
+	if (Button_Start)
+	{
+		Button_Start->OnButtonClickedDelegate.AddDynamic(this, &ThisClass::StartMatchButtonClicked);
+		Button_Start->SetIsEnabled(false);
+		Button_Start->SetVisibility(ESlateVisibility::Hidden);
+	}
+
+	if (Button_Ready)
+	{
+		Button_Ready->OnButtonClickedDelegate.AddDynamic(this, &ThisClass::ReadyButtonClicked);
+		Button_Ready->SetIsEnabled(false);
+	}
+
+	if (Button_Upgrade)
+	{
+		Button_Upgrade->OnButtonClickedDelegate.AddDynamic(this, &ThisClass::UpgradeButtonClicked);
+	}
 	
 	USFAssetManager::Get().LoadHeroDefinitions(FStreamableDelegate::CreateUObject(this, &ThisClass::HeroDefinitionLoaded));
 
@@ -173,6 +186,21 @@ void USFLobbyWidget::StartMatchButtonClicked()
 	if (SFLobbyPlayerController)
 	{
 		SFLobbyPlayerController->Server_RequestStartMatch();
+	}
+}
+
+void USFLobbyWidget::UpgradeButtonClicked()
+{
+	if (!UpgradeWidgetClass)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("UpgradeWidgetClass 가 USFLobbyWidget BP에서 설정되지 않았습니다."))
+		return;
+	}
+
+	USFPermanentUpgradeWidget* UpgradeWidget = CreateWidget<USFPermanentUpgradeWidget>(this, UpgradeWidgetClass);
+	if (UpgradeWidget)
+	{
+		UpgradeWidget->AddToViewport(100);
 	}
 }
 
