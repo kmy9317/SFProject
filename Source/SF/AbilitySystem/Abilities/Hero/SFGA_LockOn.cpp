@@ -1,6 +1,7 @@
 #include "SFGA_LockOn.h"
 #include "SF/Character/Hero/Component/SFLockOnComponent.h"
 #include "SF/Character/SFCharacterBase.h"
+#include "GameFramework/PlayerController.h"
 
 USFGA_LockOn::USFGA_LockOn()
 {
@@ -26,11 +27,19 @@ void USFGA_LockOn::ActivateAbility(const FGameplayAbilitySpecHandle Handle, cons
 		// 락온 시도 (Toggle 로직은 컴포넌트 내부에서 처리)
 		bool bSuccess = LockOnComp->TryLockOn();
 
+		// 실패했고, 기존 타겟도 없었다면 -> 카메라 리셋 (Camera Reset)
 		if (!bSuccess && !LockOnComp->GetCurrentTarget())
 		{
-			// 락온 실패했고, 기존 타겟도 없다면 -> 카메라 리셋 (정면 보기)
-			// 구현 팁: Controller의 SetControlRotation 등을 사용해 구현 가능
-			// 예: Controller->SetControlRotation(AvatarPawn->GetActorRotation());
+			if (APlayerController* PC = Cast<APlayerController>(AvatarPawn->GetController()))
+			{
+				// 캐릭터의 현재 앞방향 회전값
+				FRotator ActorRot = AvatarPawn->GetActorRotation();
+				
+				// 카메라의 컨트롤 회전을 캐릭터 뒤로 강제 설정
+				FRotator ResetRot = FRotator(-10.0f, ActorRot.Yaw, 0.0f);
+				
+				PC->SetControlRotation(ResetRot);
+			}
 		}
 	}
 
