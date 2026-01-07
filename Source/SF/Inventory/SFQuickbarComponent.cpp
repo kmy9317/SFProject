@@ -5,6 +5,7 @@
 #include "Net/UnrealNetwork.h"
 #include "Item/SFItemInstance.h"
 #include "Inventory/SFInventoryManagerComponent.h"
+#include "Player/Save/SFPersistentDataType.h"
 
 void FSFQuickbarEntry::Set(USFItemInstance* InItemInstance, int32 InItemCount)
 {
@@ -87,6 +88,74 @@ void USFQuickbarComponent::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>&
     Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 
     DOREPLIFETIME(ThisClass, QuickbarList);
+}
+
+void USFQuickbarComponent::SaveToData(TArray<FSFSavedItemSlot>& OutSlots) const
+{
+    OutSlots.SetNum(QuickbarList.Entries.Num());
+
+    for (int32 i = 0; i < QuickbarList.Entries.Num(); ++i)
+    {
+        const FSFQuickbarEntry& Entry = QuickbarList.Entries[i];
+        USFItemInstance* Item = Entry.GetItemInstance();
+
+        if (!Item || Entry.GetItemCount() <= 0)
+        {
+            continue;
+        }
+
+        FSFSavedItemSlot& Slot = OutSlots[i];
+        Slot.ItemID = Item->GetItemID();
+        Slot.RarityTag = Item->GetItemRarityTag();
+        Slot.ItemCount = Entry.GetItemCount();
+
+        for (const FSFGameplayTagStack& Stack : Item->GetStatContainer().GetStacks())
+        {
+            FSFSavedTagStack& SavedStack = Slot.StatStacks.AddDefaulted_GetRef();
+            SavedStack.Tag = Stack.GetStackTag();
+            SavedStack.StackCount = Stack.GetStackCount();
+        }
+
+        for (const FSFGameplayTagStack& Stack : Item->GetOwnedTagContainer().GetStacks())
+        {
+            FSFSavedTagStack& SavedStack = Slot.OwnedTagStacks.AddDefaulted_GetRef();
+            SavedStack.Tag = Stack.GetStackTag();
+            SavedStack.StackCount = Stack.GetStackCount();
+        }
+    }
+}
+
+void USFQuickbarComponent::RestoreFromData(const TArray<FSFSavedItemSlot>& InSlots)
+{
+    if (!GetOwner() || !GetOwner()->HasAuthority())
+    {
+        return;
+    }
+
+    int32 RestoredCount = 0;
+
+    for (int32 i = 0; i < InSlots.Num(); ++i)
+    {
+        const FSFSavedItemSlot& Slot = InSlots[i];
+        if (!Slot.IsValid() || !IsValidSlotIndex(i))
+        {
+            continue;
+        }
+
+        USFItemInstance* NewInstance = NewObject<USFItemInstance>(GetOwner());
+        NewInstance->InitializeFromSavedData(Slot);
+
+        FSFQuickbarEntry& Entry = QuickbarList.Entries[i];
+        Entry.Set(NewInstance, Slot.ItemCount);
+
+        if (IsUsingRegisteredSubObjectList() && IsReadyForReplication())
+        {
+            AddReplicatedSubObject(NewInstance);
+        }
+
+        QuickbarList.MarkItemDirty(Entry);
+        RestoredCount++;
+    }
 }
 
 bool USFQuickbarComponent::ReplicateSubobjects(UActorChannel* Channel, FOutBunch* Bunch, FReplicationFlags* RepFlags)

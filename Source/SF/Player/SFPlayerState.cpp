@@ -16,6 +16,8 @@
 #include "Components/SFPlayerCombatStateComponent.h"
 #include "Components/SFPlayerStatsComponent.h"
 #include "GameFramework/GameplayMessageSubsystem.h"
+#include "Inventory/SFInventoryManagerComponent.h"
+#include "Inventory/SFQuickbarComponent.h"
 #include "Messages/SFMessageGameplayTags.h"
 #include "Messages/SFPortalInfoMessages.h"
 #include "Net/UnrealNetwork.h"
@@ -145,6 +147,11 @@ void ASFPlayerState::CopyProperties(APlayerState* PlayerState)
 		NewPlayerState->SavedASCData = SavedASCData;
 	}
 
+	if (SavedInventoryData.IsValid())
+	{
+		NewPlayerState->SavedInventoryData = SavedInventoryData;
+	}
+	
 	if (CombatStateComponent && NewPlayerState->CombatStateComponent)
 	{
 		NewPlayerState->CombatStateComponent->RestoreCombatStateFromTravel(CombatStateComponent->GetCombatInfo());
@@ -154,6 +161,8 @@ void ASFPlayerState::CopyProperties(APlayerState* PlayerState)
 	{
 		NewPlayerState->StatsComponent->CopyStatsFrom(StatsComponent);
 	}
+
+	NewPlayerState->SavedInventoryData = SavedInventoryData;
 	
 	// TODO : 테스트용 삭제 예정
 	NewPlayerState->Gold = Gold;
@@ -331,8 +340,12 @@ void ASFPlayerState::SetPawnData(const USFPawnData* InPawnData)
 		// 강화는 "서버가 PlayFab 데이터를 수신한 이후"에만 적용되어야 함
 		//TryApplyPermanentUpgrade();
 	}
-	
 
+	if (HasSavedInventoryData())
+	{
+		RestorePersistedInventoryData();
+	}
+	
 	ForceNetUpdate();
 }
 
@@ -385,6 +398,21 @@ void ASFPlayerState::SavePersistedData()
 		AbilitySystemComponent->SaveAbilitiesToData(SavedASCData);
 		AbilitySystemComponent->SaveGameplayEffectsToData(SavedASCData);
 	}
+
+	SavedInventoryData.Reset();
+    
+	if (APlayerController* PC = GetSFPlayerController())
+	{
+		if (USFInventoryManagerComponent* Inventory = PC->FindComponentByClass<USFInventoryManagerComponent>())
+		{
+			Inventory->SaveToData(SavedInventoryData.InventorySlots);
+		}
+
+		if (USFQuickbarComponent* Quickbar = PC->FindComponentByClass<USFQuickbarComponent>())
+		{
+			Quickbar->SaveToData(SavedInventoryData.QuickbarSlots);
+		}
+	}
 }
 
 void ASFPlayerState::RestorePersistedAbilityData()
@@ -410,6 +438,32 @@ void ASFPlayerState::RestorePersistedAbilityData()
 
 	// 버퍼 비우기
 	SavedASCData.Reset();
+}
+
+void ASFPlayerState::RestorePersistedInventoryData()
+{
+	if (!SavedInventoryData.IsValid())
+	{
+		return;
+	}
+
+	APlayerController* PC = GetSFPlayerController();
+	if (!PC)
+	{
+		return;
+	}
+
+	if (USFInventoryManagerComponent* Inventory = PC->FindComponentByClass<USFInventoryManagerComponent>())
+	{
+		Inventory->RestoreFromData(SavedInventoryData.InventorySlots);
+	}
+
+	if (USFQuickbarComponent* Quickbar = PC->FindComponentByClass<USFQuickbarComponent>())
+	{
+		Quickbar->RestoreFromData(SavedInventoryData.QuickbarSlots);
+	}
+
+	SavedInventoryData.Reset();
 }
 
 void ASFPlayerState::Server_RequestSkillUpgrade_Implementation(TSubclassOf<USFGameplayAbility> NewAbilityClass, FGameplayTag InputTag)

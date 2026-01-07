@@ -6,6 +6,7 @@
 #include "Net/Serialization/FastArraySerializer.h"
 #include "SFQuickbarComponent.generated.h"
 
+struct FSFSavedItemSlot;
 class USFItemInstance;
 class USFItemDefinition;
 class USFInventoryManagerComponent;
@@ -80,6 +81,9 @@ class SF_API USFQuickbarComponent : public UControllerComponent
 
 public:
     USFQuickbarComponent(const FObjectInitializer& ObjectInitializer = FObjectInitializer::Get());
+
+    void SaveToData(TArray<FSFSavedItemSlot>& OutSlots) const;
+    void RestoreFromData(const TArray<FSFSavedItemSlot>& InSlots);
 
 protected:
     virtual void InitializeComponent() override;

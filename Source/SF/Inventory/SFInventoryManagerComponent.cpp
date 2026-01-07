@@ -7,6 +7,7 @@
 #include "Item/SFItemDefinition.h"
 #include "Item/SFItemInstance.h"
 #include "Item/SFItemRarityConfig.h"
+#include "Player/Save/SFPersistentDataType.h"
 
 void FSFInventoryEntry::Set(USFItemInstance* InItemInstance, int32 InItemCount)
 {
@@ -89,6 +90,74 @@ void USFInventoryManagerComponent::GetLifetimeReplicatedProps(TArray<FLifetimePr
     Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 
     DOREPLIFETIME(ThisClass, InventoryList);
+}
+
+void USFInventoryManagerComponent::SaveToData(TArray<FSFSavedItemSlot>& OutSlots) const
+{
+    OutSlots.SetNum(InventoryList.Entries.Num());
+
+    for (int32 i = 0; i < InventoryList.Entries.Num(); ++i)
+    {
+        const FSFInventoryEntry& Entry = InventoryList.Entries[i];
+        USFItemInstance* Item = Entry.GetItemInstance();
+
+        if (!Item || Entry.GetItemCount() <= 0)
+        {
+            continue;
+        }
+
+        FSFSavedItemSlot& Slot = OutSlots[i];
+        Slot.ItemID = Item->GetItemID();
+        Slot.RarityTag = Item->GetItemRarityTag();
+        Slot.ItemCount = Entry.GetItemCount();
+
+        for (const FSFGameplayTagStack& Stack : Item->GetStatContainer().GetStacks())
+        {
+            FSFSavedTagStack& SavedStack = Slot.StatStacks.AddDefaulted_GetRef();
+            SavedStack.Tag = Stack.GetStackTag();
+            SavedStack.StackCount = Stack.GetStackCount();
+        }
+
+        for (const FSFGameplayTagStack& Stack : Item->GetOwnedTagContainer().GetStacks())
+        {
+            FSFSavedTagStack& SavedStack = Slot.OwnedTagStacks.AddDefaulted_GetRef();
+            SavedStack.Tag = Stack.GetStackTag();
+            SavedStack.StackCount = Stack.GetStackCount();
+        }
+    }
+}
+
+void USFInventoryManagerComponent::RestoreFromData(const TArray<FSFSavedItemSlot>& InSlots)
+{
+    if (!GetOwner() || !GetOwner()->HasAuthority())
+    {
+        return;
+    }
+
+    int32 RestoredCount = 0;
+
+    for (int32 i = 0; i < InSlots.Num(); ++i)
+    {
+        const FSFSavedItemSlot& Slot = InSlots[i];
+        if (!Slot.IsValid() || !IsValidSlotIndex(i))
+        {
+            continue;
+        }
+
+        USFItemInstance* NewInstance = NewObject<USFItemInstance>(GetOwner());
+        NewInstance->InitializeFromSavedData(Slot);
+
+        FSFInventoryEntry& Entry = InventoryList.Entries[i];
+        Entry.Set(NewInstance, Slot.ItemCount);
+
+        if (IsUsingRegisteredSubObjectList() && IsReadyForReplication())
+        {
+            AddReplicatedSubObject(NewInstance);
+        }
+
+        InventoryList.MarkItemDirty(Entry);
+        RestoredCount++;
+    }
 }
 
 bool USFInventoryManagerComponent::ReplicateSubobjects(UActorChannel* Channel, FOutBunch* Bunch, FReplicationFlags* RepFlags)

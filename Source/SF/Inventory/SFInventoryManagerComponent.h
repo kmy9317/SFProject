@@ -7,6 +7,7 @@
 #include "SFInventoryManagerComponent.generated.h"
 
 
+struct FSFSavedItemSlot;
 class USFItemDefinition;
 class USFItemInstance;
 class USFEquipmentManagerComponent;
@@ -81,6 +82,9 @@ class SF_API USFInventoryManagerComponent : public UActorComponent
 
 public:
     USFInventoryManagerComponent(const FObjectInitializer& ObjectInitializer = FObjectInitializer::Get());
+
+    void SaveToData(TArray<FSFSavedItemSlot>& OutSlots) const;
+    void RestoreFromData(const TArray<FSFSavedItemSlot>& InSlots);
 
 protected:
     virtual void InitializeComponent() override;

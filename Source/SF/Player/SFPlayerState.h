@@ -115,6 +115,9 @@ public:
 	// Seamless Travel 후 ASC 데이터 복원
 	void RestorePersistedAbilityData();
 
+	bool HasSavedInventoryData() const { return SavedInventoryData.IsValid(); }
+	void RestorePersistedInventoryData();
+
 	// 스킬 업그레이드 요청 (클라이언트 → 서버)
 	UFUNCTION(Server, Reliable)
 	void Server_RequestSkillUpgrade(TSubclassOf<USFGameplayAbility> NewAbilityClass, FGameplayTag InputTag);
@@ -201,6 +204,10 @@ private:
 	// Seamless Travel 간 ASC 데이터 저장용
 	UPROPERTY()
 	FSFSavedAbilitySystemData SavedASCData;
+
+	// Seamless Travel 간 Inventory 데이터 저장용
+	UPROPERTY()
+	FSFSavedInventoryData SavedInventoryData;
 
 	//=====Permanent Upgrade=====
 	UPROPERTY(VisibleAnywhere)

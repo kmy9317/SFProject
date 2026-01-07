@@ -81,3 +81,75 @@ struct FSFSavedAbilitySystemData
 		SavedGameplayEffects.Reset();
 	}
 };
+
+USTRUCT()
+struct FSFSavedTagStack
+{
+	GENERATED_BODY()
+
+	UPROPERTY()
+	FGameplayTag Tag;
+
+	UPROPERTY()
+	int32 StackCount = 0;
+};
+
+USTRUCT()
+struct FSFSavedItemSlot
+{
+	GENERATED_BODY()
+
+	UPROPERTY()
+	int32 ItemID = INDEX_NONE;
+
+	UPROPERTY()
+	FGameplayTag RarityTag;
+
+	UPROPERTY()
+	int32 ItemCount = 0;
+
+	UPROPERTY()
+	TArray<FSFSavedTagStack> StatStacks;
+
+	UPROPERTY()
+	TArray<FSFSavedTagStack> OwnedTagStacks;
+
+	bool IsValid() const { return ItemID > INDEX_NONE && ItemCount > 0; }
+};
+
+USTRUCT()
+struct FSFSavedInventoryData
+{
+	GENERATED_BODY()
+
+	UPROPERTY()
+	TArray<FSFSavedItemSlot> InventorySlots;
+
+	UPROPERTY()
+	TArray<FSFSavedItemSlot> QuickbarSlots;
+
+	bool IsValid() const
+	{
+		for (const FSFSavedItemSlot& Slot : InventorySlots)
+		{
+			if (Slot.IsValid())
+			{
+				return true;
+			}
+		}
+		for (const FSFSavedItemSlot& Slot : QuickbarSlots)
+		{
+			if (Slot.IsValid())
+			{
+				return true;
+			}
+		}
+		return false;
+	}
+
+	void Reset()
+	{
+		InventorySlots.Empty();
+		QuickbarSlots.Empty();
+	}
+};

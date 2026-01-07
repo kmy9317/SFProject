@@ -5,6 +5,7 @@
 #include "AbilitySystem/Abilities/SFGameplayAbilityTags.h"
 #include "AbilitySystem/GameplayEvent/SFGameplayEventTags.h"
 #include "Character/SFCharacterGameplayTags.h"
+#include "Equipment/EquipmentComponent/SFEquipmentComponent.h"
 #include "Item/Fragments/SFItemFragment_Consumable.h"
 
 USFGA_Hero_DrinkPotion::USFGA_Hero_DrinkPotion(const FObjectInitializer& ObjectInitializer)
@@ -31,6 +32,11 @@ void USFGA_Hero_DrinkPotion::ActivateAbility(const FGameplayAbilitySpecHandle Ha
 	if (!GetConsumeItemInstance())
 	{
 		return;
+	}
+
+	if (USFEquipmentComponent* EquipmentComp = GetEquipmentComponent())
+	{
+		EquipmentComp->HideWeapons();
 	}
 
 	FGameplayTag MontageTag = DefaultDrinkMontageTag;
@@ -92,5 +98,15 @@ void USFGA_Hero_DrinkPotion::OnDrinkBegin(FGameplayEventData Payload)
 void USFGA_Hero_DrinkPotion::OnMontageFinished()
 {
 	EndAbility(CurrentSpecHandle, CurrentActorInfo, CurrentActivationInfo, true, false);
+}
+
+void USFGA_Hero_DrinkPotion::EndAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, bool bReplicateEndAbility, bool bWasCancelled)
+{
+	if (USFEquipmentComponent* EquipmentComp = GetEquipmentComponent())
+	{
+		EquipmentComp->ShowWeapons();
+	}
+	
+	Super::EndAbility(Handle, ActorInfo, ActivationInfo, bReplicateEndAbility, bWasCancelled);
 }
 
