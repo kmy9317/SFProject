@@ -11,10 +11,6 @@ class UNiagaraSystem;
 class UAbilitySystemComponent;
 class UGameplayEffect;
 
-/**
- * 지면에 설치되어 주기적으로 범위 피해를 입히는 장판 액터
- * SFAttackProjectile의 데미지 처리 방식을 참고하여 제작됨
- */
 UCLASS()
 class SF_API ASFGroundAOE : public AActor
 {
@@ -23,29 +19,31 @@ class SF_API ASFGroundAOE : public AActor
 public:	
 	ASFGroundAOE(const FObjectInitializer& ObjectInitializer = FObjectInitializer::Get());
 
-	// 어빌리티에서 생성 직후 호출하여 데이터 주입
+	// 초기화 함수
 	void InitAOE(
 		UAbilitySystemComponent* InSourceASC,
 		AActor* InSourceActor,
 		float InBaseDamage,
 		float InRadius,
 		float InDuration,
-		float InTickInterval
+		float InTickInterval,
+		float InExplosionRadius = -1.0f,          // -1이면 에디터 설정값 유지
+		float InExplosionDamageMultiplier = -1.0f, // -1이면 에디터 설정값 유지
+		bool bOverrideExplodeOnEnd = false,        // true면 아래 bForceExplode 사용 (옵션 처리 변경)
+		bool bForceExplode = false 
 	);
 
 protected:
 	virtual void BeginPlay() override;
 	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
 
-	// 주기적 데미지 처리 함수
 	UFUNCTION()
 	void OnDamageTick();
 
-	// 서버에서 실제 데미지 적용
-	void ApplyDamageEffect_Server();
-
-	// 지속 시간 종료 시
+	virtual void ApplyDamageToTargets(float DamageAmount, float EffectRadius);
 	void OnDurationExpired();
+	void ExecuteRemovalGameplayCue();
+	void ExecuteExplosion();
 
 protected:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="SF|Components")
@@ -54,31 +52,47 @@ protected:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="SF|Components")
 	TObjectPtr<UNiagaraComponent> AreaEffect;
 
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="SF|Components")
+	TObjectPtr<UParticleSystemComponent> AreaEffectCascade;
+
 protected:
-	// === 설정 가능 요소 === //
+	// === [변경] 에디터에서 설정 가능한 폭발 옵션 === //
 	
-	// 장판 생성 시 재생할 사운드 (옵션)
+	// 폭발 범위 (기본값 300). 0보다 크면 Tick 범위와 다르게 적용됨.
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="SF|AOE|Explosion")
+	float ExplosionRadius = 300.f;
+
+	// 폭발 데미지 배율 (기본 1.0 = 100%).
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="SF|AOE|Explosion")
+	float ExplosionDamageMultiplier = 1.0f;
+
+	// 지속시간 종료 시 폭발 여부
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="SF|AOE|Explosion")
+	bool bExplodeOnEnd = false;
+
+	// === 기타 설정 === //
+	
 	UPROPERTY(EditDefaultsOnly, Category="SF|AOE|FX")
 	TObjectPtr<USoundBase> SpawnSound;
 
-	// 매 타격 시 재생할 사운드 (옵션)
 	UPROPERTY(EditDefaultsOnly, Category="SF|AOE|FX")
 	TObjectPtr<USoundBase> TickSound;
 
-	// 데미지와 별도로 적용할 디버프 GE (예: 슬로우, 방어력 감소)
+	UPROPERTY(EditDefaultsOnly, Category="SF|AOE|FX")
+	FGameplayTag RemoveGameplayCueTag;
+
+	UPROPERTY(EditDefaultsOnly, Category="SF|AOE|FX")
+	FGameplayTag ExplosionGameplayCueTag;
+	
 	UPROPERTY(EditDefaultsOnly, Category="SF|AOE|Effect")
 	TSubclassOf<UGameplayEffect> DebuffGameplayEffectClass;
 	
-	// 데미지 적용에 사용할 기본 GE (SetByCaller 사용)
-	// 비워둘 경우 SFAttackProjectile 처럼 GameData의 공용 GE를 사용하도록 구현 가능
 	UPROPERTY(EditDefaultsOnly, Category="SF|AOE|Effect")
 	TSubclassOf<UGameplayEffect> DamageGameplayEffectClass;
 
-	// SetByCaller로 데미지를 넣을 태그
 	UPROPERTY(EditDefaultsOnly, Category="SF|AOE|Effect")
 	FGameplayTag SetByCallerDamageTag;
-
-private:
+	
 	// 런타임 데이터
 	UPROPERTY()
 	TWeakObjectPtr<UAbilitySystemComponent> SourceASC;
@@ -87,7 +101,7 @@ private:
 	TWeakObjectPtr<AActor> SourceActor;
 
 	float BaseDamage = 0.f;
-	float AttackRadius = 300.f;
+	float AttackRadius = 300.f; // Tick용 반경
 	
 	FTimerHandle DurationTimerHandle;
 	FTimerHandle TickTimerHandle;

@@ -15,38 +15,58 @@ ASFGroundAOE::ASFGroundAOE(const FObjectInitializer& ObjectInitializer)
 	PrimaryActorTick.bCanEverTick = false;
 	bReplicates = true;
 
-	// 루트 컴포넌트: 충돌 범위
 	AreaCollision = CreateDefaultSubobject<USphereComponent>(TEXT("AreaCollision"));
 	RootComponent = AreaCollision;
-	AreaCollision->SetCollisionProfileName(TEXT("NoCollision")); // Overlap 검사는 쿼리로 직접 수행
+	AreaCollision->SetCollisionProfileName(TEXT("NoCollision"));
 	
-	// 시각 효과
 	AreaEffect = CreateDefaultSubobject<UNiagaraComponent>(TEXT("AreaEffect"));
 	AreaEffect->SetupAttachment(RootComponent);
+
+	AreaEffectCascade = CreateDefaultSubobject<UParticleSystemComponent>(TEXT("AreaEffectCascade"));
+	AreaEffectCascade->SetupAttachment(RootComponent);
 	
-	// 기본 SetByCaller 태그 설정 (SFAttackProjectile과 동일하게 맞춤)
 	SetByCallerDamageTag = FGameplayTag::RequestGameplayTag(TEXT("Data.Damage.BaseDamage"), false);
 }
 
-void ASFGroundAOE::InitAOE(UAbilitySystemComponent* InSourceASC, AActor* InSourceActor, float InBaseDamage, float InRadius, float InDuration, float InTickInterval)
+// [변경] 인자가 유효할 때만 변수를 덮어씌움
+void ASFGroundAOE::InitAOE(UAbilitySystemComponent* InSourceASC, AActor* InSourceActor, float InBaseDamage, float InRadius, float InDuration, float InTickInterval, float InExplosionRadius, float InExplosionDamageMultiplier, bool bOverrideExplodeOnEnd, bool bForceExplode)
 {
 	SourceASC = InSourceASC;
 	SourceActor = InSourceActor;
 	BaseDamage = InBaseDamage;
 	AttackRadius = InRadius;
 
-	// 범위 적용
+	// === 폭발 설정 처리 ===
+	// 1. 폭발 반경: 인자가 유효(>0)하면 덮어쓰고, 아니면 에디터 설정값 유지
+	if (InExplosionRadius > 0.f)
+	{
+		ExplosionRadius = InExplosionRadius;
+	}
+
+	// 2. 데미지 배율: 인자가 유효(>=0)하면 덮어쓰고, 아니면 에디터 설정값 유지
+	if (InExplosionDamageMultiplier >= 0.f)
+	{
+		ExplosionDamageMultiplier = InExplosionDamageMultiplier;
+	}
+
+	// 3. 폭발 여부: 오버라이드 플래그가 true일 때만 인자값 적용
+	if (bOverrideExplodeOnEnd)
+	{
+		bExplodeOnEnd = bForceExplode;
+	}
+
+	// 충돌체 크기는 기본 공격(Tick) 범위로 설정
 	AreaCollision->SetSphereRadius(AttackRadius);
 	
-	// 이펙트 스케일 조정 (Niagara 파라미터로 넘길 수도 있지만, 여기선 액터/컴포넌트 스케일로 단순화)
-	// 기본 반경이 100이라고 가정할 때의 비율 계산 예시
+	// 이펙트 스케일 (기본 범위 기준)
 	float Scale = AttackRadius / 100.f; 
-	AreaEffect->SetWorldScale3D(FVector(Scale, Scale, 1.0f)); // 높이는 유지하거나 조정
+	FVector NewScale = FVector(Scale, Scale, 1.0f);
 
-	// 타이머 시작
+	if (AreaEffect) AreaEffect->SetWorldScale3D(NewScale);
+	if (AreaEffectCascade) AreaEffectCascade->SetWorldScale3D(NewScale);
+
 	if (HasAuthority())
 	{
-		// 지속 시간 타이머
 		GetWorld()->GetTimerManager().SetTimer(
 			DurationTimerHandle,
 			this,
@@ -55,7 +75,6 @@ void ASFGroundAOE::InitAOE(UAbilitySystemComponent* InSourceASC, AActor* InSourc
 			false
 		);
 
-		// 틱 데미지 타이머
 		if (InTickInterval > 0.f)
 		{
 			GetWorld()->GetTimerManager().SetTimer(
@@ -63,8 +82,8 @@ void ASFGroundAOE::InitAOE(UAbilitySystemComponent* InSourceASC, AActor* InSourc
 				this,
 				&ASFGroundAOE::OnDamageTick,
 				InTickInterval,
-				true, // Loop
-				0.f   // First delay (즉시 발동)
+				true, 
+				0.f   
 			);
 		}
 	}
@@ -89,28 +108,62 @@ void ASFGroundAOE::EndPlay(const EEndPlayReason::Type EndPlayReason)
 
 void ASFGroundAOE::OnDurationExpired()
 {
+	if (bExplodeOnEnd)
+	{
+		ExecuteExplosion();
+	}
+	else
+	{
+		ExecuteRemovalGameplayCue();
+	}
+	
 	Destroy();
+}
+
+void ASFGroundAOE::ExecuteExplosion()
+{
+	// 1. 서버: 데미지 적용
+	if (HasAuthority())
+	{
+		float FinalExplosionDamage = BaseDamage * ExplosionDamageMultiplier;
+		
+		// 에디터에서 설정된(혹은 InitAOE로 덮어씌워진) ExplosionRadius 사용
+		ApplyDamageToTargets(FinalExplosionDamage, ExplosionRadius);
+	}
+
+	// 2. GameplayCue 실행
+	if (SourceASC.IsValid() && ExplosionGameplayCueTag.IsValid())
+	{
+		FGameplayCueParameters CueParams;
+		CueParams.Location = GetActorLocation();
+		CueParams.Instigator = SourceActor.Get();
+		CueParams.EffectCauser = this;
+		
+		// GC에 폭발 반경 전달 (VFX 스케일링 등에 사용 가능)
+		CueParams.RawMagnitude = ExplosionRadius; 
+
+		SourceASC->ExecuteGameplayCue(ExplosionGameplayCueTag, CueParams);
+	}
 }
 
 void ASFGroundAOE::OnDamageTick()
 {
 	if (HasAuthority())
 	{
-		ApplyDamageEffect_Server();
+		// 틱 데미지는 기본 반경(AttackRadius) 사용
+		ApplyDamageToTargets(BaseDamage, AttackRadius);
 	}
 	
-	// 클라이언트: 틱 사운드 재생
 	if (TickSound)
 	{
 		UGameplayStatics::PlaySoundAtLocation(this, TickSound, GetActorLocation());
 	}
 }
 
-void ASFGroundAOE::ApplyDamageEffect_Server()
+void ASFGroundAOE::ApplyDamageToTargets(float DamageAmount, float EffectRadius)
 {
 	if (!SourceASC.IsValid()) return;
 
-	// 범위 내 대상 탐지
 	TArray<FOverlapResult> Overlaps;
 	FCollisionQueryParams QueryParams;
 	QueryParams.AddIgnoredActor(this);
@@ -120,18 +173,18 @@ void ASFGroundAOE::ApplyDamageEffect_Server()
 	ObjectParams.AddObjectTypesToQuery(ECC_Pawn);
 	ObjectParams.AddObjectTypesToQuery(ECC_WorldDynamic);
 
+	// 인자로 받은 EffectRadius 사용
 	bool bHit = GetWorld()->OverlapMultiByObjectType(
 		Overlaps,
 		GetActorLocation(),
 		FQuat::Identity,
 		ObjectParams,
-		FCollisionShape::MakeSphere(AttackRadius),
+		FCollisionShape::MakeSphere(EffectRadius),
 		QueryParams
 	);
 
 	if (!bHit) return;
 
-	// 데미지 GE 클래스 결정 (없으면 기본값)
 	TSubclassOf<UGameplayEffect> DamageGE = DamageGameplayEffectClass;
 	if (!DamageGE)
 	{
@@ -140,7 +193,6 @@ void ASFGroundAOE::ApplyDamageEffect_Server()
 
 	if (!DamageGE) return;
 
-	// 중복 피격 방지용 (한 틱 내에서)
 	TSet<AActor*> ProcessedActors;
 
 	for (const FOverlapResult& Overlap : Overlaps)
@@ -150,7 +202,7 @@ void ASFGroundAOE::ApplyDamageEffect_Server()
 
 		ProcessedActors.Add(TargetActor);
 
-		// 아군 판정 (Projectile 코드 참고)
+		// 아군 피격 방지 로직
 		if (ASFCharacterBase* SourceChar = Cast<ASFCharacterBase>(SourceActor.Get()))
 		{
 			if (ASFCharacterBase* TargetChar = Cast<ASFCharacterBase>(TargetActor))
@@ -162,26 +214,22 @@ void ASFGroundAOE::ApplyDamageEffect_Server()
 			}
 		}
 
-		// GE 적용
 		UAbilitySystemComponent* TargetASC = UAbilitySystemBlueprintLibrary::GetAbilitySystemComponent(TargetActor);
 		if (TargetASC)
 		{
-			// Context 생성
 			FGameplayEffectContextHandle ContextHandle = SourceASC->MakeEffectContext();
 			ContextHandle.AddInstigator(SourceActor.Get(), this);
 			
-			// Spec 생성 및 데미지 주입
 			FGameplayEffectSpecHandle SpecHandle = SourceASC->MakeOutgoingSpec(DamageGE, 1.0f, ContextHandle);
 			if (SpecHandle.IsValid())
 			{
 				if (SetByCallerDamageTag.IsValid())
 				{
-					SpecHandle.Data->SetSetByCallerMagnitude(SetByCallerDamageTag, BaseDamage);
+					SpecHandle.Data->SetSetByCallerMagnitude(SetByCallerDamageTag, DamageAmount);
 				}
 				SourceASC->ApplyGameplayEffectSpecToTarget(*SpecHandle.Data.Get(), TargetASC);
 			}
 
-			// 추가 디버프 적용
 			if (DebuffGameplayEffectClass)
 			{
 				FGameplayEffectSpecHandle DebuffSpec = SourceASC->MakeOutgoingSpec(DebuffGameplayEffectClass, 1.0f, ContextHandle);
@@ -191,5 +239,18 @@ void ASFGroundAOE::ApplyDamageEffect_Server()
 				}
 			}
 		}
+	}
+}
+
+void ASFGroundAOE::ExecuteRemovalGameplayCue()
+{
+	if (HasAuthority() && RemoveGameplayCueTag.IsValid() && SourceASC.IsValid())
+	{
+		FGameplayCueParameters CueParams;
+		CueParams.Location = GetActorLocation();
+		CueParams.Instigator = SourceActor.Get();
+		CueParams.EffectCauser = this;
+		
+		SourceASC->ExecuteGameplayCue(RemoveGameplayCueTag, CueParams);
 	}
 }

@@ -148,7 +148,6 @@ void ASFAttackProjectile::OnProjectileOverlap(
 	const FHitResult& SweepResult
 )
 {
-	UE_LOG(LogTemp, Error, TEXT("OMGWTF"));
 	if (!OtherActor || OtherActor == this)
 	{
 		return;
@@ -163,51 +162,95 @@ void ASFAttackProjectile::OnProjectileOverlap(
 		}
 	}
 
+	bool bAppliedEffect = false; // 효과(데미지 or 버프)가 적용되었는지 체크
+
+	// 1. 캐릭터 판정 및 팀 체크
 	ASFCharacterBase* TargetCharacter = Cast<ASFCharacterBase>(OtherActor);
-	if (!TargetCharacter)
-	{
-		return;
-	}
-
 	ASFCharacterBase* SourceCharacter = Cast<ASFCharacterBase>(SourceActor.Get());
-	if (SourceCharacter)
-	{
-		const ETeamAttitude::Type Attitude =
-			SourceCharacter->GetTeamAttitudeTowards(*TargetCharacter);
+	
+	bool bIsFriendly = false;
 
-		// 아군이면 "통과"
-		if (Attitude == ETeamAttitude::Friendly)
-		{
-			// 중복 Overlap 방지 + 완전 통과
-			Collision->IgnoreActorWhenMoving(TargetCharacter, true);
-			return;
-		}
+	if (TargetCharacter && SourceCharacter)
+	{
+		const ETeamAttitude::Type Attitude = SourceCharacter->GetTeamAttitudeTowards(*TargetCharacter);
+		bIsFriendly = (Attitude == ETeamAttitude::Friendly);
 	}
 
-	// 서버에서만 데미지/GE 적용
-	if (HasAuthority())
+	// -------------------------------------------------------
+	// Case A: 아군일 경우
+	// -------------------------------------------------------
+	if (bIsFriendly)
 	{
-		// 1. 직격 데미지 적용 (단일 대상)
-		ApplyHitEffects_Server(OtherActor, SweepResult);
-		
-		// 2. 임팩트 효과 재생
-		FVector ImpactLoc = bFromSweep ? FVector(SweepResult.ImpactPoint) : GetActorLocation();
-		FVector ImpactNorm = bFromSweep ? FVector(SweepResult.ImpactNormal) : -GetVelocity().GetSafeNormal();
-       
-		Multicast_PlayImpactFX(ImpactLoc, ImpactNorm);
-
-		// 3. 폭발 로직 실행 (캐릭터 피격 시에도 폭발)
-		if (bIsExplosive)
+		// 아군 버프 옵션이 켜져 있다면 버프 적용
+		if (bApplyBuffToFriendly)
 		{
-			// 직격당한 대상(TargetCharacter)이 폭발 데미지까지 중복으로 입을지 여부는 기획에 따라 다릅니다.
-			// 보통 '직격 데미지 + 폭발 데미지'를 모두 주는 것이 타격감이 좋으므로 그대로 폭발을 터뜨립니다.
-			ProcessExplosion_Server(ImpactLoc);
+			if (HasAuthority())
+			{
+				ApplyBuff_Server(OtherActor, SweepResult);
+				
+				// 시각 효과 (필요하다면 아군용 FX를 따로 분리할 수도 있음)
+				FVector ImpactLoc = bFromSweep ? FVector(SweepResult.ImpactPoint) : GetActorLocation();
+				FVector ImpactNorm = bFromSweep ? FVector(SweepResult.ImpactNormal) : -GetVelocity().GetSafeNormal();
+				Multicast_PlayImpactFX(ImpactLoc, ImpactNorm);
+			}
+			bAppliedEffect = true;
+		}
+		else
+		{
+			// 버프 옵션이 꺼져있다면 기존처럼 "완전 통과(무시)" 처리
+			Collision->IgnoreActorWhenMoving(OtherActor, true);
+			return; 
 		}
 	}
-
-	if (bDestroyOnHit)
+	// -------------------------------------------------------
+	// Case B: 적(Hostile) 또는 중립일 경우
+	// -------------------------------------------------------
+	else 
 	{
-		Destroy();
+		// 서버에서만 데미지/GE/폭발 적용
+		if (HasAuthority())
+		{
+			// 1. 직격 데미지 적용
+			ApplyHitEffects_Server(OtherActor, SweepResult);
+			
+			// 2. 임팩트 효과
+			FVector ImpactLoc = bFromSweep ? FVector(SweepResult.ImpactPoint) : GetActorLocation();
+			FVector ImpactNorm = bFromSweep ? FVector(SweepResult.ImpactNormal) : -GetVelocity().GetSafeNormal();
+			Multicast_PlayImpactFX(ImpactLoc, ImpactNorm);
+
+			// 3. 폭발 로직 (아군이 아닐 때만 폭발한다고 가정)
+			if (bIsExplosive)
+			{
+				ProcessExplosion_Server(ImpactLoc);
+			}
+		}
+		bAppliedEffect = true;
+	}
+
+	// -------------------------------------------------------
+	// 공통: 관통(Pierce) 및 파괴 처리
+	// -------------------------------------------------------
+	
+	// 효과가 적용된 대상(적 혹은 버프받은 아군)과는 
+	// 더 이상 물리적으로 부딪히지 않도록 하여 '지나가게' 만듭니다.
+	// (이걸 안 하면 Overlap이 매 프레임 발생하거나 껴버릴 수 있음)
+	if (bAppliedEffect)
+	{
+		Collision->IgnoreActorWhenMoving(OtherActor, true);
+	}
+
+	// 관통 옵션이 켜져 있으면 파괴하지 않음 (뚫고 지나감)
+	if (bCanPierce)
+	{
+		// 관통 시에는 Destroy 호출 안 함 -> 계속 날아감
+	}
+	else
+	{
+		// 관통이 아닌데, 파괴 옵션이 켜져 있으면 파괴
+		if (bDestroyOnHit)
+		{
+			Destroy();
+		}
 	}
 }
 
@@ -407,4 +450,32 @@ void ASFAttackProjectile::ProcessExplosion_Server(const FVector& Location)
             }
         }
     }
+}
+
+void ASFAttackProjectile::ApplyBuff_Server(AActor* TargetActor, const FHitResult& Hit)
+{
+	if (!BuffGameplayEffectClass) return;
+
+	UAbilitySystemComponent* SrcASC = SourceASC.Get();
+	UAbilitySystemComponent* TargetASC = UAbilitySystemBlueprintLibrary::GetAbilitySystemComponent(TargetActor);
+
+	if (!SrcASC || !TargetASC) return;
+
+	FGameplayEffectContextHandle ContextHandle = SrcASC->MakeEffectContext();
+	if (FSFGameplayEffectContext* SFContext = static_cast<FSFGameplayEffectContext*>(ContextHandle.Get()))
+	{
+		SFContext->AddHitResult(Hit);
+		SFContext->AddSourceObject(this);
+	}
+	if (AActor* SrcActor = SourceActor.Get())
+	{
+		ContextHandle.AddInstigator(SrcActor, this);
+	}
+
+	// 버프 GE 스펙 생성 및 적용
+	FGameplayEffectSpecHandle SpecHandle = SrcASC->MakeOutgoingSpec(BuffGameplayEffectClass, 1.0f, ContextHandle);
+	if (SpecHandle.IsValid())
+	{
+		SrcASC->ApplyGameplayEffectSpecToTarget(*SpecHandle.Data.Get(), TargetASC);
+	}
 }

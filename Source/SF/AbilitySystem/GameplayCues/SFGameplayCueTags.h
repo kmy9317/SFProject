@@ -8,6 +8,12 @@ namespace SFGameplayTags
 	SF_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(GameplayCue_Skill_HeartBreaker_Charging)
 	SF_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(GameplayCue_Skill_Buff)
 	SF_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(GameplayCue_Skill_Wave)
+	SF_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(GameplayCue_Skill_WeaponBurst);
+	SF_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(GameplayCue_Skill_MagicBall_Charging)
+	SF_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(GameplayCue_Skill_MagicBall_Explosion)
+	SF_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(GameplayCue_Skill_GroundAoE_Destroy)
+	SF_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(GameplayCue_Skill_FireUlt_Explosion)
+	SF_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(GameplayCue_Skill_IceUlt_Loop)
 	
 	SF_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(GameplayCue_HitReaction);
 	SF_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(GameplayCue_HitReaction_Type_Player);
@@ -40,4 +46,11 @@ namespace SFGameplayTags
 	SF_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(GameplayCue_Dragon_Indicator);
 	
 	
+
+	SF_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(GameplayCue_Buff);
+	
+	SF_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(GameplayCue_DeBuff);
+	SF_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(GameplayCue_DeBuff_Burn);
+	SF_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(GameplayCue_DeBuff_Frozen);
+	SF_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(GameplayCue_DeBuff_Shock);
 }

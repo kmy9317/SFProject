@@ -134,6 +134,21 @@ protected:
 	// 폭발 GC
 	UPROPERTY(EditDefaultsOnly, Category="SF|Projectile|Explosion")
 	FGameplayTag ExplosionCueTag;
+
+	// 관통 여부 (True면 적/아군 충돌 시 파괴되지 않고 뚫고 지나감)
+	UPROPERTY(EditDefaultsOnly, Category="SF|Projectile")
+	bool bCanPierce = false;
+
+	// 아군에게 버프 적용 여부 (True면 아군을 무시하지 않고 피격 판정)
+	UPROPERTY(EditDefaultsOnly, Category="SF|Projectile|Buff")
+	bool bApplyBuffToFriendly = false;
+
+	// 아군 피격 시 적용할 버프 GE
+	UPROPERTY(EditDefaultsOnly, Category="SF|Projectile|Buff")
+	TSubclassOf<UGameplayEffect> BuffGameplayEffectClass;
+
+	// 아군 버프 적용 처리를 위한 서버 함수
+	void ApplyBuff_Server(AActor* TargetActor, const FHitResult& Hit);
 	
 private:
 	UPROPERTY()

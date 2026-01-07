@@ -41,8 +41,8 @@ void USFGA_Hero_ProjectileLaunch::ActivateAbility(
 		this,
 		ProjectileSpawnEventTag,
 		nullptr,
-		/*OnlyTriggerOnce*/ true,
-		/*OnlyMatchExact*/ true
+		true,
+		true
 	);
 
 	if (WaitEventTask)
@@ -61,6 +61,7 @@ void USFGA_Hero_ProjectileLaunch::ActivateAbility(
 
 	if (MontageTask)
 	{
+		MontageTask->OnBlendOut.AddDynamic(this, &ThisClass::OnMontageCompleted);
 		MontageTask->OnCompleted.AddDynamic(this, &ThisClass::OnMontageCompleted);
 		MontageTask->OnInterrupted.AddDynamic(this, &ThisClass::OnMontageInterrupted);
 		MontageTask->OnCancelled.AddDynamic(this, &ThisClass::OnMontageCancelled);
@@ -74,6 +75,11 @@ void USFGA_Hero_ProjectileLaunch::ActivateAbility(
 
 void USFGA_Hero_ProjectileLaunch::OnProjectileSpawnEventReceived(FGameplayEventData Payload)
 {
+	if (!IsActive())
+	{
+		return;
+	}
+	
 	// 만약 시전 도중 마나가 부족해졌거나 조건이 안 맞으면 발사 실패 처리합니다.
 	if (!CommitAbility(CurrentSpecHandle, CurrentActorInfo, CurrentActivationInfo))
 	{
@@ -97,8 +103,6 @@ void USFGA_Hero_ProjectileLaunch::OnProjectileSpawnEventReceived(FGameplayEventD
 	{
 		SpawnProjectile_Server(SpawnTM, LaunchDir);
 	}
-
-	// 주의: 여기서 EndAbility를 호출하지 않고 몽타주 종료를 기다립니다.
 }
 
 void USFGA_Hero_ProjectileLaunch::SpawnProjectile_Server(const FTransform& SpawnTM, const FVector& LaunchDir)
@@ -121,21 +125,27 @@ void USFGA_Hero_ProjectileLaunch::SpawnProjectile_Server(const FTransform& Spawn
 	Params.Instigator = Cast<APawn>(Character);
 	Params.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
 
-	ASFAttackProjectile* Projectile = World->SpawnActor<ASFAttackProjectile>(
+	ASFAttackProjectile* Projectile = World->SpawnActorDeferred<ASFAttackProjectile>(
 		ProjectileClass,
-		SpawnTM.GetLocation(),
-		LaunchDir.Rotation(),
-		Params
+		SpawnTM,
+		Params.Owner,
+		Params.Instigator,
+		ESpawnActorCollisionHandlingMethod::AlwaysSpawn
 	);
-
+	
+	const float Damage = GetScaledBaseDamage();
+	Projectile->InitProjectile(SourceASC, Damage, Character);
+	
+	if (Projectile)
+	{
+		Projectile->FinishSpawning(SpawnTM);
+	}
+	
 	if (!Projectile)
 	{
 		return;
 	}
-
-	const float Damage = GetScaledBaseDamage();
-
-	Projectile->InitProjectile(SourceASC, Damage, Character);
+	
 	Projectile->Launch(LaunchDir);
 }
 
@@ -201,6 +211,17 @@ void USFGA_Hero_ProjectileLaunch::OnMontageCancelled()
 	EndAbility(CurrentSpecHandle, CurrentActorInfo, CurrentActivationInfo, true, true);
 }
 
+void USFGA_Hero_ProjectileLaunch::CancelAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, bool bReplicateCancelAbility)
+{
+	if (ScopeLockCount > 0)
+	{
+		WaitingToExecute.Add(FPostLockDelegate::CreateUObject(this, &USFGA_Hero_ProjectileLaunch::CancelAbility, Handle, ActorInfo, ActivationInfo, bReplicateCancelAbility));
+		return;
+	}
+
+	Super::CancelAbility(Handle, ActorInfo, ActivationInfo, bReplicateCancelAbility);
+}
+
 void USFGA_Hero_ProjectileLaunch::EndAbility(
 	const FGameplayAbilitySpecHandle Handle,
 	const FGameplayAbilityActorInfo* ActorInfo,
@@ -211,15 +232,21 @@ void USFGA_Hero_ProjectileLaunch::EndAbility(
 {
 	if (WaitEventTask)
 	{
-		WaitEventTask->EventReceived.RemoveAll(this);
+		WaitEventTask->EventReceived.RemoveAll(this); // 델리게이트 해제 (필수)
+		WaitEventTask->EndTask(); 
 		WaitEventTask = nullptr;
 	}
 
 	if (MontageTask)
 	{
+		// 델리게이트를 먼저 끊어주어, EndTask()로 인한 몽타주 중지 이벤트가 
+		// 다시 OnMontageInterrupted -> EndAbility 로 들어오는 루프를 차단합니다.
+		MontageTask->OnBlendOut.RemoveAll(this);
 		MontageTask->OnCompleted.RemoveAll(this);
 		MontageTask->OnInterrupted.RemoveAll(this);
 		MontageTask->OnCancelled.RemoveAll(this);
+
+		MontageTask->EndTask();
 		MontageTask = nullptr;
 	}
 

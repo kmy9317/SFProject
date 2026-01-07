@@ -5,6 +5,12 @@ namespace SFGameplayTags
 	UE_DEFINE_GAMEPLAY_TAG(GameplayCue_Skill_HeartBreaker_Charging, TEXT("GameplayCue.Skill.HeartBreaker.Charging"))
 	UE_DEFINE_GAMEPLAY_TAG(GameplayCue_Skill_Buff, TEXT("GameplayCue.Skill.Buff"))
 	UE_DEFINE_GAMEPLAY_TAG(GameplayCue_Skill_Wave, TEXT("GameplayCue.Skill.Wave"))
+	UE_DEFINE_GAMEPLAY_TAG(GameplayCue_Skill_WeaponBurst, TEXT("GameplayCue.Skill.WeaponBurst"))
+	UE_DEFINE_GAMEPLAY_TAG(GameplayCue_Skill_MagicBall_Charging, TEXT("GameplayCue.Skill.MagicBall.Charging"))
+	UE_DEFINE_GAMEPLAY_TAG(GameplayCue_Skill_MagicBall_Explosion, TEXT("GameplayCue.Skill.MagicBall.Explosion"))
+	UE_DEFINE_GAMEPLAY_TAG(GameplayCue_Skill_GroundAoE_Destroy, TEXT("GameplayCue.Skill.GroundAoE.Destroy"))
+	UE_DEFINE_GAMEPLAY_TAG(GameplayCue_Skill_FireUlt_Explosionn, TEXT("GameplayCue.Skill.FireUlt.Explosion"))
+	UE_DEFINE_GAMEPLAY_TAG(GameplayCue_Skill_IceUlt_Loop, TEXT("GameplayCue.Skill.IceUlt.Loop"))
 	
 	UE_DEFINE_GAMEPLAY_TAG(GameplayCue_HitReaction, TEXT("GameplayCue.HitReaction"))
 	UE_DEFINE_GAMEPLAY_TAG(GameplayCue_HitReaction_Type_Player, TEXT("GameplayCue.HitReaction.Type.Player"))
@@ -38,4 +44,11 @@ namespace SFGameplayTags
 	UE_DEFINE_GAMEPLAY_TAG(GameplayCue_Dragon_PhaseIntro, TEXT("GameplayCue.Dragon.PhaseIntro"))
 	UE_DEFINE_GAMEPLAY_TAG(GameplayCue_Dragon_FireBallExplosion, TEXT("GameplayCue.Dragon.FireBallExplosion"))
 	
+
+	UE_DEFINE_GAMEPLAY_TAG(GameplayCue_Buff, TEXT("GameplayCue.Buff"))
+
+	UE_DEFINE_GAMEPLAY_TAG(GameplayCue_DeBuff, TEXT("GameplayCue.DeBuff"))
+	UE_DEFINE_GAMEPLAY_TAG(GameplayCue_DeBuff_Burn, TEXT("GameplayCue.DeBuff.Burn"))
+	UE_DEFINE_GAMEPLAY_TAG(GameplayCue_DeBuff_Frozen, TEXT("GameplayCue.DeBuff.Frozen"))
+	UE_DEFINE_GAMEPLAY_TAG(GameplayCue_DeBuff_Shock, TEXT("GameplayCue.DeBuff.Shock"))
 }

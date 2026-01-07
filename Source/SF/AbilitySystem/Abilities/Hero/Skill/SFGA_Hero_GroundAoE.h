@@ -102,11 +102,13 @@ protected:
 
 	// 노티파이 수신 시 장판 소환
 	UFUNCTION()
-	void OnSpawnEventReceived(FGameplayEventData Payload);
+	virtual void OnSpawnEventReceived(FGameplayEventData Payload);
 
 	// 유틸: 마우스 위치 가져오기
 	bool GetGroundLocationUnderCursor(FVector& OutLocation);
 
+	FVector TargetLocation; // 확정된 목표 위치
+	
 private:
 	// 상태 관리
 	UPROPERTY()
@@ -123,6 +125,4 @@ private:
 
 	UPROPERTY()
 	TObjectPtr<UAbilityTask_WaitGameplayEvent> WaitEventTask;
-
-	FVector TargetLocation; // 확정된 목표 위치
 };

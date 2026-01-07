@@ -57,6 +57,12 @@ protected:
 
 	UFUNCTION()
 	void OnMontageCancelled();
+	virtual void CancelAbility(
+		const FGameplayAbilitySpecHandle Handle,
+		const FGameplayAbilityActorInfo* ActorInfo,
+		const FGameplayAbilityActivationInfo ActivationInfo,
+		bool bReplicateCancelAbility
+	) override;
 
 protected:
 	// 스폰 위치(메인핸드 무기 소켓) 계산

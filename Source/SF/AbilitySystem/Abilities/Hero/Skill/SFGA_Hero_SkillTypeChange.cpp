@@ -25,6 +25,7 @@ void USFGA_Hero_SkillTypeChange::OnAvatarSet(const FGameplayAbilityActorInfo* Ac
            TArray<FGameplayTag> InputTagsToClear;
            InputTagsToClear.Add(SFGameplayTags::InputTag_PrimarySkill);
            InputTagsToClear.Add(SFGameplayTags::InputTag_SecondarySkill);
+       	   InputTagsToClear.Add(SFGameplayTags::InputTag_Attack);
            // 필요한 태그 추가...
 
            // 삭제할 핸들을 임시 저장할 배열 (반복문 안에서 직접 삭제하면 충돌 위험)
