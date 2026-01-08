@@ -3,6 +3,7 @@
 #include "GameplayEffectExtension.h"
 #include "AbilitySystem/SFAbilitySystemComponent.h"
 #include "AbilitySystem/GameplayEvent/SFGameplayEventTags.h"
+#include "Character/SFCharacterGameplayTags.h"
 #include "Net/UnrealNetwork.h"
 #include "System/SFGameInstance.h"
 #include "Character/Enemy/SFEnemy.h"
@@ -22,6 +23,15 @@ void USFPrimarySet_Enemy::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& 
 
 bool USFPrimarySet_Enemy::PreGameplayEffectExecute(FGameplayEffectModCallbackData& Data)
 {
+	if (Data.EvaluatedData.Attribute == GetDamageAttribute())
+	{
+		USFAbilitySystemComponent* SFASC = GetSFAbilitySystemComponent();
+		if (SFASC && SFASC->HasMatchingGameplayTag(SFGameplayTags::Character_State_Groggy))
+		{
+			Data.EvaluatedData.Magnitude *= 1.5f;
+		}
+	}
+    
 	return Super::PreGameplayEffectExecute(Data);
 }
 
@@ -62,8 +72,6 @@ void USFPrimarySet_Enemy::PostGameplayEffectExecute(const FGameplayEffectModCall
 			}
 		}
 	}
-	
-	
 
 }
 

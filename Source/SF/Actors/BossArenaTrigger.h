@@ -9,6 +9,8 @@
 class ASFCharacterBase;
 class USFDragonCombatComponent;
 
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FOnPlayerEnterArena, ASFCharacterBase*, Player, ASFCharacterBase* ,Boss);
+
 UCLASS()
 class SF_API ABossArenaTrigger : public AActor
 {
@@ -18,6 +20,7 @@ public:
 
 	ABossArenaTrigger();
 
+	FOnPlayerEnterArena OnPlayerEnterArenaDelegate;
 protected:
 	virtual void BeginPlay() override;
 
@@ -32,11 +35,6 @@ private:
 	
 	UPROPERTY(EditInstanceOnly, Category = "Boss")
 	TObjectPtr<ASFCharacterBase> BossActor;
-
-	
-	UPROPERTY(Transient)
-	TObjectPtr<USFDragonCombatComponent> CachedDragonCombatComponent;
-
 	
 	UPROPERTY(EditAnywhere, Category = "Boss", meta = (ClampMin = "0.0"))
 	float InitialThreatValue = 100.f;

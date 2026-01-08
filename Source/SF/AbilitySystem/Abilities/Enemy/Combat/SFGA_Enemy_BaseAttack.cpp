@@ -369,7 +369,26 @@ void USFGA_Enemy_BaseAttack::ApplyCooldown(
 bool USFGA_Enemy_BaseAttack::CheckCooldown(const FGameplayAbilitySpecHandle Handle,
 	const FGameplayAbilityActorInfo* ActorInfo, FGameplayTagContainer* OptionalRelevantTags) const
 {
-	return Super::CheckCooldown(Handle, ActorInfo, OptionalRelevantTags);
+	
+	bool bCanActivate = Super::CheckCooldown(Handle, ActorInfo, OptionalRelevantTags);
+	
+	if (!bCanActivate)
+	{
+		return false;
+	}
+	
+	if (CoolDownTag.IsValid())
+	{
+		if (ActorInfo && ActorInfo->AbilitySystemComponent.IsValid())
+		{
+			
+			if (ActorInfo->AbilitySystemComponent->HasMatchingGameplayTag(CoolDownTag))
+			{
+				return false;
+			}
+		}
+	}
+	return true;
 }
 
 // SetByCaller
