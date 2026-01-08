@@ -3,6 +3,7 @@
 
 #include "SFGA_CharacterDeath.h"
 
+#include "AbilitySystemComponent.h"
 #include "AbilitySystem/GameplayEvent/SFGameplayEventTags.h"
 #include "Character/SFCharacterGameplayTags.h"
 #include "Character/Enemy/SFEnemy.h"
@@ -14,7 +15,8 @@ USFGA_CharacterDeath::USFGA_CharacterDeath()
 	InstancingPolicy = EGameplayAbilityInstancingPolicy::InstancedPerActor;
 	bServerRespectsRemoteAbilityCancellation = true;
 
-
+	 
+	CancelAbilitiesWithTag.AddTag(SFGameplayTags::Character_State_UsingAbility);
 	CancelAbilitiesWithTag.AddTag(SFGameplayTags::Character_State_Attacking);
 	
 	FAbilityTriggerData TriggerData;
@@ -33,7 +35,6 @@ void USFGA_CharacterDeath::ActivateAbility(const FGameplayAbilitySpecHandle Hand
 
 	AActor* Avatar = GetAvatarActorFromActorInfo();
 	
-	
 	if (!Avatar)
 	{
 		EndAbility(Handle, ActorInfo, ActivationInfo, true, true);
@@ -42,6 +43,17 @@ void USFGA_CharacterDeath::ActivateAbility(const FGameplayAbilitySpecHandle Hand
 	
 	if (Avatar->HasAuthority())
 	{
+
+		if (UAbilitySystemComponent* ASC = GetAbilitySystemComponentFromActorInfo())
+		{
+			ASC->CancelAllAbilities(this);
+		}
+		
+		if (ACharacter* Character = Cast<ACharacter>(Avatar))
+		{
+			Character->StopAnimMontage();
+		}
+		
 		FTimerDelegate TimerDel;
 		TimerDel.BindUObject(this, &ThisClass::DeathEventAfterDelay);
 		Avatar->GetWorldTimerManager().SetTimer(EventTimerHandle, TimerDel, EventTime, false);

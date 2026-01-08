@@ -16,7 +16,9 @@ USFGA_Enemy_BaseAttack::USFGA_Enemy_BaseAttack(const FObjectInitializer& ObjectI
 	NetExecutionPolicy = EGameplayAbilityNetExecutionPolicy::ServerInitiated;
 	ReplicationPolicy  = EGameplayAbilityReplicationPolicy::ReplicateYes;
 
-
+	AbilityTags.AddTag(SFGameplayTags::Character_State_Attacking);
+	AbilityTags.AddTag(SFGameplayTags::Character_State_UsingAbility);
+	
 	ActivationOwnedTags.AddTag(SFGameplayTags::Character_State_Attacking);
 	ActivationOwnedTags.AddTag(SFGameplayTags::Character_State_UsingAbility);
 	
@@ -265,7 +267,6 @@ void USFGA_Enemy_BaseAttack::ApplyRawDamageToTarget(
 }
 
 // Knockback & Launch
-
 void USFGA_Enemy_BaseAttack::ApplyKnockBackToTarget(AActor* Target, const FVector& HitLocation) const
 {
 	if (!Target)
@@ -276,12 +277,11 @@ void USFGA_Enemy_BaseAttack::ApplyKnockBackToTarget(AActor* Target, const FVecto
 		return;
 
 	FVector KnockBackDirection = FVector::UpVector;
-
-	// GameplayEvent 데이터 생성
+	
 	FGameplayEventData EventData;
 	EventData.Instigator = Instigator;
 	EventData.Target = Target;
-	EventData.EventMagnitude = 1.0f; // 넉백 강도 배율
+	EventData.EventMagnitude = 1.0f; 
 	
 	FHitResult HitResult;
 	HitResult.ImpactPoint = Target->GetActorLocation();

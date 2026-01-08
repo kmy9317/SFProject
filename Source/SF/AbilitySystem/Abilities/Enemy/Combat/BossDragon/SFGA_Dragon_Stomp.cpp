@@ -18,10 +18,8 @@ USFGA_Dragon_Stomp::USFGA_Dragon_Stomp()
 {
 	AbilityID = FName("Dragon_Stomp");
 	AttackType = EAttackType::Melee;
-
 	
 	AbilityTags.AddTag(SFGameplayTags::Ability_Dragon_Stomp);
-	
 	CoolDownTag = SFGameplayTags::Ability_Cooldown_Dragon_Stomp;
 }
 
@@ -134,7 +132,7 @@ void USFGA_Dragon_Stomp::EmitShockWave(FGameplayEventData Payload)
 			if (HitActor && GetAttitudeTowards(HitActor) == ETeamAttitude::Hostile)
 			{
 				ApplyDamageToTarget(HitActor, EffectContext);
-				ApplyLaunchToTarget(HitActor, FVector::UpVector, 1.0f);
+				ApplyKnockBackToTarget(HitActor, StompLoc);
 
 				// Pressure 적용
 				ApplyPressureToTarget(HitActor);

@@ -20,7 +20,7 @@
 USFGA_Dragon_AerialBarrage::USFGA_Dragon_AerialBarrage()
 {
     AbilityTags.AddTag(SFGameplayTags::Ability_Dragon_FlameBreath_Spin);
-    ActivationOwnedTags.AddTag(SFGameplayTags::Character_State_UsingAbility);
+    
     ActivationOwnedTags.AddTag(SFGameplayTags::Character_State_Invulnerable);
     ActivationOwnedTags.AddTag(SFGameplayTags::Dragon_Movement_Flying);
 }

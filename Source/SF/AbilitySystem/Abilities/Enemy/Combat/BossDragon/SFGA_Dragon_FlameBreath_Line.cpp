@@ -21,8 +21,6 @@ USFGA_Dragon_FlameBreath_Line::USFGA_Dragon_FlameBreath_Line()
     AttackType = EAttackType::Range;
 
     AbilityTags.AddTag(SFGameplayTags::Ability_Dragon_FlameBreath_Line);
-    ActivationOwnedTags.AddTag(SFGameplayTags::Character_State_UsingAbility);
-
     CoolDownTag = SFGameplayTags::Ability_Cooldown_Dragon_FlameBreath_Line;
 }
 
@@ -114,7 +112,7 @@ void USFGA_Dragon_FlameBreath_Line::UpdateRotationToTarget()
     FRotator TargetRot = UKismetMathLibrary::FindLookAtRotation(MyLoc, TargetLoc);
     FRotator CurrentRot = Dragon->GetActorRotation();
 
-    FRotator NewRot = FMath::RInterpTo(CurrentRot, TargetRot, 0.01f, 5.0f);
+    FRotator NewRot = FMath::RInterpTo(CurrentRot, TargetRot, 0.01f, 0.7f);
     
     Dragon->SetActorRotation(NewRot);
 }

@@ -106,7 +106,7 @@ void USFGA_Dragon_TailSwipe::OnTailHit(FGameplayEventData Payload)
 
 	ApplyDamageToTarget(HitActor, EffectContext);
 
-	TailLaunchToTarget(HitActor, HitResult->ImpactPoint);
+	ApplyKnockBackToTarget(HitActor, HitResult->ImpactPoint);
 
 	// Pressure 적용 
 	ApplyPressureToTarget(HitActor);

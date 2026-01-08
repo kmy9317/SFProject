@@ -18,7 +18,6 @@
 USFGA_Dragon_MeteorDive::USFGA_Dragon_MeteorDive()
 {
     AbilityTags.AddTag(SFGameplayTags::Ability_Dragon_DiveAttack);
-    ActivationOwnedTags.AddTag(SFGameplayTags::Character_State_UsingAbility);
     ActivationOwnedTags.AddTag(SFGameplayTags::Character_State_Invulnerable);
     ActivationOwnedTags.AddTag(SFGameplayTags::Dragon_Movement_Flying);
 
@@ -166,80 +165,63 @@ void USFGA_Dragon_MeteorDive::OnDiveFinished()
         EndAbility(CurrentSpecHandle, CurrentActorInfo, CurrentActivationInfo, true, false);
         return;
     }
-    
-   
-    if (DiveLoopMontage) Character->StopAnimMontage(DiveLoopMontage);
-  
-    if (USFDragonMovementComponent* MoveComp = Cast<USFDragonMovementComponent>(Character->GetCharacterMovement()))
+
+    if (DiveLoopMontage)
     {
-        MoveComp->SetFlyingMode(false); 
-        MoveComp->StopMovementImmediately();
-        
-       
-        MoveComp->SetMovementMode(MOVE_Walking);
-        
-        if (GetAbilitySystemComponentFromActorInfo()->HasMatchingGameplayTag(SFGameplayTags::GameplayCue_Dragon_Flying))
-        {
-            GetAbilitySystemComponentFromActorInfo()->RemoveGameplayCue(SFGameplayTags::GameplayCue_Dragon_Flying);
-        }
+        Character->StopAnimMontage(DiveLoopMontage);
     }
-    
-  
+
+    // 이동 모드 복구
+    if (USFDragonMovementComponent* MoveComp =
+        Cast<USFDragonMovementComponent>(Character->GetCharacterMovement()))
+    {
+        MoveComp->SetFlyingMode(false);
+        MoveComp->StopMovementImmediately();
+        MoveComp->SetMovementMode(MOVE_Walking);
+    }
+
+    // 회전 정렬 (Yaw만 유지)
     FRotator CurrentRot = Character->GetActorRotation();
-    FRotator UprightRot = FRotator(0.0f, CurrentRot.Yaw, 0.0f); 
+    FRotator UprightRot(0.f, CurrentRot.Yaw, 0.f);
     Character->SetActorRotation(UprightRot);
-    
+
     if (AController* Controller = Character->GetController())
     {
         Controller->SetControlRotation(UprightRot);
     }
     
-    FVector CenterLoc = Character->GetActorLocation(); 
-    float HalfHeight = Character->GetCapsuleComponent()->GetScaledCapsuleHalfHeight();
-    FVector FeetLoc = CenterLoc - FVector(0.0f, 0.0f, HalfHeight);
+    const FVector ImpactPoint = Character->GetActorLocation();
 
-    FHitResult GroundHit;
-    FCollisionQueryParams Params;
-    Params.AddIgnoredActor(Character);
-    
- 
-    bool bHitGround = GetWorld()->LineTraceSingleByChannel(
-        GroundHit, 
-        CenterLoc + FVector(0.0f, 0.0f, 200.0f),
-        FeetLoc - FVector(0.0f, 0.0f, 500.0f),  
-        ECC_Visibility, 
-        Params
-    );
-
-    FVector ImpactPoint = bHitGround ? GroundHit.ImpactPoint : FeetLoc;
-
-    
-    if (bHitGround)
-    {
-       
-        FVector SnappedLocation = ImpactPoint + FVector(0.0f, 0.0f, HalfHeight);
-        
-    
-        Character->SetActorLocation(SnappedLocation, false, nullptr, ETeleportType::TeleportPhysics);
-    }
     
     FGameplayCueParameters CueParams;
-    CueParams.Location = ImpactPoint;      
+    CueParams.Location = ImpactPoint;
     CueParams.EffectCauser = Character;
     CueParams.Instigator = Character;
-    CueParams.RawMagnitude = ImpactRadius; 
+    CueParams.RawMagnitude = ImpactRadius;
 
-    FireGameplayCueWithCosmetic_Static(SFGameplayTags::GameplayCue_Dragon_Land, CueParams);
-    
+    FireGameplayCueWithCosmetic_Static(
+        SFGameplayTags::GameplayCue_Dragon_Land,
+        CueParams
+    );
+
     ApplyImpactDamage(ImpactPoint);
-    
+
     if (bShowDebugSphere)
     {
-        DrawDebugSphere(GetWorld(), ImpactPoint, 50.0f, 16, FColor::Red, false, 5.0f);
+        DrawDebugSphere(
+            GetWorld(),
+            ImpactPoint,
+            ImpactRadius,
+            24,
+            FColor::Red,
+            false,
+            5.f
+        );
     }
 
     EndAbility(CurrentSpecHandle, CurrentActorInfo, CurrentActivationInfo, true, false);
 }
+
 
 void USFGA_Dragon_MeteorDive::ApplyImpactDamage(const FVector& ImpactLocation)
 {
@@ -273,7 +255,7 @@ void USFGA_Dragon_MeteorDive::ApplyImpactDamage(const FVector& ImpactLocation)
             AActor* HitActor = Result.GetActor();
             if (!HitActor) continue;
             
-            // 2D 거리 체크 (원기둥 판정)
+            
             FVector HitLoc2D = HitActor->GetActorLocation();
             HitLoc2D.Z = ImpactLocation.Z;
             FVector ImpactLoc2D = ImpactLocation;
@@ -281,7 +263,6 @@ void USFGA_Dragon_MeteorDive::ApplyImpactDamage(const FVector& ImpactLocation)
             float Distance2D = FVector::Dist2D(ImpactLoc2D, HitLoc2D);
             if (Distance2D > CheckRadius) continue;
             
-            // 시야(Line of Sight) 체크 - 벽 뒤에 숨은 적 제외
             FCollisionQueryParams LoSParams = QueryParams;
             LoSParams.AddIgnoredActor(HitActor);
 
@@ -303,7 +284,7 @@ void USFGA_Dragon_MeteorDive::ApplyImpactDamage(const FVector& ImpactLocation)
 
                 Context.AddHitResult(HitResult, true);
 
-                ApplyDamageToTarget(HitActor, Context);
+                ApplyRawDamageToTarget(HitActor,9999.0f, Context);
                 ApplyKnockBackToTarget(HitActor, HitActor->GetActorLocation());
             }
         }

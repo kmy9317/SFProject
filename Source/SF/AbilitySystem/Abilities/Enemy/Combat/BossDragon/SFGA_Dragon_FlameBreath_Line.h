@@ -69,10 +69,10 @@ protected:
     float BreathWidth = 150.f;
 
     UPROPERTY(EditDefaultsOnly, Category = "Dragon|Breath")
-    float BreathDamagePerTick = 50.f;
+    float BreathDamagePerTick = 1.f;
 
     UPROPERTY(EditDefaultsOnly, Category = "Dragon|Breath")
-    float BreathTickRate = 0.2f;
+    float BreathTickRate = 1.f;
     
     UPROPERTY(EditDefaultsOnly, Category = "Dragon|Interrupt")
     float InterruptThreshold = 100.f;

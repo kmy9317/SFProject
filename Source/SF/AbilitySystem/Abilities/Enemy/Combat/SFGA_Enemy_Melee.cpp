@@ -120,11 +120,8 @@ void USFGA_Enemy_Melee::OnTraceHit(FGameplayEventData Payload)
 	
 	FGameplayEffectContextHandle Context = Payload.ContextHandle;
 	
-    // [수정] 관통 횟수 제한 로직 제거 (무기 액터가 이미 스윙당 1회를 보장하므로, 여기서는 무조건 때려야 함)
-	// if (CurrentPenetration > 0) 
 	{
 		ApplyDamageToTarget(HitActor, Context);
-		// CurrentPenetration--; // 삭제됨: 콤보 공격 시 횟수 제한이 걸리지 않도록 함
 	}
 }
 
