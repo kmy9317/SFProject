@@ -7,6 +7,7 @@
 #include "AI/Controller/SFEnemyController.h"
 #include "AI/Controller/Dragon/SFDragonCombatComponent.h"
 #include "Character/SFCharacterBase.h"
+#include "Character/Enemy/Component/Boss_Dragon/SFDragon.h"
 #include "Team/SFTeamTypes.h"
 
 
@@ -35,23 +36,7 @@ void ABossArenaTrigger::BeginPlay()
 	{
 
 		TriggerBox->OnComponentBeginOverlap.AddDynamic(this, &ABossArenaTrigger::OnPlayerEnterArena);
-
-		if (BossActor)
-		{
-			if (ASFBaseAIController* AIC = Cast<ASFBaseAIController>(BossActor->GetController()))
-			{
-				CachedDragonCombatComponent = Cast<USFDragonCombatComponent>(AIC->GetCombatComponent());
-
-				if (!CachedDragonCombatComponent)
-				{
-					UE_LOG(LogTemp, Error, TEXT("[BossArenaTrigger] Failed to cache DragonCombatComponent! Boss: %s"),
-						*BossActor->GetName());
-				}
-				
-			}
-			
-		}
-	
+		
 	}
 }
 
@@ -59,11 +44,6 @@ void ABossArenaTrigger::OnPlayerEnterArena(UPrimitiveComponent* OverlappedCompon
 	UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult)
 {
 	if (!HasAuthority())
-	{
-		return;
-	}
-
-	if (!CachedDragonCombatComponent)
 	{
 		return;
 	}
@@ -84,12 +64,23 @@ void ABossArenaTrigger::OnPlayerEnterArena(UPrimitiveComponent* OverlappedCompon
 	{
 		return;
 	}
-
 	
 	PlayersInArena.Add(Character);
+	
+	if (APawn* BossPawn = Cast<APawn>(BossActor))
+	{
+		if (AAIController* BossAI = Cast<AAIController>(BossPawn->GetController()))
+		{
+			if (USFDragonCombatComponent* CombatComp = BossAI->FindComponentByClass<USFDragonCombatComponent>())
+			{
+				CombatComp->AddThreat(InitialThreatValue, Character);
+			}
+		}
+	}
+	
+	OnPlayerEnterArenaDelegate.Broadcast(Character, BossActor);
 
-
-	CachedDragonCombatComponent->AddThreat(InitialThreatValue, Character);
+	
 	
 }
 

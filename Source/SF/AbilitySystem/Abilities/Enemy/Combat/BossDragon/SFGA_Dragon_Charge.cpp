@@ -211,6 +211,7 @@ void USFGA_Dragon_Charge::OnChargeOverlap(
     ASFCharacterBase* Dragon = GetSFCharacterFromActorInfo();
     if (Dragon)
     {
+        ApplyDamageToTarget(OtherActor, MakeEffectContext(CurrentSpecHandle, CurrentActorInfo));
         ApplyKnockBackToTarget(OtherActor, Dragon->GetActorLocation());
         HitActors.Add(OtherActor);
     }
