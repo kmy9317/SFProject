@@ -15,6 +15,9 @@
 #include "Components/CapsuleComponent.h"
 #include "GameFramework/Character.h"
 #include "GameModes/SFGameOverManagerComponent.h"
+#include "Inventory/SFInventoryManagerComponent.h"
+#include "Inventory/SFQuickbarComponent.h"
+#include "Item/SFItemManagerComponent.h"
 #include "GameFramework/GameplayMessageSubsystem.h"
 #include "Kismet/GameplayStatics.h"
 #include "Pawn/SFSpectatorPawn.h"
@@ -29,7 +32,9 @@ ASFPlayerController::ASFPlayerController(const FObjectInitializer& ObjectInitial
 	SpectatorComponent = CreateDefaultSubobject<USFSpectatorComponent>(TEXT("SpectatorComponent"));
 	DeathUIComponent = CreateDefaultSubobject<USFDeathUIComponent>(TEXT("DeathUIComponent"));
 	SharedUIComponent = CreateDefaultSubobject<USFSharedUIComponent>(TEXT("SharedUIComponent"));
-
+	InventoryManagerComponent = CreateDefaultSubobject<USFInventoryManagerComponent>(TEXT("InventoryManagerComponent"));
+	QuickbarComponent = CreateDefaultSubobject<USFQuickbarComponent>(TEXT("QuickbarComponent"));
+	ItemManagerComponent = CreateDefaultSubobject<USFItemManagerComponent>(TEXT("ItemManagerComponent"));
 	InGameMenuComponent = CreateDefaultSubobject<USFInGameMenuComponent>(TEXT("SystemMenuComponent"));
 }
 

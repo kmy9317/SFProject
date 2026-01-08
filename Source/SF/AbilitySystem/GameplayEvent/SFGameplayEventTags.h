@@ -33,6 +33,9 @@ namespace SFGameplayTags
 
 	//Damage Events
 	SF_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(GameplayEvent_Damage_Critical);
+
+	// Use Item Tags
+	SF_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(GameplayEvent_UseQuickbar);
     
     
 	// Data Tags (SetByCaller)
@@ -67,6 +70,7 @@ namespace SFGameplayTags
 	SF_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(Data_EnemyAbility_Duration);
 
 	// Attribute Data
+	SF_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(Data_Health);
 	SF_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(Data_MaxHealth);
 	SF_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(Data_AttackPower);
 	SF_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(Data_MoveSpeed);
@@ -81,6 +85,8 @@ namespace SFGameplayTags
 	SF_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(Data_Enemy_LoseSightRadius);
 
 	// --- Hero Attribute Data ---
+	SF_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(Data_Hero_Mana);
+	SF_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(Data_Hero_Stamina);
 	SF_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(Data_Hero_ManaRegen);
 	SF_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(Data_Hero_StaminaRegen);
 	SF_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(Data_Hero_CooldownReduction);

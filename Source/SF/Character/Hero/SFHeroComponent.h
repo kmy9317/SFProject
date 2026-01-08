@@ -71,10 +71,18 @@ protected:
 	void Input_LookMouse(const FInputActionValue& InputActionValue);
 	void Input_Crouch(const FInputActionValue& InputActionValue);
 
+	void Input_UseQuickbar_1(const FInputActionValue& InputActionValue);
+	void Input_UseQuickbar_2(const FInputActionValue& InputActionValue);
+	void Input_UseQuickbar_3(const FInputActionValue& InputActionValue);
+	void Input_UseQuickbar_4(const FInputActionValue& InputActionValue);
+
 	void InitializeHUD();
 
 	UFUNCTION()
 	TSubclassOf<USFCameraMode> DetermineCameraMode();
+
+private:
+	void SendUseQuickbarEvent(int32 SlotIndex);
 
 protected:
 

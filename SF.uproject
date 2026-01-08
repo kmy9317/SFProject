@@ -68,6 +68,10 @@
 		{
 			"Name": "CommonLoadingScreen",
 			"Enabled": true
+		},
+		{
+			"Name": "PocketWorlds",
+			"Enabled": true
 		}
 	]
 }

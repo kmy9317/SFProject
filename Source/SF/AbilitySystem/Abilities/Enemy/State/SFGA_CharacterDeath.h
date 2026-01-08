@@ -6,6 +6,7 @@
 #include "AbilitySystem/Abilities/SFGameplayAbility.h"
 #include "SFGA_CharacterDeath.generated.h"
 
+class ASFEnemy;
 /**
  * 
  */
@@ -25,6 +26,10 @@ protected:
 	virtual void DeathEventAfterDelay();
 	
 	virtual void DeathTimerEvent();
+
+	// 드롭 처리
+	void ExecuteDrop(ASFEnemy* Enemy);
+	float GetKillerLuckValue(AActor* Killer) const;
 	
 	FTimerHandle EventTimerHandle;
 	

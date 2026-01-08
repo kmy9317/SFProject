@@ -13,6 +13,9 @@ namespace SFGameplayTags
 	// Equip Tags
 	SF_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(Montage_Equip_OneHandSword);
 
+	// Consume Tags
+	SF_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(Montage_Consume_Potion);
+
 	// State Tags
 	SF_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(Montage_State_Downed);
 	SF_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(Montage_State_Death);

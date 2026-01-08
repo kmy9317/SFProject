@@ -8,6 +8,9 @@
 #include "UI/InGame/UIDataStructs.h"
 #include "SFPlayerController.generated.h"
 
+class USFQuickbarComponent;
+class USFItemManagerComponent;
+class USFInventoryManagerComponent;
 class USFSharedUIComponent;
 class USFDeathUIComponent;
 class USFSpectatorComponent;
@@ -109,6 +112,15 @@ private:
 	TObjectPtr<USFSharedUIComponent> SharedUIComponent;
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "SF|Components", meta = (AllowPrivateAccess = "true"))
+	TObjectPtr<USFInventoryManagerComponent> InventoryManagerComponent;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "SF|Components", meta = (AllowPrivateAccess = "true"))
+	TObjectPtr<USFQuickbarComponent> QuickbarComponent;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "SF|Components", meta = (AllowPrivateAccess = "true"))
+	TObjectPtr<USFItemManagerComponent> ItemManagerComponent;
+
+  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "SF|Components", meta = (AllowPrivateAccess = "true"))
 	TObjectPtr<USFInGameMenuComponent> InGameMenuComponent; 
 
 private:

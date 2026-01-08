@@ -18,6 +18,7 @@
 #include "UserSettings/EnhancedInputUserSettings.h"
 #include "AbilitySystem/Attributes/Hero/SFCombatSet_Hero.h"
 #include "AbilitySystem/Attributes/Hero/SFPrimarySet_Hero.h"
+#include "AbilitySystem/GameplayEvent/SFGameplayEventTags.h"
 #include "Camera/SFCameraMode.h"
 #include "Character/SFCharacterGameplayTags.h"
 
@@ -254,6 +255,10 @@ void USFHeroComponent::InitializePlayerInput(UInputComponent* PlayerInputCompone
 					LCIC->BindNativeAction(InputConfig, SFGameplayTags::InputTag_Move, ETriggerEvent::Completed, this, &ThisClass::Input_MoveCompleted, /*bLogIfNotFound=*/ false);
 					LCIC->BindNativeAction(InputConfig, SFGameplayTags::InputTag_Look_Mouse, ETriggerEvent::Triggered, this, &ThisClass::Input_LookMouse, /*bLogIfNotFound=*/ false);
 					LCIC->BindNativeAction(InputConfig, SFGameplayTags::InputTag_Crouch, ETriggerEvent::Triggered, this, &ThisClass::Input_Crouch, /*bLogIfNotFound=*/ false);
+					LCIC->BindNativeAction(InputConfig, SFGameplayTags::InputTag_UseQuickbar_1, ETriggerEvent::Started, this, &ThisClass::Input_UseQuickbar_1, false);
+					LCIC->BindNativeAction(InputConfig, SFGameplayTags::InputTag_UseQuickbar_2, ETriggerEvent::Started, this, &ThisClass::Input_UseQuickbar_2, false);
+					LCIC->BindNativeAction(InputConfig, SFGameplayTags::InputTag_UseQuickbar_3, ETriggerEvent::Started, this, &ThisClass::Input_UseQuickbar_3, false);
+					LCIC->BindNativeAction(InputConfig, SFGameplayTags::InputTag_UseQuickbar_4, ETriggerEvent::Started, this, &ThisClass::Input_UseQuickbar_4, false);
 				}
 			}
 		}
@@ -392,6 +397,33 @@ void USFHeroComponent::Input_Crouch(const FInputActionValue& InputActionValue)
 	{
 		Character->ToggleCrouch();
 	}
+}
+
+void USFHeroComponent::Input_UseQuickbar_1(const FInputActionValue& InputActionValue)
+{
+	SendUseQuickbarEvent(0);
+}
+
+void USFHeroComponent::Input_UseQuickbar_2(const FInputActionValue& InputActionValue)
+{
+	SendUseQuickbarEvent(1);
+}
+
+void USFHeroComponent::Input_UseQuickbar_3(const FInputActionValue& InputActionValue)
+{
+	SendUseQuickbarEvent(2);
+}
+
+void USFHeroComponent::Input_UseQuickbar_4(const FInputActionValue& InputActionValue)
+{
+	SendUseQuickbarEvent(3);
+}
+
+void USFHeroComponent::SendUseQuickbarEvent(int32 SlotIndex)
+{
+	FGameplayEventData Payload;
+	Payload.EventMagnitude = static_cast<float>(SlotIndex);
+	UAbilitySystemBlueprintLibrary::SendGameplayEventToActor(GetPawnChecked<APawn>(), SFGameplayTags::GameplayEvent_UseQuickbar, Payload);
 }
 
 void USFHeroComponent::InitializeHUD()

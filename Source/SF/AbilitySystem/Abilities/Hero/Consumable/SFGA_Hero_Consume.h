@@ -2,6 +2,7 @@
 
 #include "CoreMinimal.h"
 #include "AbilitySystem/Abilities/Hero/SFGA_Hero_Base.h"
+#include "Item/SFItemManagerComponent.h"
 #include "SFGA_Hero_Consume.generated.h"
 
 class USFItemFragment_Consumable;
@@ -16,6 +17,11 @@ class SF_API USFGA_Hero_Consume : public USFGA_Hero_Base
 
 public:
 	USFGA_Hero_Consume(const FObjectInitializer& ObjectInitializer = FObjectInitializer::Get());
+
+	// 슬롯 핸들 Getter (Cost에서 사용) 
+	const FSFItemSlotHandle& GetConsumeSlotHandle() const { return ConsumeSlotHandle; }
+
+	int32 GetConsumeCount() const;
 
 protected:
 	virtual void ActivateAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, const FGameplayEventData* TriggerEventData) override;
@@ -35,6 +41,10 @@ protected:
 	// 실제 아이템 사용 여부 (EndAbility에서 소모 결정)
 	UPROPERTY(BlueprintReadWrite, Category = "Consume")
 	bool bItemUsed = false;
+
+protected:
+	UPROPERTY()
+	FSFItemSlotHandle ConsumeSlotHandle;
 
 private:
 	UPROPERTY()

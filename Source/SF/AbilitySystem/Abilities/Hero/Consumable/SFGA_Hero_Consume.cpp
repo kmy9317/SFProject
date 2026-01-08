@@ -7,7 +7,7 @@
 USFGA_Hero_Consume::USFGA_Hero_Consume(const FObjectInitializer& ObjectInitializer)
     : Super(ObjectInitializer)
 {
-    
+    NetExecutionPolicy = EGameplayAbilityNetExecutionPolicy::ServerInitiated;
 }
 
 void USFGA_Hero_Consume::ActivateAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, const FGameplayEventData* TriggerEventData)
@@ -17,15 +17,23 @@ void USFGA_Hero_Consume::ActivateAbility(const FGameplayAbilitySpecHandle Handle
     bItemUsed = false;
     ConsumeItemInstance = nullptr;
     ConsumeFragment = nullptr;
+    ConsumeSlotHandle = FSFItemSlotHandle();
 
-    // TriggerEventData에서 ItemInstance 추출
-    if (TriggerEventData && TriggerEventData->OptionalObject)
+    if (TriggerEventData)
     {
-        ConsumeItemInstance = Cast<USFItemInstance>(const_cast<UObject*>(TriggerEventData->OptionalObject.Get()));
-        if (ConsumeItemInstance)
+        // ItemInstance 추출
+        if (TriggerEventData->OptionalObject)
         {
-            ConsumeFragment = ConsumeItemInstance->FindFragmentByClass<USFItemFragment_Consumable>();
+            ConsumeItemInstance = Cast<USFItemInstance>(const_cast<UObject*>(TriggerEventData->OptionalObject.Get()));
+            if (ConsumeItemInstance)
+            {
+                ConsumeFragment = ConsumeItemInstance->FindFragmentByClass<USFItemFragment_Consumable>();
+            }
         }
+
+        // SlotIndex 추출
+        int32 SlotIndex = FMath::RoundToInt(TriggerEventData->EventMagnitude);
+        ConsumeSlotHandle = FSFItemSlotHandle(ESFItemSlotType::Quickbar, SlotIndex);
     }
 
     if (!ConsumeItemInstance || !ConsumeFragment)
@@ -34,16 +42,26 @@ void USFGA_Hero_Consume::ActivateAbility(const FGameplayAbilitySpecHandle Handle
     }
 }
 
+int32 USFGA_Hero_Consume::GetConsumeCount() const
+{
+    if (ConsumeFragment)
+    {
+        return ConsumeFragment->ConsumeCount;
+    }
+    return 1;
+}
+
 void USFGA_Hero_Consume::EndAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, bool bReplicateEndAbility, bool bWasCancelled)
 {
+    // 아이템 사용 성공 시 Cost 적용
     if (bItemUsed && !bWasCancelled)
     {
-        // TODO : 실제 소모 처리 - 인벤토리에 알림
-        // TODO : GameplayMessage 또는 델리게이트로 인벤토리에 소모 알림
+        ApplyCost(Handle, ActorInfo, ActivationInfo);
     }
 
     ConsumeItemInstance = nullptr;
     ConsumeFragment = nullptr;
+    ConsumeSlotHandle = FSFItemSlotHandle();
 
     Super::EndAbility(Handle, ActorInfo, ActivationInfo, bReplicateEndAbility, bWasCancelled);
 }

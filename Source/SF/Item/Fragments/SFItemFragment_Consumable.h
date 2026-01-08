@@ -19,6 +19,10 @@ public:
 	void ApplySetByCallersToSpec(FGameplayEffectSpec* Spec, const FGameplayTag& RarityTag) const;
 
 public:
+	// 사용 시 소모 갯수 
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Consumable")
+	int32 ConsumeCount = 1;
+	
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Effect")
 	TSubclassOf<UGameplayEffect> ConsumeEffect;
 

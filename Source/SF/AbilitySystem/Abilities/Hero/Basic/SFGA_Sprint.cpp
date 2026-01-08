@@ -15,7 +15,7 @@ USFGA_Sprint::USFGA_Sprint()
 
 	// [태그] 어빌리티 태그 설정
 	// 이 어빌리티가 활성화되면 'Ability.Sprint' 태그를 가집니다.
-	FGameplayTag SprintTag = FGameplayTag::RequestGameplayTag(FName("Ability.Sprint"));
+	FGameplayTag SprintTag = FGameplayTag::RequestGameplayTag(FName("Ability.Sprint"), false);
 	SetAssetTags(FGameplayTagContainer(SprintTag));
 }
 

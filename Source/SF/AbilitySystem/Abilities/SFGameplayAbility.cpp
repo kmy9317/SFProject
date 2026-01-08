@@ -2,6 +2,7 @@
 
 #include "AbilitySystemComponent.h"
 #include "AbilitySystemLog.h"
+#include "AbilityCost/SFAbilityCost.h"
 #include "AbilitySystem/SFAbilitySystemComponent.h"
 #include "AbilitySystem/GameplayCues/SFGameplayCueTags.h"
 #include "Camera/SFCameraMode.h"
@@ -29,6 +30,39 @@ USFGameplayAbility::USFGameplayAbility(const FObjectInitializer& ObjectInitializ
 {
 	ActivationPolicy = ESFAbilityActivationPolicy::OnInputTriggered;
 	InstancingPolicy = EGameplayAbilityInstancingPolicy::InstancedPerActor;
+}
+
+bool USFGameplayAbility::CheckCost(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, FGameplayTagContainer* OptionalRelevantTags) const
+{
+	if (!Super::CheckCost(Handle, ActorInfo, OptionalRelevantTags))
+	{
+		return false;
+	}
+
+	// 추가 Cost 체크
+	for (const USFAbilityCost* Cost : AdditionalCosts)
+	{
+		if (Cost && !Cost->CheckCost(this, Handle, ActorInfo, OptionalRelevantTags))
+		{
+			return false;
+		}
+	}
+
+	return true;
+}
+
+void USFGameplayAbility::ApplyCost(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo) const
+{
+	Super::ApplyCost(Handle, ActorInfo, ActivationInfo);
+
+	// 추가 Cost 적용
+	for (USFAbilityCost* Cost : AdditionalCosts)
+	{
+		if (Cost && !Cost->ShouldOnlyApplyCostOnHit())
+		{
+			Cost->ApplyCost(this, Handle, ActorInfo, ActivationInfo);
+		}
+	}
 }
 
 USFAbilitySystemComponent* USFGameplayAbility::GetSFAbilitySystemComponentFromActorInfo() const

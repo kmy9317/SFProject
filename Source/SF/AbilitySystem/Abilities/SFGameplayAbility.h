@@ -7,6 +7,7 @@
 #include "Character/Hero/Component/SFHeroMovementComponent.h"
 #include "SFGameplayAbility.generated.h"
 
+class USFAbilityCost;
 class ASFPlayerState;
 class UInputAction;
 class USFEquipmentComponent;
@@ -39,6 +40,9 @@ class SF_API USFGameplayAbility : public UGameplayAbility
 
 public:
 	USFGameplayAbility(const FObjectInitializer& ObjectInitializer = FObjectInitializer::Get());
+
+	virtual bool CheckCost(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, FGameplayTagContainer* OptionalRelevantTags = nullptr) const override;
+	virtual void ApplyCost(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo) const override;
 
 	UFUNCTION(BlueprintCallable, Category = "SF|Ability")
 	USFAbilitySystemComponent* GetSFAbilitySystemComponentFromActorInfo() const;
@@ -133,6 +137,10 @@ protected:
 
 	// Current camera mode set by the ability.
 	TSubclassOf<USFCameraMode> ActiveCameraMode;
+
+	// 추가 비용 (기본 GE Cost 외)
+	UPROPERTY(EditDefaultsOnly, Instanced, Category = "Cost")
+	TArray<TObjectPtr<USFAbilityCost>> AdditionalCosts;
 
 public:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category="SF|Ability")

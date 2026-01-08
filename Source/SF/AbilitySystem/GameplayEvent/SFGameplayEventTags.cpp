@@ -32,6 +32,9 @@ namespace SFGameplayTags
 
 	// Damage Events
 	UE_DEFINE_GAMEPLAY_TAG(GameplayEvent_Damage_Critical, "GameplayEvent.Damage.Critical");
+
+	// Use Item Tags
+	UE_DEFINE_GAMEPLAY_TAG(GameplayEvent_UseQuickbar, "GameplayEvent.UseQuickbar");
     
 	// Data Tags (SetByCaller)
     
@@ -66,6 +69,7 @@ namespace SFGameplayTags
 
 	//Attribute Data
 	// 공용 속성
+	UE_DEFINE_GAMEPLAY_TAG(Data_Health, "Data.Attribute.Health");
 	UE_DEFINE_GAMEPLAY_TAG(Data_MaxHealth, "Data.Attribute.MaxHealth");
 	UE_DEFINE_GAMEPLAY_TAG(Data_AttackPower, "Data.Attribute.AttackPower");
 	UE_DEFINE_GAMEPLAY_TAG(Data_MoveSpeed, "Data.Attribute.MoveSpeed");
@@ -80,6 +84,8 @@ namespace SFGameplayTags
 	UE_DEFINE_GAMEPLAY_TAG(Data_Enemy_LoseSightRadius, "Data.Attribute.Enemy.LoseSightRadius");
 
 	// Hero 전용 속성
+	UE_DEFINE_GAMEPLAY_TAG(Data_Hero_Mana, "Data.Attribute.Hero.Mana");
+	UE_DEFINE_GAMEPLAY_TAG(Data_Hero_Stamina, "Data.Attribute.Hero.Stamina");
 	UE_DEFINE_GAMEPLAY_TAG(Data_Hero_ManaRegen, "Data.Attribute.Hero.ManaRegen");
 	UE_DEFINE_GAMEPLAY_TAG(Data_Hero_StaminaRegen, "Data.Attribute.Hero.StaminaRegen");
 	UE_DEFINE_GAMEPLAY_TAG(Data_Hero_CooldownReduction, "Data.Attribute.Hero.CooldownReduction");

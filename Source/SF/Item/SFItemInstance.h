@@ -5,6 +5,7 @@
 #include "UObject/Object.h"
 #include "SFItemInstance.generated.h"
 
+struct FSFSavedItemSlot;
 class USFItemDefinition;
 class USFItemFragment;
 class USFItemData;
@@ -20,6 +21,8 @@ public:
 	
 	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
 	virtual bool IsSupportedForNetworking() const override { return true; }
+
+	void InitializeFromSavedData(const FSFSavedItemSlot& SavedSlot);
 
 public:
 	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly)
