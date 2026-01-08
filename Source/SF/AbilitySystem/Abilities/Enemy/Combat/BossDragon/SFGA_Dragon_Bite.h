@@ -46,7 +46,9 @@ protected:
     UFUNCTION()
     void OnBiteHit(FGameplayEventData Payload);
 
-    void ApplyGrabEffect(AActor* Target);
+    void TriggerGrabAbilityOnTarget(AActor* Target);
+    void SendReleaseEvent(AActor* Target);
+
     void AttachTargetToJaw(AActor* Target);
     void DetachTarget(AActor* Target);
 
@@ -115,5 +117,4 @@ private:
     FTimerHandle RotationTimerHandle;
 
     FDelegateHandle OnDamageRecivedHandle;
-    FActiveGameplayEffectHandle ActiveGrabEffectHandle;
 };

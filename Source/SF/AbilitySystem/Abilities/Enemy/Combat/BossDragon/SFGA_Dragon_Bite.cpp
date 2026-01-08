@@ -43,14 +43,7 @@ void USFGA_Dragon_Bite::ActivateAbility(const FGameplayAbilitySpecHandle Handle,
        return;
     }
 
-    UAbilityTask_WaitGameplayEvent* WaitEventTask = UAbilityTask_WaitGameplayEvent::WaitGameplayEvent(
-       this,
-       SFGameplayTags::GameplayEvent_Tracing,
-       nullptr,
-       true,
-       true
-    );
-
+    UAbilityTask_WaitGameplayEvent* WaitEventTask = UAbilityTask_WaitGameplayEvent::WaitGameplayEvent(this,SFGameplayTags::GameplayEvent_Tracing,nullptr,true,true);
     if (WaitEventTask)
     {
        WaitEventTask->EventReceived.AddDynamic(this, &USFGA_Dragon_Bite::OnBiteHit);
@@ -231,50 +224,69 @@ void USFGA_Dragon_Bite::OnBiteHit(FGameplayEventData Payload)
     EffectContext.AddHitResult(*HitResult);
 
     ApplyDamageToTarget(HitActor, EffectContext);
-    ApplyGrabEffect(HitActor);
+    TriggerGrabAbilityOnTarget(HitActor);
     AttachTargetToJaw(HitActor);
     GrabbedTarget = HitActor;
     ApplyPressureToTarget(HitActor);
-    
-    PlayGrabMontage();
-}
 
-void USFGA_Dragon_Bite::ApplyGrabEffect(AActor* Target)
-{
-    if (!Target || !GrabGameplayEffectClass)
-        return;
-
-    UAbilitySystemComponent* TargetASC =
-        UAbilitySystemBlueprintLibrary::GetAbilitySystemComponent(Target);
-
-    if (!TargetASC)
-        return;
-
-    FGameplayEffectSpecHandle GrabSpec =
-        MakeOutgoingGameplayEffectSpec(GrabGameplayEffectClass, 1);
-
-    if (GrabSpec.IsValid())
-    {
-        ActiveGrabEffectHandle = GetAbilitySystemComponentFromActorInfo()->ApplyGameplayEffectSpecToTarget(
-            *GrabSpec.Data.Get(),
-            TargetASC
-        );
-    }
-
+    // 구출 시스템 델리게이트 등록
     CurrentHitCount = 0;
     LastDamageTime = -999.0f;
 
     OnDamageRecivedHandle = GetAbilitySystemComponentFromActorInfo()
        ->OnGameplayEffectAppliedDelegateToSelf.AddUObject(
-          this,
-          &ThisClass::OnDamageRecieved
+           this,
+           &ThisClass::OnDamageRecieved
        );
 
+    // 물린 상태 루프 GameplayCue
     FGameplayCueParameters Params;
-    Params.Location = Target->GetActorLocation();
+    Params.Location = HitActor->GetActorLocation();
     Params.EffectCauser = GetAvatarActorFromActorInfo();
     Params.Instigator = GetAvatarActorFromActorInfo();
     FireGameplayCueWithCosmetic_Actor(SFGameplayTags::GameplayCue_Dragon_Bite_Loop, Params);
+   
+    PlayGrabMontage();
+}
+
+void USFGA_Dragon_Bite::TriggerGrabAbilityOnTarget(AActor* Target)
+{
+   if (!Target)
+   {
+      return;
+   }
+
+   UAbilitySystemComponent* TargetASC = UAbilitySystemBlueprintLibrary::GetAbilitySystemComponent(Target);
+   if (!TargetASC)
+   {
+      return;
+   }
+
+   FGameplayEventData EventData;
+   EventData.EventTag = SFGameplayTags::GameplayEvent_Grabbed;
+   EventData.Instigator = GetAvatarActorFromActorInfo();
+   EventData.Target = Target;
+   FGameplayEffectContextHandle Context = MakeEffectContext(CurrentSpecHandle, CurrentActorInfo);
+   EventData.ContextHandle = Context;
+   TargetASC->HandleGameplayEvent(SFGameplayTags::GameplayEvent_Grabbed, &EventData);
+}
+
+void USFGA_Dragon_Bite::SendReleaseEvent(AActor* Target)
+{
+   if (!Target)
+   {
+      return;
+   }
+
+   UAbilitySystemComponent* TargetASC = UAbilitySystemBlueprintLibrary::GetAbilitySystemComponent(Target);
+   if (TargetASC)
+   {
+      FGameplayEventData EventData;
+      EventData.EventTag = SFGameplayTags::GameplayEvent_GrabRelease;
+      EventData.Instigator = GetAvatarActorFromActorInfo();
+      EventData.Target = Target;
+      TargetASC->HandleGameplayEvent(SFGameplayTags::GameplayEvent_GrabRelease, &EventData);
+   }
 }
 
 void USFGA_Dragon_Bite::AttachTargetToJaw(AActor* Target)
@@ -294,41 +306,23 @@ void USFGA_Dragon_Bite::AttachTargetToJaw(AActor* Target)
     {
        Char->GetCapsuleComponent()->SetCollisionEnabled(ECollisionEnabled::NoCollision);
     }
-    
-    if (APlayerController* PC = Cast<APlayerController>(Target->GetInstigatorController()))
-    {
-       PC->SetIgnoreMoveInput(true);
-       PC->SetIgnoreLookInput(true);
-    }
 
     Target->AttachToComponent(
      DragonMesh,
      FAttachmentTransformRules::SnapToTargetNotIncludingScale,
-     JawSocketName
- );
+     JawSocketName);
 }
 
 void USFGA_Dragon_Bite::DetachTarget(AActor* Target)
 {
     if (!Target)
-       return;
-
-    ACharacter* Char = Cast<ACharacter>(Target);
-    
-    if (ActiveGrabEffectHandle.IsValid())
     {
-       if (UAbilitySystemComponent* TargetASC =
-          UAbilitySystemBlueprintLibrary::GetAbilitySystemComponent(Target))
-       {
-          TargetASC->RemoveActiveGameplayEffect(ActiveGrabEffectHandle);
-       }
-       ActiveGrabEffectHandle.Invalidate();
+       return;
     }
-    
-    Target->DetachFromActor(
-       FDetachmentTransformRules::KeepWorldTransform
-    );
-
+   
+    ACharacter* Char = Cast<ACharacter>(Target);
+    Target->DetachFromActor(FDetachmentTransformRules::KeepWorldTransform);
+   
     if (Char)
     {
        UCapsuleComponent* Capsule = Char->GetCapsuleComponent();
@@ -506,25 +500,25 @@ void USFGA_Dragon_Bite::EndAbility(const FGameplayAbilitySpecHandle Handle, cons
     if (GetWorld())
     {
         GetWorld()->GetTimerManager().ClearTimer(RotationTimerHandle);
+        GetWorld()->GetTimerManager().ClearTimer(GrabDurationTimerHandle);
     }
 
     if (GrabbedTarget.IsValid())
     {
+       SendReleaseEvent(GrabbedTarget.Get());
        DetachTarget(GrabbedTarget.Get());
        GrabbedTarget.Reset();
     }
 
-    if (GrabDurationTimerHandle.IsValid())
-    {
-       GetWorld()->GetTimerManager().ClearTimer(GrabDurationTimerHandle);
-    }
-
     if (OnDamageRecivedHandle.IsValid())
     {
-       GetAbilitySystemComponentFromActorInfo()->OnGameplayEffectAppliedDelegateToSelf.Remove(OnDamageRecivedHandle);
+       if (UAbilitySystemComponent* ASC = GetAbilitySystemComponentFromActorInfo())
+       {
+          ASC->OnGameplayEffectAppliedDelegateToSelf.Remove(OnDamageRecivedHandle);
+       }
+       OnDamageRecivedHandle.Reset();
     }
    
-
     Super::EndAbility(Handle, ActorInfo, ActivationInfo, bReplicateEndAbility, bWasCancelled);
 }
 

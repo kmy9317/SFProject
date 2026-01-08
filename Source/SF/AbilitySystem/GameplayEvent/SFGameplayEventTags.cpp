@@ -23,6 +23,8 @@ namespace SFGameplayTags
 	UE_DEFINE_GAMEPLAY_TAG(GameplayEvent_Groggy, "GameplayEvent.Groggy");
 	UE_DEFINE_GAMEPLAY_TAG(GameplayEvent_Revived, "GameplayEvent.Revived");
 	UE_DEFINE_GAMEPLAY_TAG(GameplayEvent_Downed, "GameplayEvent.Downed");
+	UE_DEFINE_GAMEPLAY_TAG(GameplayEvent_Grabbed, "GameplayEvent.Grabbed");
+	UE_DEFINE_GAMEPLAY_TAG(GameplayEvent_GrabRelease, "GameplayEvent.GrabRelease");
 
 	// Turn In Place Events
 	UE_DEFINE_GAMEPLAY_TAG(GameplayEvent_Turn_90L, "GameplayEvent.Turn.90L");

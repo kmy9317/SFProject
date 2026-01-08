@@ -61,6 +61,16 @@ void USFGameOverStatsWidget::NativeTick(const FGeometry& MyGeometry, float InDel
 void USFGameOverStatsWidget::OnGameOverStatsReceived(FGameplayTag Channel, const FSFGameOverResult& Result)
 {
     SetVisibility(ESlateVisibility::SelfHitTestInvisible);
+    if (APlayerController* PC = GetOwningPlayer())
+    {
+        FInputModeUIOnly InputModeData;
+
+        InputModeData.SetWidgetToFocus(this->TakeWidget());
+        InputModeData.SetLockMouseToViewportBehavior(EMouseLockMode::DoNotLock);
+
+        PC->SetInputMode(InputModeData);
+        PC->bShowMouseCursor = true;
+    }
     InitializeStats(Result);
 }
 
