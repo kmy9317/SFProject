@@ -60,6 +60,8 @@ namespace SFGameplayTags
 	UE_DEFINE_GAMEPLAY_TAG(Ability_Hero_Dodge, "Ability.Hero.Dodge");
 	UE_DEFINE_GAMEPLAY_TAG(Ability_Hero_Downed, "Ability.Hero.Downed");
 	UE_DEFINE_GAMEPLAY_TAG(Ability_Hero_Death, "Ability.Hero.Death");
+
+	UE_DEFINE_GAMEPLAY_TAG(Ability_Sprint, "Ability.Sprint");
 	
 	// Hero Skill Cooldowns
 	UE_DEFINE_GAMEPLAY_TAG_COMMENT(Ability_Cooldown_Hero_Skill_Primary, "Ability.Cooldown.Hero.Skill.Primary", "Cooldown for primary skill");

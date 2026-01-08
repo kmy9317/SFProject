@@ -2,14 +2,14 @@
 
 #include "CoreMinimal.h"
 #include "GameplayTagContainer.h"
-#include "AbilitySystem/Abilities/Hero/SFGA_Hero_Base.h"
+#include "AbilitySystem/Abilities/Hero/SFGA_Equipment_Base.h"
 #include "SFGA_Hero_Skill_Buff.generated.h"
 
 class UAnimMontage;
 class ASFBuffArea;
 
 UCLASS(Abstract, Blueprintable)
-class SF_API USFGA_Hero_Skill_Buff : public USFGA_Hero_Base
+class SF_API USFGA_Hero_Skill_Buff : public USFGA_Equipment_Base
 {
 	GENERATED_BODY()
 

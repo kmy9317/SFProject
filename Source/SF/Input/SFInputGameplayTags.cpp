@@ -22,4 +22,9 @@ namespace SFGameplayTags
 	UE_DEFINE_GAMEPLAY_TAG_COMMENT(InputTag_ToggleInventory, "InputTag.ToggleInventory", "Toggle Inventory.");
 	UE_DEFINE_GAMEPLAY_TAG_COMMENT(InputTag_Sprint, "InputTag.Sprint", "Sprint input.");
 	UE_DEFINE_GAMEPLAY_TAG_COMMENT(InputTag_LockOn, "InputTag.LockOn", "LockOn input.");
+
+	// Dummy Data
+	UE_DEFINE_GAMEPLAY_TAG_COMMENT(InputTag_AttackUpgrade, "InputTag.AttackUpgrade", "Upgrade Dummy.");
+	UE_DEFINE_GAMEPLAY_TAG_COMMENT(InputTag_GroundUpgrade, "InputTag.GroundUpgrade", "Upgrade Dummy.");
+	UE_DEFINE_GAMEPLAY_TAG_COMMENT(InputTag_UltUpgrade, "InputTag.UltUpgrade", "Upgrade Dummy.");
 }

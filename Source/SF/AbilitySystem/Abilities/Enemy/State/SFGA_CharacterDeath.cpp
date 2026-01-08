@@ -80,6 +80,7 @@ void USFGA_CharacterDeath::ActivateAbility(const FGameplayAbilitySpecHandle Hand
 			}
 		}
 		
+		// FTimerDelegate TimerDel;
 		TimerDel.BindUObject(this, &ThisClass::DeathEventAfterDelay);
 		Avatar->GetWorldTimerManager().SetTimer(EventTimerHandle, TimerDel, EventTime, false);
 	}
