@@ -54,6 +54,12 @@ void USFGA_Hero_AreaHeal_C::ActivateAbility(
 {
 	Super::ActivateAbility(Handle, ActorInfo, ActivationInfo, TriggerEventData);
 
+	if (!CommitCheck(Handle, ActorInfo, ActivationInfo))
+	{
+		EndAbility(Handle, ActorInfo, ActivationInfo, true, true);
+		return;
+	}
+	
 	ASFCharacterBase* OwnerChar = GetSFCharacterFromActorInfo();
 	if (!OwnerChar){ EndAbility(Handle,ActorInfo,ActivationInfo,true,true); return; }
 
@@ -114,6 +120,12 @@ void USFGA_Hero_AreaHeal_C::OnLightningImpact(FGameplayEventData Payload)
 	ASFCharacterBase* OwnerChar=GetSFCharacterFromActorInfo();
 	if(!OwnerChar)return;
 
+	if (!CommitAbility(CurrentSpecHandle, CurrentActorInfo, CurrentActivationInfo))
+	{
+		EndAbility(CurrentSpecHandle, CurrentActorInfo, CurrentActivationInfo, true, true);
+		return;
+	}
+	
 	//공격 위치 계산
 	FVector StrikePos=
 		OwnerChar->GetActorLocation()+

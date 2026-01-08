@@ -20,16 +20,6 @@ USFGA_Projectile_Charged::USFGA_Projectile_Charged(const FObjectInitializer& Obj
 
 void USFGA_Projectile_Charged::ActivateAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, const FGameplayEventData* TriggerEventData)
 {
-    // 주의: Super::ActivateAbility()를 호출하지 않습니다. 
-    // 부모는 시작하자마자 발사 몽타주를 재생하기 때문입니다.
-    // 대신 부모의 CommitAbility 등의 필수 체크 로직만 가져오거나 직접 수행합니다.
-    
-    if (!CommitAbility(Handle, ActorInfo, ActivationInfo))
-	{
-		EndAbility(Handle, ActorInfo, ActivationInfo, true, true);
-		return;
-	}
-	
     AbilityStartTime = GetWorld()->GetTimeSeconds();
     MaxPhaseIndex = PhaseInfos.Num() > 0 ? PhaseInfos.Num() - 1 : 0;
     

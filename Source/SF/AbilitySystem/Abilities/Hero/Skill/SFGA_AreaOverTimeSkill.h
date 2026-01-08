@@ -1,7 +1,7 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "AbilitySystem/Abilities/SFGameplayAbility.h"
+#include "AbilitySystem/Abilities/Hero/SFGA_Equipment_Base.h"
 #include "ScalableFloat.h" 
 #include "SFGA_AreaOverTimeSkill.generated.h"
 
@@ -22,7 +22,7 @@ struct FFrozenTargetData
  * 사용자 요청: ASFGroundAOE의 타격 로직을 그대로 이식
  */
 UCLASS()
-class SF_API USFGA_AreaOverTimeSkill : public USFGameplayAbility
+class SF_API USFGA_AreaOverTimeSkill : public USFGA_Equipment_Base
 {
 	GENERATED_BODY()
 

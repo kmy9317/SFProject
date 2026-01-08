@@ -6,7 +6,9 @@
 
 USFAN_WeaponBurst::USFAN_WeaponBurst()
 {
-	NotifyColor = FColor(255, 128, 0, 255); 
+#if WITH_EDITORONLY_DATA
+	NotifyColor = FColor(255, 128, 0, 255);
+#endif
 }
 
 FString USFAN_WeaponBurst::GetNotifyName_Implementation() const
