@@ -8,6 +8,7 @@
 #include "System/Data/SFGameData.h"
 #include "Character/SFCharacterBase.h"
 #include "Engine/OverlapResult.h"
+#include "Net/UnrealNetwork.h"
 
 ASFGroundAOE::ASFGroundAOE(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
@@ -28,6 +29,14 @@ ASFGroundAOE::ASFGroundAOE(const FObjectInitializer& ObjectInitializer)
 	SetByCallerDamageTag = FGameplayTag::RequestGameplayTag(TEXT("Data.Damage.BaseDamage"), false);
 }
 
+void ASFGroundAOE::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
+{
+	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
+
+	// AttackRadius 변수를 복제 목록에 등록
+	DOREPLIFETIME(ASFGroundAOE, AttackRadius);
+}
+
 // [변경] 인자가 유효할 때만 변수를 덮어씌움
 void ASFGroundAOE::InitAOE(UAbilitySystemComponent* InSourceASC, AActor* InSourceActor, float InBaseDamage, float InRadius, float InDuration, float InTickInterval, float InExplosionRadius, float InExplosionDamageMultiplier, bool bOverrideExplodeOnEnd, bool bForceExplode)
 {
@@ -36,6 +45,8 @@ void ASFGroundAOE::InitAOE(UAbilitySystemComponent* InSourceASC, AActor* InSourc
 	BaseDamage = InBaseDamage;
 	AttackRadius = InRadius;
 
+	UpdateAOESize();
+	
 	// === 폭발 설정 처리 ===
 	// 1. 폭발 반경: 인자가 유효(>0)하면 덮어쓰고, 아니면 에디터 설정값 유지
 	if (InExplosionRadius > 0.f)
@@ -87,6 +98,28 @@ void ASFGroundAOE::InitAOE(UAbilitySystemComponent* InSourceASC, AActor* InSourc
 			);
 		}
 	}
+}
+
+void ASFGroundAOE::OnRep_AttackRadius()
+{
+	UpdateAOESize();
+}
+
+// [추가] 실제 크기를 변경하는 로직 분리
+void ASFGroundAOE::UpdateAOESize()
+{
+	// 충돌체 크기 설정
+	if (AreaCollision)
+	{
+		AreaCollision->SetSphereRadius(AttackRadius);
+	}
+    
+	// 이펙트 스케일 (기본 범위 기준)
+	float Scale = AttackRadius / 100.f; 
+	FVector NewScale = FVector(Scale, Scale, 1.0f);
+
+	if (AreaEffect) AreaEffect->SetWorldScale3D(NewScale);
+	if (AreaEffectCascade) AreaEffectCascade->SetWorldScale3D(NewScale);
 }
 
 void ASFGroundAOE::BeginPlay()

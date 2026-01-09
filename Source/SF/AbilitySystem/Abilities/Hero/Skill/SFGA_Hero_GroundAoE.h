@@ -121,6 +121,9 @@ private:
 	TObjectPtr<UAbilityTask_WaitInputPress> InputPressTask;
 
 	UPROPERTY()
+	TObjectPtr<UAbilityTask_PlayMontageAndWait> AimingMontageTask;
+	
+	UPROPERTY()
 	TObjectPtr<UAbilityTask_PlayMontageAndWait> MontageTask;
 
 	UPROPERTY()

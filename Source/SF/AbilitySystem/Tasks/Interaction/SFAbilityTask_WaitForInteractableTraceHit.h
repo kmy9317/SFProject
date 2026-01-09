@@ -67,6 +67,7 @@ private:
 	float InteractionTraceRange = 100.f;
 	float InteractionTraceRate = 0.1f;
 	bool bShowDebug = false;
+	bool bIsLocalPlayer = false;
 
 	FTimerHandle TraceTimerHandle;
 

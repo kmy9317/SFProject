@@ -10,7 +10,8 @@
 
 
 // Sets default values
-ASFDragon::ASFDragon()
+ASFDragon::ASFDragon(const FObjectInitializer& ObjectInitializer)
+	: Super(ObjectInitializer)
 {
 	
     GetCapsuleComponent()->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics);

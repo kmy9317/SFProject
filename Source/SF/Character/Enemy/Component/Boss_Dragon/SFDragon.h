@@ -16,7 +16,7 @@ class SF_API ASFDragon : public ASFEnemy
 	GENERATED_BODY()
 
 public:
-	ASFDragon();
+	ASFDragon(const FObjectInitializer& ObjectInitializer);
 	
 	virtual void InitializeComponents() override;
 	

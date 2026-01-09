@@ -7,6 +7,32 @@
 #include "UObject/Interface.h"
 #include "SFInteractable.generated.h"
 
+UENUM(BlueprintType)
+enum class ESFOutlineStencil : uint8
+{
+	None = 0 UMETA(Hidden),
+    
+	Blue = 250 UMETA(DisplayName = "Blue (Default)"),
+	Magenta = 251 UMETA(DisplayName = "Magenta (Portal)"),
+	Red = 252 UMETA(DisplayName = "Red (Danger)"),
+	Cyan = 253 UMETA(DisplayName = "Cyan (Chest)"),
+	Green = 254 UMETA(DisplayName = "Green (Revive)"),
+	Yellow = 255 UMETA(DisplayName = "Yellow (Pickup)"),
+
+	// 용도별 별칭
+	Default = Blue UMETA(Hidden),
+	Pickup = Yellow UMETA(Hidden),
+	Chest = Cyan UMETA(Hidden),
+	Portal = Magenta UMETA(Hidden),
+	Revive = Green UMETA(Hidden),
+	Enemy = Red UMETA(Hidden),
+};
+
+FORCEINLINE int32 GetStencilValue(ESFOutlineStencil Stencil)
+{
+	return static_cast<int32>(Stencil);
+}
+
 /**
  * 상호작용 정보를 수집하고 구성하는 헬퍼 클래스
  * 상호작용 가능한 객체에서 여러 개의 상호작용 정보를 생성할 때 사용
@@ -50,6 +76,7 @@ class SF_API ISFInteractable
 public:
 	// 상호작용 가능한 Actor에서 상속받아서 상호작용에 따른 부여할 어빌리티 정보를 리턴
 	virtual FSFInteractionInfo GetPreInteractionInfo(const FSFInteractionQuery& InteractionQuery) const { return FSFInteractionInfo(); }
+	virtual ESFOutlineStencil GetOutlineStencil() const { return ESFOutlineStencil::Default; }
 
 	/**
 	 * 플레이어 스탯을 적용한 최종 상호작용 정보를 수집하는 함수

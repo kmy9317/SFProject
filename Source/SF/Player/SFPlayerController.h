@@ -8,6 +8,7 @@
 #include "UI/InGame/UIDataStructs.h"
 #include "SFPlayerController.generated.h"
 
+class USFBossHUDWidget;
 class USFQuickbarComponent;
 class USFItemManagerComponent;
 class USFInventoryManagerComponent;
@@ -54,7 +55,13 @@ public:
 	// 로비 복귀 준비 완료 
 	UFUNCTION(BlueprintCallable, Category = "SF|GameOver")
 	void RequestReadyForLobby();
-  
+
+	UFUNCTION(BlueprintCallable, Category = "SF|GameOver")
+	void CreateBossHUD();
+
+	UFUNCTION(BlueprintCallable, Category = "SF|GameOver")
+	void RemoveBossHUD(ACharacter* BossActor);
+	
 public:
   //영구강화
   UFUNCTION(Server, Reliable)
@@ -90,13 +97,20 @@ protected:
 	// 팀원 표시 위젯 클래스
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "UI|InGame")
 	TSubclassOf<UUserWidget> TeammateIndicatorWidgetClass;
-
+	
 	// 생성된 팀원 표시 위젯 관리 맵
 	UPROPERTY()
 	TMap<AActor*, class USFIndicatorWidgetBase*> TeammateWidgetMap;
 
 	// 팀원 표시 검색 타이머 핸들
 	FTimerHandle TeammateSearchTimerHandle;
+
+	// 보스전 전용 위젯 클래스
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "UI|InGame")
+	TSubclassOf<USFBossHUDWidget> BossHUDWidgetClass;
+
+	UPROPERTY()
+	USFBossHUDWidget* BossHUDWidgetInstance;
 	
 private:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "SF|Components", meta = (AllowPrivateAccess = "true"))

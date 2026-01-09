@@ -70,6 +70,8 @@ void USFGA_CharacterDeath::ActivateAbility(const FGameplayAbilitySpecHandle Hand
 			// 드롭 실행
 			ExecuteDrop(Enemy);
 
+			Enemy->CheckBossDeath();
+
 			// EnemyManager 등록 해제
 			if (ASFGameState* SFGameState = GetWorld()->GetGameState<ASFGameState>())
 			{

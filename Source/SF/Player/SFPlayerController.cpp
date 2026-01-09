@@ -19,9 +19,12 @@
 #include "Inventory/SFQuickbarComponent.h"
 #include "Item/SFItemManagerComponent.h"
 #include "GameFramework/GameplayMessageSubsystem.h"
+#include "GameModes/SFGameState.h"
+#include "GameModes/SFStageManagerComponent.h"
 #include "Kismet/GameplayStatics.h"
 #include "Pawn/SFSpectatorPawn.h"
 #include "System/SFPlayFabSubsystem.h"
+#include "UI/InGame/SFBossHUDWidget.h"
 #include "UI/InGame/SFIndicatorWidgetBase.h"
 #include "UI/InGame/SFDamageWidget.h"
 
@@ -402,6 +405,48 @@ void ASFPlayerController::Client_BeginPermanentUpgradeFlow_Implementation()
 void ASFPlayerController::RequestReadyForLobby()
 {
 	Server_NotifyReadyForLobby();
+}
+
+void ASFPlayerController::CreateBossHUD()
+{
+	ASFGameState* GS = GetWorld()->GetGameState<ASFGameState>();
+	if (GS)
+	{
+		if (GS->GetStageManager() && GS->GetStageManager()->GetCurrentBossActor())
+		{
+			if (BossHUDWidgetClass && !BossHUDWidgetInstance)
+			{
+					BossHUDWidgetInstance = CreateWidget<USFBossHUDWidget>(this, BossHUDWidgetClass);
+				if (BossHUDWidgetInstance)
+				{
+					BossHUDWidgetInstance->AddToViewport(100);
+					BossHUDWidgetInstance->InitializeBoss(GS->GetStageManager()->GetCurrentBossActor());
+					GS->GetStageManager()->OnBossStateChanged.AddDynamic(this, &ThisClass::RemoveBossHUD);
+				}
+			}
+		}
+	}
+}
+
+void ASFPlayerController::RemoveBossHUD(ACharacter* BossActor)
+{
+		if (!IsValid(BossActor))
+		{
+			if (BossHUDWidgetInstance)
+			{
+				BossHUDWidgetInstance->RemoveFromParent();
+				BossHUDWidgetInstance = nullptr;
+			}
+
+			ASFGameState* GS = GetWorld()->GetGameState<ASFGameState>();
+			if (GS)
+			{
+				if (GS->GetStageManager())
+				{
+					GS->GetStageManager()->OnBossStateChanged.RemoveDynamic(this, &ThisClass::RemoveBossHUD);
+				}
+			}
+		}
 }
 
 void ASFPlayerController::Server_NotifyReadyForLobby_Implementation()

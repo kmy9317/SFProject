@@ -112,6 +112,8 @@ public:
 
 	UFUNCTION(BlueprintCallable, Category = "SF|Ability|Input")
 	void DisablePlayerInput();
+
+	bool ShouldPersistOnTravel() const { return bShouldPersistOnTravel; }
 	
 protected:
 	//~UGameplayAbility interface
@@ -147,6 +149,10 @@ protected:
 	// 추가 비용 (기본 GE Cost 외)
 	UPROPERTY(EditDefaultsOnly, Instanced, Category = "Cost")
 	TArray<TObjectPtr<USFAbilityCost>> AdditionalCosts;
+
+	// Travel 시 저장할 어빌리티인지 여부 (동적 부여 어빌리티는 false)
+	UPROPERTY(EditDefaultsOnly, Category = "SF|Persistence")
+	bool bShouldPersistOnTravel = true;
 
 public:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category="SF|Ability")

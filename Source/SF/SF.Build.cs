@@ -46,7 +46,7 @@ public class SF : ModuleRules
 			"EngineCameras"
 		});
 
-		PrivateDependencyModuleNames.AddRange(new string[] { });
+		PrivateDependencyModuleNames.AddRange(new string[] { "AITestSuite" });
 
 		PublicIncludePaths.AddRange(new string[] { "SF" });		
 

@@ -29,10 +29,17 @@ void USFGA_Hero_GroundAoE::ActivateAbility(const FGameplayAbilitySpecHandle Hand
 	// 1. 준비 단계 시작 (Loop 몽타주 재생)
 	if (AimingLoopMontage)
 	{
-		if (ASFCharacterBase* Character = Cast<ASFCharacterBase>(GetAvatarActorFromActorInfo()))
-		{
-			Character->PlayAnimMontage(AimingLoopMontage);
-		}
+		// PlayAnimMontage 직접 호출 대신 Task 사용
+		AimingMontageTask = UAbilityTask_PlayMontageAndWait::CreatePlayMontageAndWaitProxy(
+		   this,
+		   NAME_None,
+		   AimingLoopMontage,
+		   1.0f,
+		   NAME_None,
+		   false // StopWhenAbilityEnds (수동으로 끌 것이므로 false가 낫습니다, true여도 EndAbility에서 꺼지긴 함)
+		);
+		// 루프 몽타주이므로 별도의 종료 델리게이트 연결 없이 실행만 시킴
+		AimingMontageTask->ReadyForActivation();
 	}
 
 	// 2. 카메라 모드 변경
@@ -47,17 +54,24 @@ void USFGA_Hero_GroundAoE::ActivateAbility(const FGameplayAbilitySpecHandle Hand
 		FActorSpawnParameters Params;
 		Params.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
 		SpawnedReticle = GetWorld()->SpawnActor<AActor>(ReticleClass, GetAvatarActorFromActorInfo()->GetActorTransform(), Params);
-	}
 
+		// [핵심 수정] 생성은 하되, 로컬 컨트롤러(시전자 본인)가 아니면 숨김 처리
+		if (SpawnedReticle)
+		{
+			if (!IsLocallyControlled())
+			{
+				SpawnedReticle->SetActorHiddenInGame(true);
+			}
+		}
+	}
+	
 	// 4. Tick 활성화 (마우스 추적용)
 	if (UWorld* World = GetWorld())
 	{
-		// [수정] 반환값 할당 없이 함수만 호출
 		World->GetTimerManager().SetTimerForNextTick(this, &USFGA_Hero_GroundAoE::TickReticle);
 	}
-
-	// 5. 입력 대기 흐름 변경: [Wait Release] -> [Wait Press]
-	// 스킬 시전 키를 '뗄 때'까지 먼저 기다립니다. (연타 방지 및 상태 구분)
+	
+	// 5. 추가 입력 대기
 	InputReleaseTask = UAbilityTask_WaitInputRelease::WaitInputRelease(this, false);
 	if (InputReleaseTask)
 	{
@@ -121,6 +135,12 @@ void USFGA_Hero_GroundAoE::OnConfirmInputPressed(float TimeWaited)
 		InputPressTask = nullptr;
 	}
 
+	if (AimingMontageTask)
+	{
+		AimingMontageTask->EndTask();
+		AimingMontageTask = nullptr;
+	}
+	
 	// 2. 코스트 지불
 	if (!CommitAbility(CurrentSpecHandle, CurrentActorInfo, CurrentActivationInfo))
 	{

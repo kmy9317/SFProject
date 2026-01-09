@@ -19,6 +19,8 @@ class SF_API ASFGroundAOE : public AActor
 public:	
 	ASFGroundAOE(const FObjectInitializer& ObjectInitializer = FObjectInitializer::Get());
 
+	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
+
 	// 초기화 함수
 	void InitAOE(
 		UAbilitySystemComponent* InSourceASC,
@@ -45,6 +47,11 @@ protected:
 	void ExecuteRemovalGameplayCue();
 	void ExecuteExplosion();
 
+	UFUNCTION()
+	void OnRep_AttackRadius();
+	
+	void UpdateAOESize();
+	
 protected:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="SF|Components")
 	TObjectPtr<USphereComponent> AreaCollision;
@@ -101,7 +108,8 @@ protected:
 	TWeakObjectPtr<AActor> SourceActor;
 
 	float BaseDamage = 0.f;
-	float AttackRadius = 300.f; // Tick용 반경
+	UPROPERTY(ReplicatedUsing = OnRep_AttackRadius)
+	float AttackRadius = 300.f;
 	
 	FTimerHandle DurationTimerHandle;
 	FTimerHandle TickTimerHandle;

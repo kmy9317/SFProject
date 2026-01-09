@@ -9,6 +9,7 @@ class USFStageSubsystem;
 
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnStageInfoChangedSignature, const FSFStageInfo&, NewStageInfo);
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnStageClearedSignature, const FSFStageInfo&, ClearedStageInfo);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnBossStateChangedSignature, ACharacter*, BossActor);
 
 UCLASS(ClassGroup=(Custom), meta=(BlueprintSpawnableComponent))
 class SF_API USFStageManagerComponent : public UGameStateComponent
@@ -32,6 +33,12 @@ public:
 	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "SF|Stage")
 	void NotifyStageClear();
 
+	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "SF|Stage")
+	void RegisterBossActor(ACharacter* NewBoss);
+	
+	UFUNCTION(BlueprintCallable, Category = "SF|Stage")
+	ACharacter* GetCurrentBossActor() const { return CurrentBossActor; }
+
 private:
 
 	UFUNCTION()
@@ -46,6 +53,9 @@ public:
 	UPROPERTY(BlueprintAssignable, Category = "SF|Stage|Events")
 	FOnStageClearedSignature OnStageCleared;
 
+	UPROPERTY(BlueprintAssignable, Category = "SF|Stage|Events")
+	FOnBossStateChangedSignature OnBossStateChanged;
+
 private:
 	// 현재 스테이지 정보 (서버 → 클라이언트 복제)
 	UPROPERTY(Replicated)
@@ -55,4 +65,9 @@ private:
 	UPROPERTY(ReplicatedUsing = OnRep_bStageCleared)
 	bool bStageCleared = false;
 	
+	UFUNCTION()
+	void OnRep_CurrentBossActor();
+
+	UPROPERTY(ReplicatedUsing = OnRep_CurrentBossActor)
+	TObjectPtr<ACharacter> CurrentBossActor;
 };

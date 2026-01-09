@@ -602,6 +602,12 @@ void ASFPlayerState::TryApplyPermanentUpgrade()
 		return;
 	}
 
+	if (!bPawnDataLoaded)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("[PermanentUpgrade] PawnData not loaded yet. Waiting..."));
+		return;
+	}
+	
 	// ★ 핵심: 서버가 "데이터를 받았다"는 사실이 먼저여야 함
 	if (!bPermanentUpgradeDataReceived)
 	{

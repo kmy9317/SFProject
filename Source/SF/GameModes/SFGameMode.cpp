@@ -149,20 +149,30 @@ void ASFGameMode::HandleStartingNewPlayer_Implementation(APlayerController* NewP
 		return;
 	}
 
-	UGameInstance* GI = GetGameInstance();
-	if (!GI)
+	// 클라이언트 여부에 따라 분기 처리
+	if (NewPlayer->IsLocalController())
 	{
-		return;
+		// 1. 호스트(Listen Server) 또는 Standalone인 경우
+		// 기존 로직 유지: 로컬 Subsystem을 직접 호출
+		if (UGameInstance* GI = GetGameInstance())
+		{
+			if (USFPlayFabSubsystem* PF = GI->GetSubsystem<USFPlayFabSubsystem>())
+			{
+				PF->TryStartPermanentUpgradeForThisGame();
+			}
+		}
 	}
-
-	USFPlayFabSubsystem* PF = GI->GetSubsystem<USFPlayFabSubsystem>();
-	if (!PF)
+	else
 	{
-		return;
+		// 2. 접속한 클라이언트(Remote)인 경우
+		// 클라이언트에게 "데이터 전송을 시작하라"는 RPC를 보내야 함
+		if (ASFPlayerController* SFPC = Cast<ASFPlayerController>(NewPlayer))
+		{
+			// SFPlayerController에 이 함수가 있다고 가정 (StartPlay에서 호출하던 함수)
+			SFPC->Client_BeginPermanentUpgradeFlow();
+			UE_LOG(LogSF, Log, TEXT("[GameMode] Triggered Client_BeginPermanentUpgradeFlow for %s"), *NewPlayer->GetName());
+		}
 	}
-
-	//PawnData 상태와 무관하게 "이번 게임 1회" 트리거
-	PF->TryStartPermanentUpgradeForThisGame();
 }
 
 UClass* ASFGameMode::GetDefaultPawnClassForController_Implementation(AController* Controller)

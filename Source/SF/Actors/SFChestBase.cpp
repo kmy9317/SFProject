@@ -52,7 +52,15 @@ FSFInteractionInfo ASFChestBase::GetPreInteractionInfo(const FSFInteractionQuery
 
 void ASFChestBase::GetMeshComponents(TArray<UMeshComponent*>& OutMeshComponents) const
 {
-	Super::GetMeshComponents(OutMeshComponents);
+	if (MeshComponent->GetSkeletalMeshAsset())
+	{
+		OutMeshComponents.Add(MeshComponent);
+	}
+}
+
+ESFOutlineStencil ASFChestBase::GetOutlineStencil() const
+{
+	return ESFOutlineStencil::Chest;
 }
 
 void ASFChestBase::SetChestState(ESFChestState NewChestState)

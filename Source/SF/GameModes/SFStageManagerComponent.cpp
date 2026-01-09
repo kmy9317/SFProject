@@ -19,6 +19,7 @@ void USFStageManagerComponent::GetLifetimeReplicatedProps(TArray<FLifetimeProper
 
     DOREPLIFETIME(ThisClass, CurrentStageInfo);
     DOREPLIFETIME(ThisClass, bStageCleared);
+    DOREPLIFETIME(ThisClass, CurrentBossActor);
 }
 
 void USFStageManagerComponent::BeginPlay()
@@ -89,6 +90,22 @@ void USFStageManagerComponent::OnRep_bStageCleared()
     {
         OnStageCleared.Broadcast(CurrentStageInfo);
     }
+}
+
+
+//-------------------------------------------------------------------------
+
+void USFStageManagerComponent::RegisterBossActor(ACharacter* NewBoss)
+{
+    if (!GetOwner()->HasAuthority()) return;
+    CurrentBossActor = NewBoss;
+    OnBossStateChanged.Broadcast(CurrentBossActor);    
+}
+
+
+void USFStageManagerComponent::OnRep_CurrentBossActor()
+{
+    OnBossStateChanged.Broadcast(CurrentBossActor);
 }
 
 
