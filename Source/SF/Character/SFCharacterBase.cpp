@@ -1,5 +1,6 @@
 #include "Character/SFCharacterBase.h"
 
+#include "SFCharacterGameplayTags.h"
 #include "GameFramework/CharacterMovementComponent.h"
 #include "AbilitySystem/SFAbilitySystemComponent.h"
 #include "SFPawnExtensionComponent.h"
@@ -192,6 +193,11 @@ FVector ASFCharacterBase::GetLastInputDirection() const
 
 	// AI나 HeroComponent가 없는 경우 Zero 반환
 	return FVector::ZeroVector;
+}
+
+bool ASFCharacterBase::IsAlive() const
+{
+	return !HasMatchingGameplayTag(SFGameplayTags::Character_State_Dead);
 }
 
 void ASFCharacterBase::UpdateAnimValue()

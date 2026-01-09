@@ -54,6 +54,10 @@ public:
 	UFUNCTION(BlueprintPure, Category = "SF|Character")
 	FVector GetLastInputDirection() const;
 	
+	// 생존 여부 확인
+	UFUNCTION(BlueprintPure, Category = "SF|Character")
+	bool IsAlive() const;
+	
 protected:
 	// Called when the game starts or when spawned
 	virtual void BeginPlay() override;

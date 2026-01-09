@@ -19,6 +19,8 @@
 #include "GameModes/SFGameState.h"
 #include "System/SFGameInstance.h"
 #include "Net/UnrealNetwork.h"
+#include "Components/CapsuleComponent.h"
+#include "Character/SFCharacterGameplayTags.h"
 
 
 #include UE_INLINE_GENERATED_CPP_BY_NAME(SFEnemy)
@@ -339,6 +341,44 @@ void ASFEnemy::TurnCollisionOff()
 		GetMesh()->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 		GetMesh()->SetGenerateOverlapEvents(false);
 	}
+}
+
+bool ASFEnemy::CanBeLockedOn() const
+{
+	// 1. 기본 유효성 및 생존 확인
+	if (!IsValid(this) || !IsAlive()) 
+	{
+		return false;
+	}
+
+	// 2. 사망 태그(Dead) 검사 (GAS 태그 시스템)
+	if (const IGameplayTagAssetInterface* TagInterface = Cast<const IGameplayTagAssetInterface>(this))
+	{
+		if (TagInterface->HasMatchingGameplayTag(SFGameplayTags::Character_State_Dead))
+		{
+			return false; // 이미 죽은 상태라면 락온 불가
+		}
+	}
+
+	// 3. 물리적 충돌 불가 상태면 락온 제외 (선택 사항)
+	if (GetCapsuleComponent() && GetCapsuleComponent()->GetCollisionEnabled() == ECollisionEnabled::NoCollision)
+	{
+		return false;
+	}
+
+	return true;
+}
+
+TArray<FName> ASFEnemy::GetLockOnSockets() const
+{
+	// 일반 몬스터는 설정된 단일 소켓 하나만 반환
+	return { DefaultLockOnSocketName };
+}
+
+void ASFEnemy::OnSelectedAsTarget(bool bSelected)
+{
+	// 타겟으로 지정되었을 때 호출됨 (나중에 위젯 켜기/끄기 로직 추가 가능)
+	// 예: EnemyWidgetComponent->ShowLockOnIndicator(bSelected);
 }
 
 void ASFEnemy::OnAbilitySystemInitialized()

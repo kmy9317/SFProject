@@ -1,5 +1,3 @@
-// Fill out your copyright notice in the Description page of Project Settings.
-
 #pragma once
 
 #include "CoreMinimal.h"
@@ -7,7 +5,29 @@
 #include "USFGA_Dodge.generated.h"
 
 /**
- * 소울류 구르기 (클라이언트 예측 + 서버 동기화 버전)
+ * 4방향 회피 몽타주 구조체
+ * (직업별로 다른 애니메이션을 할당하기 위함)
+ */
+USTRUCT(BlueprintType)
+struct FDodgeMontageSet
+{
+	GENERATED_BODY()
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
+	TObjectPtr<UAnimMontage> ForwardMontage;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
+	TObjectPtr<UAnimMontage> BackwardMontage;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
+	TObjectPtr<UAnimMontage> LeftMontage;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
+	TObjectPtr<UAnimMontage> RightMontage;
+};
+
+/**
+ * 소울류 구르기 (클라이언트 예측 + 서버 동기화 + 4방향 락온 지원)
  */
 UCLASS()
 class SF_API USFGA_Dodge : public USFGameplayAbility
@@ -25,40 +45,43 @@ protected:
 	UFUNCTION()
 	void OnMontageFinished();
 
-	// [계산] 구를 방향과 위치를 계산만 하는 함수
-	void CalculateDodgeParameters(FVector& OutLocation, FRotator& OutRotation) const;
+	// [계산] 구를 방향과 위치, 몽타주를 결정하는 함수
+	// bIsLockedOn: 락온 상태 여부
+	void CalculateDodgeParameters(bool bIsLockedOn, FVector& OutLocation, FRotator& OutRotation, UAnimMontage*& OutMontage) const;
 
-	// [실행] 계산된 위치로 실제 구르기(MotionWarping + Montage)를 실행하는 함수
-	void ApplyDodge(const FVector& TargetLocation, const FRotator& TargetRotation);
+	// [실행] 계산된 파라미터로 구르기 실행 (MotionWarping + PlayMontage)
+	void ApplyDodge(const FVector& TargetLocation, const FRotator& TargetRotation, UAnimMontage* MontageToPlay);
 
-	// [서버] 클라이언트로부터 위치 데이터를 받았을 때 실행
+	// [서버] 클라이언트 타겟 데이터 수신 핸들러
 	void OnServerTargetDataReceived(const FGameplayAbilityTargetDataHandle& DataHandle, FGameplayTag ActivationTag);
 	
-	// Motion Warping 컴포넌트 업데이트 헬퍼
+	// Motion Warping 설정 헬퍼
 	void SetupMotionWarping(const FVector& TargetLocation, const FRotator& TargetRotation);
 
-protected:
-	// 구르기 애니메이션 몽타주
-	UPROPERTY(EditDefaultsOnly, Category = "SF|Animation")
-	TObjectPtr<UAnimMontage> DodgeMontage;
+	// 현재 입력 방향에 따른 몽타주 반환 (Local Space 기준)
+	UAnimMontage* SelectMontageBasedOnInput(const FVector& InputDirection, const FRotator& ControlRotation) const;
 
-	// 백스텝 몽타주 (입력 없이 스페이스바 눌렀을 때)
+protected:
+	// =========================================================
+	//  Configuration (직업별 설정 가능)
+	// =========================================================
+
+	// [New] 4방향 구르기 몽타주 세트 (기존 단일 DodgeMontage 대체)
 	UPROPERTY(EditDefaultsOnly, Category = "SF|Animation")
-	UAnimMontage* BackstepMontage;
+	FDodgeMontageSet DirectionalDodgeMontages;
+
+	// 백스텝 몽타주 (입력 없이 사용 시)
+	UPROPERTY(EditDefaultsOnly, Category = "SF|Animation")
+	TObjectPtr<UAnimMontage> BackstepMontage;
 	
 	// 구르기 이동 거리
 	UPROPERTY(EditDefaultsOnly, Category = "SF|Dodge")
 	float DodgeDistance = 500.f;
 
-	// Motion Warping 타겟 이름 (몽타주 노티파이와 일치해야 함)
-	UPROPERTY(EditDefaultsOnly, Category = "SF|MotionWarping")
-	FName WarpTargetName = TEXT("Dodge");
+	// Motion Warping 타겟 이름 (몽타주 내 NotifyState와 일치해야 함)
+	UPROPERTY(EditDefaultsOnly, Category = "SF|Dodge")
+	FName WarpTargetName = FName("DodgeTarget");
 
-	// DodgeType 파라미터 추가 (0: 구르기, 1: 백스텝)
-	void CalculateDodgeParameters(FVector& OutLocation, FRotator& OutRotation, int32& OutDodgeType) const;
-	void ApplyDodge(const FVector& TargetLocation, const FRotator& TargetRotation, int32 DodgeType);
-	
 private:
-	// 서버에서 데이터를 기다릴 때 쓰는 핸들
 	FDelegateHandle ServerTargetDataDelegateHandle;
 };

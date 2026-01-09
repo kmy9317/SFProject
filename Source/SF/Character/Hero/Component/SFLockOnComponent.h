@@ -4,6 +4,7 @@
 #include "Components/PawnComponent.h"
 #include "GameplayTagContainer.h"
 #include "Blueprint/UserWidget.h"
+#include "Interface/SFLockOnInterface.h"
 #include "SFLockOnComponent.generated.h"
 
 /**
@@ -24,13 +25,10 @@ class SF_API USFLockOnComponent : public UPawnComponent
 public:
 	USFLockOnComponent(const FObjectInitializer& ObjectInitializer);
 
-	// 매 프레임 로직 수행 (유효성 검사, 회전 제어 등)
 	virtual void TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction) override;
 
 	/**
 	 * 락온을 시도하거나 해제합니다. (Toggle)
-	 * @return true: 락온 성공 또는 해제 성공 (카메라 리셋 불필요)
-	 * @return false: 타겟을 찾지 못함 (카메라 리셋 필요)
 	 */
 	UFUNCTION(BlueprintCallable, Category = "SF|LockOn")
 	bool TryLockOn();
@@ -45,7 +43,7 @@ public:
 
 protected:
 	// ==========================================
-	//  틱(Tick) 내부 로직 분리 (리팩토링)
+	//  틱(Tick) 내부 로직 분리
 	// ==========================================
 	
 	// 1. 타겟 유효성 검사 (거리, 시야 가림 유예 처리)
@@ -60,19 +58,22 @@ protected:
 	// 4. 캐릭터 회전 제어 (카메라 방향과 동기화)
 	void UpdateLogic_CharacterRotation(float DeltaTime);
 
-	// 5. 위젯 위치 업데이트 (선택 사항)
+	// 5. 위젯 위치 업데이트
 	void UpdateLogic_WidgetPosition(float DeltaTime);
 
 protected:
 	// ==========================================
-	//  내부 유틸리티 함수
+	//  내부 유틸리티 함수 (알고리즘 개선)
 	// ==========================================
 
-	// 최적의 타겟 탐색 (화면 중앙 우선)
+	// 최적의 타겟 탐색 (Score 기반)
 	AActor* FindBestTarget();
 	
-	// 기본적인 타겟 유효성 검사 (거리, 사망 여부 - 시야 체크 제외)
-	bool IsTargetValidBasic(AActor* TargetActor) const;
+	// 타겟 유효성 검사 (Interface 활용)
+	bool IsTargetValid(AActor* TargetActor) const;
+
+	// 적대 관계 확인 (Team ID 활용)
+	bool IsHostile(AActor* TargetActor) const;
 
 	// UI 위젯 생성 및 파괴
 	void CreateLockOnWidget();
@@ -87,11 +88,15 @@ protected:
 	UPROPERTY(BlueprintReadOnly, Category = "SF|LockOn")
 	TObjectPtr<AActor> CurrentTarget;
 
+	// 현재 타겟의 조준 소켓 이름 (예: Head, Spine_02)
+	UPROPERTY(BlueprintReadOnly, Category = "SF|LockOn")
+	FName CurrentTargetSocketName;
+
 	// 락온 탐색 거리
 	UPROPERTY(EditDefaultsOnly, Category = "SF|LockOn")
 	float LockOnDistance = 1500.0f;
 
-	// 락온 해제 거리 (탐색 거리보다 약간 길게 설정하여 잦은 끊김 방지)
+	// 락온 해제 거리
 	UPROPERTY(EditDefaultsOnly, Category = "SF|LockOn")
 	float LockOnBreakDistance = 1700.0f;
 
@@ -107,61 +112,63 @@ protected:
 	UPROPERTY(EditDefaultsOnly, Category = "SF|LockOn")
 	FGameplayTag SprintTag;
 
+	// [New] 타겟 선정 가중치 (Score Weights)
+	
+	// 거리 점수 가중치 (1.0 = 기본)
+	UPROPERTY(EditDefaultsOnly, Category = "SF|LockOn|Selection")
+	float Weight_Distance = 1.0f;
+
+	// 각도 점수 가중치 (1.5 = 화면 중앙 우선시)
+	UPROPERTY(EditDefaultsOnly, Category = "SF|LockOn|Selection")
+	float Weight_Angle = 1.5f;
+
+	// 보스 우선 가중치 (2.0 = 보스 선호)
+	UPROPERTY(EditDefaultsOnly, Category = "SF|LockOn|Selection")
+	float Weight_BossBonus = 2.0f;
+
 	// ------------------------------------------
 	// 시야 가림(Occlusion) 유예 설정
 	// ------------------------------------------
 	
-	// 장애물에 가려져도 락온을 유지하는 시간 (초)
 	UPROPERTY(EditDefaultsOnly, Category = "SF|LockOn")
 	float LostTargetMemoryTime = 1.0f;
 
-	// 타겟이 시야에서 사라진 누적 시간
 	float TimeSinceTargetHidden = 0.0f;
 
 	// ------------------------------------------
 	// 카메라 및 스위칭 설정
 	// ------------------------------------------
 
-	// 마우스 간섭 없는 회전을 위해 마지막 프레임의 회전값 저장
 	FRotator LastLockOnRotation;
-
-	// 현재 타겟 스위칭(카메라 이동) 중인지 여부
 	bool bIsSwitchingTarget = false;
 
-	// 타겟 스위칭 시 카메라 이동 속도 (높을수록 빠름)
 	UPROPERTY(EditAnywhere, Category = "SF|LockOn|Switching")
 	float TargetSwitchInterpSpeed = 15.0f;
 
-	// 스위칭 입력 감도 (낮을수록 민감)
 	UPROPERTY(EditDefaultsOnly, Category = "SF|LockOn|Switching")
 	float SwitchInputThreshold = 0.5f;
 	
-	// 스위칭 시 허용할 최대 각도 (내적값)
 	UPROPERTY(EditDefaultsOnly, Category = "SF|LockOn|Switching")
 	float SwitchAngularLimit = 0.5f;
 	
-	// 스위칭 쿨타임 (초)
 	UPROPERTY(EditDefaultsOnly, Category = "SF|LockOn|Switching")
 	float SwitchCooldown = 0.3f;
 
 	float CurrentSwitchCooldown = 0.0f;
 	
-	// 토글(On/Off) 연타 방지용 마지막 시간
 	double LastLockOnToggleTime = 0.0;
 
 	// ------------------------------------------
 	// UI 설정
 	// ------------------------------------------
 
-	// 락온 위젯 클래스 (BP에서 할당)
 	UPROPERTY(EditDefaultsOnly, Category = "SF|LockOn|UI")
 	TSubclassOf<UUserWidget> LockOnWidgetClass;
 
-	// 생성된 위젯 인스턴스
 	UPROPERTY()
 	TObjectPtr<UUserWidget> LockOnWidgetInstance;
 
-	// 위젯을 고정할 타겟의 소켓 이름
+	// 기본 소켓 이름 (Interface 미사용 시 Fallback)
 	UPROPERTY(EditDefaultsOnly, Category = "SF|LockOn|UI")
 	FName LockOnSocketName = FName("spine_02");
 };
