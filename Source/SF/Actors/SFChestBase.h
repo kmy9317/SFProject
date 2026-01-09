@@ -27,6 +27,7 @@ public:
 	// ~ Begin ISFInteractable
 	virtual FSFInteractionInfo GetPreInteractionInfo(const FSFInteractionQuery& InteractionQuery) const override;
 	virtual void GetMeshComponents(TArray<UMeshComponent*>& OutMeshComponents) const override;
+	virtual ESFOutlineStencil GetOutlineStencil() const override;
 	// ~ End ISFInteractable
 
 	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly)

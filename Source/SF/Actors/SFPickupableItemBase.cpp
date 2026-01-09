@@ -82,5 +82,13 @@ void ASFPickupableItemBase::OnRep_PickupInfo()
 
 void ASFPickupableItemBase::GetMeshComponents(TArray<UMeshComponent*>& OutMeshComponents) const
 {
-	OutMeshComponents.Add(MeshComponent);
+	if (MeshComponent->GetStaticMesh())
+	{
+		OutMeshComponents.Add(MeshComponent);
+	}
+}
+
+ESFOutlineStencil ASFPickupableItemBase::GetOutlineStencil() const
+{
+	return ESFOutlineStencil::Pickup;
 }

@@ -30,6 +30,9 @@ void USFAbilityTask_WaitForInteractableTraceHit::Activate()
 	Super::Activate();
 
 	SetWaitingOnAvatar();
+
+	bIsLocalPlayer = InteractionQuery.RequestingController.IsValid() && InteractionQuery.RequestingController->IsLocalController();
+	
 	if (UWorld* World = GetWorld())
 	{
 		World->GetTimerManager().SetTimer(TraceTimerHandle, this, &ThisClass::PerformTrace, InteractionTraceRate, true);
@@ -260,15 +263,21 @@ void USFAbilityTask_WaitForInteractableTraceHit::UpdateInteractionInfos(const FS
 	// 변화가 있을 때만 업데이트 수행
 	if (bInfosChanged)
 	{
-		// 이전 객체들의 하이라이트 해제
-		HighlightInteractables(CurrentInteractionInfos, false);
+		if (bIsLocalPlayer)
+		{
+			// 이전 객체들의 하이라이트 해제
+			HighlightInteractables(CurrentInteractionInfos, false);
+		}
 
 		// 새로운 정보로 업데이트
 		CurrentInteractionInfos = NewInteractionInfos;
-
-		// 새로운 객체들에 하이라이트 적용
-		HighlightInteractables(CurrentInteractionInfos, true);
-
+		
+		if (bIsLocalPlayer)
+		{
+			// 새로운 객체들에 하이라이트 적용
+			HighlightInteractables(CurrentInteractionInfos, true);
+		}
+		
 		// 변화 알림 델리게이트 호출
 		InteractableChanged.Broadcast(CurrentInteractionInfos);
 	}
@@ -276,17 +285,29 @@ void USFAbilityTask_WaitForInteractableTraceHit::UpdateInteractionInfos(const FS
 
 void USFAbilityTask_WaitForInteractableTraceHit::HighlightInteractables(const TArray<FSFInteractionInfo>& InteractionInfos, bool bShouldHighlight)
 {
-	TArray<UMeshComponent*> MeshComponents;
 	for (const FSFInteractionInfo& InteractionInfo : InteractionInfos)
-	{
-		if (ISFInteractable* Interactable = InteractionInfo.Interactable.GetInterface())
-		{
-			Interactable->GetMeshComponents(MeshComponents);
-		}
-	}
+    {
+        ISFInteractable* Interactable = InteractionInfo.Interactable.GetInterface();
+        if (!Interactable)
+        {
+            continue;
+        }
 
-	for (UMeshComponent* MeshComponent : MeshComponents)
-	{
-		MeshComponent->SetRenderCustomDepth(bShouldHighlight);
-	}
+        const int32 StencilValue = GetStencilValue(Interactable->GetOutlineStencil());
+        
+        TArray<UMeshComponent*> MeshComponents;
+        Interactable->GetMeshComponents(MeshComponents);
+
+        for (UMeshComponent* MeshComponent : MeshComponents)
+        {
+            if (IsValid(MeshComponent))
+            {
+                MeshComponent->SetRenderCustomDepth(bShouldHighlight);
+                if (bShouldHighlight)
+                {
+                    MeshComponent->SetCustomDepthStencilValue(StencilValue);
+                }
+            }
+        }
+    }
 }

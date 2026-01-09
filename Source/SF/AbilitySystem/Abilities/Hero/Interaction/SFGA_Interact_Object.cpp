@@ -15,6 +15,8 @@ USFGA_Interact_Object::USFGA_Interact_Object(const FObjectInitializer& ObjectIni
 	
 	AbilityTags.AddTag(SFGameplayTags::Ability_Interact_Object);
 	ActivationOwnedTags.AddTag(SFGameplayTags::Character_State_Interact);
+
+	bShouldPersistOnTravel = false;
 }
 
 void USFGA_Interact_Object::ActivateAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, const FGameplayEventData* TriggerEventData)

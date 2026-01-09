@@ -435,6 +435,15 @@ void USFAbilitySystemComponent::SaveAbilitiesToData(FSFSavedAbilitySystemData& O
 			continue;
 		}
 
+		// 저장 대상이 아닌 어빌리티는 스킵
+		if (const USFGameplayAbility* SFAbility = Cast<USFGameplayAbility>(Spec.Ability))
+		{
+			if (!SFAbility->ShouldPersistOnTravel())
+			{
+				continue;
+			}
+		}
+
 		FSFSavedAbility SavedAbility;
 		SavedAbility.AbilityClass = Spec.Ability->GetClass();
 		SavedAbility.AbilityLevel = Spec.Level;

@@ -33,6 +33,7 @@ public:
 	virtual void OnInteractActiveEnded(AActor* Interactor) override;
 	virtual void OnInteractionSuccess(AActor* Interactor) override;
 	virtual int32 GetActiveInteractorCount() const override;
+	virtual ESFOutlineStencil GetOutlineStencil() const override;
 	// ~ End ISFInteractable
 
 	const TArray<TWeakObjectPtr<AActor>>& GetCachedRevivers() const { return CachedRevivers; }

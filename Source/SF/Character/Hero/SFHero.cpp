@@ -112,6 +112,11 @@ int32 ASFHero::GetActiveInteractorCount() const
 	return Count;
 }
 
+ESFOutlineStencil ASFHero::GetOutlineStencil() const
+{
+	return ESFOutlineStencil::Revive;
+}
+
 void ASFHero::OnAbilitySystemInitialized()
 {
 	Super::OnAbilitySystemInitialized();
