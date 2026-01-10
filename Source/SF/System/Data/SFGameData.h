@@ -36,6 +36,12 @@ public:
 
 	UPROPERTY(EditDefaultsOnly, Category = "Default Gameplay Effects")
 	TSoftClassPtr<UGameplayEffect> AttributeModifierGameplayEffect;
+
+	UPROPERTY(EditDefaultsOnly, Category = "Default Gameplay Effects|Regen")
+	TSubclassOf<UGameplayEffect> StaminaRegenBlockEffect;
+
+	UPROPERTY(EditDefaultsOnly, Category = "Default Gameplay Effects|Regen")
+	TSubclassOf<UGameplayEffect> ManaRegenBlockEffect;
 	
 	UPROPERTY(EditDefaultsOnly, Category = "Common Upgrade")
 	TSoftObjectPtr<USFCommonLootTable> DefaultCommonLootTable;

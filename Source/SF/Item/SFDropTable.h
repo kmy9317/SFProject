@@ -16,10 +16,18 @@ struct FSFDropResult
 	UPROPERTY(BlueprintReadOnly, Category = "Drop")
 	TObjectPtr<USFItemInstance> ItemInstance;
 
+	// 스폰할 액터 수
 	UPROPERTY(BlueprintReadOnly, Category = "Drop")
-	int32 ItemCount = 0;
+	int32 SpawnCount = 1;
 
-	bool IsValid() const { return ItemInstance != nullptr && ItemCount > 0; }
+	// 액터당 양
+	UPROPERTY(BlueprintReadOnly, Category = "Drop")
+	int32 AmountPerSpawn = 1;
+	
+	bool IsValid() const { return ItemInstance != nullptr && SpawnCount > 0 && AmountPerSpawn > 0; }
+
+	// 총량
+	int32 GetTotalAmount() const { return SpawnCount * AmountPerSpawn; }
 };
 
 // 드롭 테이블 항목
@@ -41,12 +49,20 @@ struct FSFDropTableEntry
 	UPROPERTY(EditDefaultsOnly, Category = "Drop")
 	TObjectPtr<UCurveFloat> LuckDropChanceCurve;
 
-	// 수량 범위
+	// 스폰할 최소 액터 수 (bSpawnIndividually일 때만 사용)
 	UPROPERTY(EditDefaultsOnly, Category = "Drop", meta = (ClampMin = "1"))
-	int32 MinCount = 1;
+	int32 MinSpawnCount = 1;
+
+	// 스폰할 최대 액터 수 (bSpawnIndividually일 때만 사용)
+	UPROPERTY(EditDefaultsOnly, Category = "Drop", meta = (ClampMin = "1"))
+	int32 MaxSpawnCount = 1;
+
+	// 액터당 양 (골드량, 스택 수 등)
+	UPROPERTY(EditDefaultsOnly, Category = "Drop", meta = (ClampMin = "1"))
+	int32 MinAmountPerSpawn = 1;
 
 	UPROPERTY(EditDefaultsOnly, Category = "Drop", meta = (ClampMin = "1"))
-	int32 MaxCount = 1;
+	int32 MaxAmountPerSpawn = 1;
 
 	// 등급 고정 (Invalid면 Luck 기반 랜덤)
 	UPROPERTY(EditDefaultsOnly, Category = "Drop", meta = (Categories = "Rarity"))
@@ -54,9 +70,8 @@ struct FSFDropTableEntry
 
 	// 최종 드롭 확률 계산
 	float GetDropChance(float LuckValue) const;
-
-	// 수량 롤링
-	int32 RollCount() const;
+	int32 RollSpawnCount() const;
+	int32 RollAmountPerSpawn() const;
 };
 
 /**

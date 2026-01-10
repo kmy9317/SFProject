@@ -6,6 +6,7 @@
 #include "Libraries/SFAbilitySystemLibrary.h"
 #include "Net/UnrealNetwork.h"
 #include "Player/Components/SFPlayerCombatStateComponent.h"
+#include "System/Data/SFGameData.h"
 
 USFPrimarySet_Hero::USFPrimarySet_Hero()
 {
@@ -48,6 +49,35 @@ bool USFPrimarySet_Hero::PreGameplayEffectExecute(FGameplayEffectModCallbackData
 void USFPrimarySet_Hero::PostGameplayEffectExecute(const FGameplayEffectModCallbackData& Data)
 {
 	Super::PostGameplayEffectExecute(Data);
+
+	UAbilitySystemComponent* ASC = Data.Target.AbilityActorInfo->AbilitySystemComponent.Get();
+	if (!ASC)
+	{
+		return;
+	}
+
+	const FGameplayAttribute& Attribute = Data.EvaluatedData.Attribute;
+	const float DeltaValue = Data.EvaluatedData.Magnitude;
+
+	const USFGameData& GameData = USFGameData::Get();
+
+	// 스태미나 감소 감지
+	if (Attribute == GetStaminaAttribute() && DeltaValue < 0.f)
+	{
+		if (GameData.StaminaRegenBlockEffect)
+		{
+			ASC->ApplyGameplayEffectToSelf(GameData.StaminaRegenBlockEffect.GetDefaultObject(), 1.0f, ASC->MakeEffectContext());
+		}
+	}
+
+	// 마나 감소 감지
+	if (Attribute == GetManaAttribute() && DeltaValue < 0.f)
+	{
+		if (GameData.ManaRegenBlockEffect)
+		{
+			ASC->ApplyGameplayEffectToSelf(GameData.ManaRegenBlockEffect.GetDefaultObject(), 1.0f, ASC->MakeEffectContext());
+		}
+	}
 }
 
 void USFPrimarySet_Hero::PreAttributeBaseChange(const FGameplayAttribute& Attribute, float& NewValue) const

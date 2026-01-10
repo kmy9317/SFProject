@@ -19,9 +19,14 @@ float FSFDropTableEntry::GetDropChance(float LuckValue) const
 	return FMath::Clamp(FinalChance, 0.f, 1.f);
 }
 
-int32 FSFDropTableEntry::RollCount() const
+int32 FSFDropTableEntry::RollSpawnCount() const
 {
-	return FMath::RandRange(MinCount, MaxCount);
+	return FMath::RandRange(MinSpawnCount, MaxSpawnCount);
+}
+
+int32 FSFDropTableEntry::RollAmountPerSpawn() const
+{
+	return FMath::RandRange(MinAmountPerSpawn, MaxAmountPerSpawn);
 }
 
 #if WITH_EDITOR
@@ -39,9 +44,17 @@ EDataValidationResult USFDropTable::IsDataValid(FDataValidationContext& Context)
 			Result = EDataValidationResult::Invalid;
 		}
 
-		if (Entry.MinCount > Entry.MaxCount)
+		// MinCount/MaxCount → MinSpawnCount/MaxSpawnCount
+		if (Entry.MinSpawnCount > Entry.MaxSpawnCount)
 		{
-			Context.AddError(FText::FromString(FString::Printf(TEXT("Entry[%d]: MinCount(%d) > MaxCount(%d)"), i, Entry.MinCount, Entry.MaxCount)));
+			Context.AddError(FText::FromString(FString::Printf(TEXT("Entry[%d]: MinSpawnCount(%d) > MaxSpawnCount(%d)"), i, Entry.MinSpawnCount, Entry.MaxSpawnCount)));
+			Result = EDataValidationResult::Invalid;
+		}
+
+		// AmountPerSpawn 검증 추가
+		if (Entry.MinAmountPerSpawn > Entry.MaxAmountPerSpawn)
+		{
+			Context.AddError(FText::FromString(FString::Printf(TEXT("Entry[%d]: MinAmountPerSpawn(%d) > MaxAmountPerSpawn(%d)"), i, Entry.MinAmountPerSpawn, Entry.MaxAmountPerSpawn)));
 			Result = EDataValidationResult::Invalid;
 		}
 	}

@@ -1,5 +1,6 @@
 #include "SFDropFunctionLibrary.h"
 
+#include "Actors/SFAutoPickup.h"
 #include "Item/SFItemData.h"
 #include "Item/SFItemDefinition.h"
 #include "Item/SFItemInstance.h"
@@ -7,6 +8,7 @@
 #include "Item/SFDropTable.h"
 #include "Inventory/SFInventoryManagerComponent.h"
 #include "Actors/SFPickupableItemBase.h"
+#include "Fragments/SFItemFragment_AutoPickup.h"
 
 TArray<FSFDropResult> USFDropFunctionLibrary::GenerateDropResults(UObject* Outer, const USFDropTable* DropTable, float LuckValue)
 {
@@ -20,7 +22,6 @@ TArray<FSFDropResult> USFDropFunctionLibrary::GenerateDropResults(UObject* Outer
     const USFItemData& ItemData = USFItemData::Get();
     TArray<int32> DroppedIndices;
 
-    // 1. 확률 기반 드롭 처리
     for (int32 i = 0; i < DropTable->Entries.Num(); ++i)
     {
         const FSFDropTableEntry& Entry = DropTable->Entries[i];
@@ -30,23 +31,19 @@ TArray<FSFDropResult> USFDropFunctionLibrary::GenerateDropResults(UObject* Outer
             continue;
         }
 
-        // 최대 드롭 수 체크
         if (DropTable->MaxDropCount > 0 && Results.Num() >= DropTable->MaxDropCount)
         {
             break;
         }
 
-        // Luck 반영 확률 계산
         float DropChance = Entry.GetDropChance(LuckValue);
         if (FMath::FRand() > DropChance)
         {
             continue;
         }
 
-        // 등급 결정
         FGameplayTag RarityTag = DetermineRarity(Entry, LuckValue);
 
-        // 인스턴스 생성
         const USFItemDefinition* ItemDef = Entry.ItemDefinitionClass.GetDefaultObject();
         USFItemInstance* Instance = ItemData.CreateItemInstance(Outer, ItemDef, RarityTag);
 
@@ -54,14 +51,15 @@ TArray<FSFDropResult> USFDropFunctionLibrary::GenerateDropResults(UObject* Outer
         {
             FSFDropResult Result;
             Result.ItemInstance = Instance;
-            Result.ItemCount = Entry.RollCount();
+            Result.SpawnCount = Entry.RollSpawnCount();
+            Result.AmountPerSpawn = Entry.RollAmountPerSpawn();
             Results.Add(Result);
 
             DroppedIndices.Add(i);
         }
     }
 
-    // 2. 보장 드롭 처리
+    // 보장 드롭 처리
     if (DropTable->GuaranteedDropCount > 0 && Results.Num() < DropTable->GuaranteedDropCount)
     {
         TArray<int32> RemainingIndices;
@@ -89,7 +87,8 @@ TArray<FSFDropResult> USFDropFunctionLibrary::GenerateDropResults(UObject* Outer
             {
                 FSFDropResult Result;
                 Result.ItemInstance = Instance;
-                Result.ItemCount = Entry.RollCount();
+                Result.SpawnCount = Entry.RollSpawnCount();
+                Result.AmountPerSpawn = Entry.RollAmountPerSpawn();
                 Results.Add(Result);
             }
         }
@@ -111,6 +110,7 @@ void USFDropFunctionLibrary::SpawnDropResults(UObject* WorldContextObject, const
         return;
     }
 
+    const USFItemData& ItemData = USFItemData::Get();
     FActorSpawnParameters SpawnParams;
     SpawnParams.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AdjustIfPossibleButAlwaysSpawn;
 
@@ -121,31 +121,61 @@ void USFDropFunctionLibrary::SpawnDropResults(UObject* WorldContextObject, const
             continue;
         }
 
-        const USFItemData& ItemData = USFItemData::Get();
-        TSubclassOf<ASFPickupableItemBase> PickupClass = ItemData.PickupableItemClass;
-    
-        if (!PickupClass)
+        const USFItemDefinition* ItemDef = ItemData.FindDefinitionById(Result.ItemInstance->GetItemID());
+        if (!ItemDef)
         {
-            PickupClass = ASFPickupableItemBase::StaticClass();  // 폴백
+            continue;
         }
 
-        // 랜덤 위치 계산
-        FVector2D RandPoint = FMath::RandPointInCircle(SpawnRadius);
-        FVector SpawnLocation = Location + FVector(RandPoint.X, RandPoint.Y, 0.f);
+        // bSpawnIndividually: SpawnCount만큼 개별 스폰
+        // !bSpawnIndividually: 1개에 총량 합산
+        const bool bSpawnIndividually = ItemDef->bSpawnIndividually;
+        const int32 ActualSpawnCount = bSpawnIndividually ? Result.SpawnCount : 1;
+        const int32 ActualAmount = bSpawnIndividually ? Result.AmountPerSpawn : Result.GetTotalAmount();
 
-        ASFPickupableItemBase* Pickup = World->SpawnActor<ASFPickupableItemBase>(
-            PickupClass,
-            SpawnLocation,
-            FRotator::ZeroRotator,
-            SpawnParams
-        );
-
-        if (Pickup)
+        // 자동 습득 아이템
+        if (const USFItemFragment_AutoPickup* AutoPickupFragment = ItemDef->FindFragment<USFItemFragment_AutoPickup>())
         {
-            FSFPickupInfo PickupInfo;
-            PickupInfo.PickupInstance.ItemInstance = Result.ItemInstance;
-            PickupInfo.PickupInstance.ItemCount = Result.ItemCount;
-            Pickup->SetPickupInfo(PickupInfo);
+            TSubclassOf<ASFAutoPickup> PickupClass = AutoPickupFragment->PickupActorClass;
+            if (!PickupClass)
+            {
+                PickupClass = ASFAutoPickup::StaticClass();
+            }
+
+            for (int32 i = 0; i < ActualSpawnCount; ++i)
+            {
+                FVector2D RandPoint = FMath::RandPointInCircle(SpawnRadius);
+                FVector SpawnLocation = Location + FVector(RandPoint.X, RandPoint.Y, 0.f);
+
+                ASFAutoPickup* AutoPickup = World->SpawnActor<ASFAutoPickup>(PickupClass, SpawnLocation, FRotator::ZeroRotator, SpawnParams);
+                if (AutoPickup)
+                {
+                    AutoPickup->Initialize(Result.ItemInstance, ActualAmount);
+                }
+            }
+            continue;
+        }
+
+        // 일반 아이템
+        TSubclassOf<ASFPickupableItemBase> PickupClass = ItemData.PickupableItemClass;
+        if (!PickupClass)
+        {
+            PickupClass = ASFPickupableItemBase::StaticClass();
+        }
+
+        for (int32 i = 0; i < ActualSpawnCount; ++i)
+        {
+            FVector2D RandPoint = FMath::RandPointInCircle(SpawnRadius);
+            FVector SpawnLocation = Location + FVector(RandPoint.X, RandPoint.Y, 0.f);
+
+            ASFPickupableItemBase* Pickup = World->SpawnActor<ASFPickupableItemBase>(PickupClass, SpawnLocation, FRotator::ZeroRotator, SpawnParams);
+            if (Pickup)
+            {
+                FSFPickupInfo PickupInfo;
+                PickupInfo.PickupInstance.ItemInstance = Result.ItemInstance;
+                PickupInfo.PickupInstance.ItemCount = ActualAmount;
+                Pickup->SetPickupInfo(PickupInfo);
+            }
         }
     }
 }
@@ -172,8 +202,10 @@ bool USFDropFunctionLibrary::AddDropResultsToInventory(USFInventoryManagerCompon
             continue;
         }
 
-        int32 AddedCount = InventoryManager->TryAddExistingItem(Result.ItemInstance, Result.ItemCount);
-        if (AddedCount != Result.ItemCount)
+        // ItemCount → GetTotalAmount()
+        int32 TotalAmount = Result.GetTotalAmount();
+        int32 AddedCount = InventoryManager->TryAddExistingItem(Result.ItemInstance, TotalAmount);
+        if (AddedCount != TotalAmount)
         {
             bAllAdded = false;
         }

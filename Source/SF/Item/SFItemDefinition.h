@@ -73,6 +73,10 @@ public:
 	// 등급 제한(비어있으면 모든 등급 허용)
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Rarity", meta = (Categories = "Rarity"))
 	FGameplayTagContainer AllowedRarities;
+
+	// 드롭 시 개별 스폰 여부
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Drop")
+	bool bSpawnIndividually = false;
 	
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Instanced)
 	TArray<TObjectPtr<USFItemFragment>> Fragments;

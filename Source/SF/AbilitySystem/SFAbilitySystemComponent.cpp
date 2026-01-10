@@ -11,6 +11,7 @@
 #include "Character/SFCharacterGameplayTags.h"
 #include "Character/Enemy/SFEnemy.h"
 #include "Character/Hero/SFHero.h"
+#include "GameplayEffect/SFGameplayEffectTags.h"
 #include "Player/Save/SFPersistentDataType.h"
 
 
@@ -501,11 +502,19 @@ void USFAbilitySystemComponent::SaveGameplayEffectsToData(FSFSavedAbilitySystemD
 			continue;
 		}
 
-		// TODO : Infinite  어빌리티 재부여 시 자동 적용되므로 저장 안하도록 다시 구현 필요
-		// TODO : Ability를 통해 부여된 Effect가 아닌 Passive GE인 경우 필터링 구현하여 저장하도록 함 
+		// Instant는 저장 안 함
 		if (EffectDef->DurationPolicy == EGameplayEffectDurationType::Instant)
 		{
 			continue;
+		}
+
+		// Infinite GE: Persist 태그가 있는 것만 저장
+		if (EffectDef->DurationPolicy == EGameplayEffectDurationType::Infinite)
+		{
+			if (!EffectDef->GetAssetTags().HasTag(SFGameplayTags::Effect_Persist_OnTravel))
+			{
+				continue;
+			}
 		}
 
 		// Duration 타입만 저장
