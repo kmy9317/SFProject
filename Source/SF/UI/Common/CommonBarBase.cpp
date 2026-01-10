@@ -27,6 +27,17 @@ void UCommonBarBase::SetPercentVisuals(float InPercent)
 		return;
 	}
 
+	// 이 함수가 처음 호출된 경우 (즉, 스폰 직후)
+	if (!bHasInitialized)
+	{
+		PB_Current->SetPercent(TargetPercent);
+		PB_Delayed->SetPercent(TargetPercent);
+		
+		bHasInitialized = true;
+		
+		return; 
+	}
+	
 	// 현재 수치 저장
 	const float CurrentPercent = PB_Current->GetPercent();
 

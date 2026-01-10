@@ -60,6 +60,10 @@ protected:
 	UPROPERTY(meta = (BindWidget))
 	TObjectPtr<UTextBlock> Text_KeyPrompt;
 
+	// 소모량 표시 텍스트
+	UPROPERTY(meta = (BindWidget))
+	TObjectPtr<UTextBlock> Text_Cost;
+
 	// 쿨타임 종료 시 재생할 위젯 애니메이션
 	UPROPERTY(Transient , meta = (BindWidgetAnim))
 	TObjectPtr<UWidgetAnimation> Anim_CooldownFinished;
@@ -68,6 +72,7 @@ protected:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "UI|Sound")
 	TObjectPtr<USoundBase> CooldownFinishedSound;
 
+protected:
 	UPROPERTY()
 	bool bIsOnCooldown;
 
@@ -76,7 +81,7 @@ protected:
 
 	UPROPERTY()
 	float CooldownEndTime;
-
+	
 	// 이 슬롯이 표시할 어빌리티의 InputTag
 	UPROPERTY(EditInstanceOnly, BlueprintReadOnly, Category = "SF|SkillSlot", meta = (Categories = "InputTag"))
 	FGameplayTag SlotInputTag;
