@@ -3,6 +3,7 @@
 #include "SFStatBoostCardWidget.h"
 #include "Components/Button.h"
 #include "Components/TextBlock.h"
+#include "Animation/WidgetAnimation.h"
 #include "System/Data/Common/SFCommonUpgradeChoice.h"
 #include "Player/SFPlayerState.h"
 #include "Player/Components/SFCommonUpgradeComponent.h"
@@ -283,6 +284,11 @@ void USFStatBoostSelectionWidget::ShowExtraSelectionNotice()
     if (Text_ExtraSelectionNotice)
     {
         Text_ExtraSelectionNotice->SetVisibility(ESlateVisibility::Visible);
+
+        if (Anim_ExtraNotice)
+        {
+            PlayAnimation(Anim_ExtraNotice);
+        }
     }
 
     BP_ShowExtraSelectionNotice();

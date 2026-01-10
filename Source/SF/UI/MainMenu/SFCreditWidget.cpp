@@ -3,12 +3,18 @@
 #include "Components/ScrollBox.h"
 #include "Input/Reply.h"
 #include "TimerManager.h"
+#include "UI/Common/CommonButtonBase.h"
 
 void USFCreditWidget::NativeConstruct()
 {
 	Super::NativeConstruct();
 
 	bEndSequenceStarted = false;
+
+	if (IsValid(Button_Back))
+	{
+		Button_Back->OnButtonClickedDelegate.AddDynamic(this, &USFCreditWidget::CloseWidget);
+	}
 
 	// 시작 시 스크롤 초기화 및 데이터 로드
 	if (CreditScrollBox)

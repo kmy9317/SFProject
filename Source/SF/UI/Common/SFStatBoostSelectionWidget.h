@@ -124,6 +124,9 @@ protected:
     UPROPERTY(BlueprintReadOnly, meta = (BindWidgetOptional))
     TObjectPtr<UTextBlock> Text_RerollCost;
 
+    UPROPERTY(Transient, meta = (BindWidgetAnim))
+    TObjectPtr<UWidgetAnimation> Anim_ExtraNotice;
+
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "SF|UI|Settings")
     float CardRevealDelay = 0.2f;
 

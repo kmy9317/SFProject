@@ -3,6 +3,7 @@
 #include "SFLogChannels.h"
 #include "SFPortalInfoEntryWidget.h"
 #include "Components/HorizontalBox.h"
+#include "Components/VerticalBoxSlot.h"
 #include "Components/TextBlock.h"
 #include "GameModes/SFGameState.h"
 #include "Messages/SFMessageGameplayTags.h"
@@ -253,6 +254,8 @@ void USFPortalInfoWidget::ReorderAllEntries()
     });
 
     PortalEntryBox->ClearChildren();
+
+    
     
     for (auto& Entry : SortedEntries)
     {

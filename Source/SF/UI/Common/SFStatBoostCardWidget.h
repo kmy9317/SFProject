@@ -11,6 +11,7 @@ class UTextBlock;
 class UImage;
 class UBorder;
 class UButton;
+class UWidgetAnimation;
 
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnStatBoostCardSelected, int32, CardIndex);
 DECLARE_DYNAMIC_MULTICAST_DELEGATE(FOnCardAnimationFinished);

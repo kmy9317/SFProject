@@ -8,6 +8,7 @@
 #include "SFCreditWidget.generated.h"
 
 class UScrollBox;
+class UCommonButtonBase;
 
 /**
  * 크레딧 화면을 제어하는 메인 위젯 클래스
@@ -44,6 +45,10 @@ protected:
 	// 크레딧 데이터 테이블
 	UPROPERTY(EditAnywhere, Category = "UI|Credits")
 	UDataTable* CreditDataTable;
+
+	// [바인딩] 뒤로가기 버튼
+	UPROPERTY(meta = (BindWidget))
+	UCommonButtonBase* Button_Back;
 
 	UFUNCTION(BlueprintImplementableEvent, Category="UI|Credits")
 	void BP_AddSectionHeader(const FString& Title);
