@@ -19,6 +19,7 @@ class UUserWidget;
 class UCommonButtonBase;
 class UWidgetSwitcher;
 class UWidget;
+class UImage;
 
 /**
  * 
@@ -69,6 +70,9 @@ private:
 
 	UPROPERTY(meta=(BindWidget))
 	TObjectPtr<UTileView> HeroSelectionTileView;
+
+	UPROPERTY(meta=(BindWidget))
+	TObjectPtr<UImage> Image_Hero;
 
 	// TODO : 현재 캐릭터의 Ability 관련 정보 UI
 	// UPROPERTY(meta = (BindWidget))

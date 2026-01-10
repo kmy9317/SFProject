@@ -446,7 +446,7 @@ void ASFPlayerController::RemoveBossHUD(ACharacter* BossActor)
 				}
 			}
 		}
-}
+} 
 
 void ASFPlayerController::Server_NotifyReadyForLobby_Implementation()
 {

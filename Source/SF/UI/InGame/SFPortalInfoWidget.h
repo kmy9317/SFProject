@@ -74,4 +74,5 @@ private:
 	// 로컬에서 카운트다운 출력용
 	float CurrentCountdownTime = 0.0f;
 	bool bIsCountingDown = false;
+
 };

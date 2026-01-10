@@ -12,6 +12,7 @@
 #include "System/SFAssetManager.h"
 #include "UI/Common/CommonButtonBase.h"
 #include "UI/Upgrade//SFPermanentUpgradeWidget.h"
+#include "Components/Image.h"
 
 void USFLobbyWidget::NativeConstruct()
 {
@@ -101,6 +102,39 @@ void USFLobbyWidget::UpdatePlayerSelectionDisplay(const TArray<FSFPlayerSelectio
 
 	//  PlayerSelection 업데이트 시 Ready 버튼 상태도 업데이트
 	UpdateReadyButtonEnabled(PlayerSelections);
+
+	// 3. 내 플레이어의 선택 정보를 찾아 Image_Hero 갱신
+
+	if (Image_Hero)
+	{
+		const FSFPlayerSelectionInfo* MySelection = FindMySelection(PlayerSelections);
+
+		// 1. 내 선택 정보가 있고, HeroDefinition이 유효한지 확인
+		if (MySelection && MySelection->GetHeroDefinition())
+		{
+			USFHeroDefinition* SelectedHeroDef = MySelection->GetHeroDefinition();
+            
+			// [핵심 변경] private 변수에 직접 접근(X) -> public 함수 LoadIcon() 사용(O)
+			// LoadIcon() 내부에서 TSoftObjectPtr을 로드하여 UTexture2D*를 리턴해줄 것입니다.
+			UTexture2D* IconTexture = SelectedHeroDef->LoadIcon(); 
+
+			if (IconTexture)
+			{
+				Image_Hero->SetBrushFromTexture(IconTexture);
+				Image_Hero->SetVisibility(ESlateVisibility::HitTestInvisible);
+			}
+			else
+			{
+				// 로드 실패 혹은 아이콘 없음
+				Image_Hero->SetVisibility(ESlateVisibility::Hidden); 
+			}
+		}
+		else
+		{
+			// 선택된 영웅 없음
+			Image_Hero->SetVisibility(ESlateVisibility::Hidden);
+		}
+	}
 }
 
 void USFLobbyWidget::HeroDefinitionLoaded()
