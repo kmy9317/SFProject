@@ -20,6 +20,14 @@ USFGA_Dodge::USFGA_Dodge(FObjectInitializer const& ObjectInitializer)
 
 void USFGA_Dodge::ActivateAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, const FGameplayEventData* TriggerEventData)
 {
+	Super::ActivateAbility(Handle, ActorInfo, ActivationInfo, TriggerEventData);
+
+	if (!CommitCheck(Handle, ActorInfo, ActivationInfo))
+	{
+		EndAbility(Handle, ActorInfo, ActivationInfo, true, true);
+		return;
+	}
+	
 	ASFCharacterBase* Character = GetSFCharacterFromActorInfo();
 	if (!Character)
 	{
@@ -93,6 +101,12 @@ void USFGA_Dodge::ActivateAbility(const FGameplayAbilitySpecHandle Handle, const
 			ServerTargetDataDelegateHandle = TargetDataDelegate.AddUObject(this, &USFGA_Dodge::OnServerTargetDataReceived);
 			ASC->CallReplicatedTargetDataDelegatesIfSet(CurrentSpecHandle, ActivationPredictionKey);
 		}
+	}
+
+	if (!CommitAbility(CurrentSpecHandle, CurrentActorInfo, CurrentActivationInfo))
+	{
+		EndAbility(CurrentSpecHandle, CurrentActorInfo, CurrentActivationInfo, true, true);
+		return;
 	}
 }
 
