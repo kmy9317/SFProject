@@ -24,6 +24,7 @@ namespace SFGameplayTags
 	SF_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(InputTag_ToggleInventory);
 	SF_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(InputTag_Sprint);
 	SF_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(InputTag_LockOn);
+	SF_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(InputTag_RightAttack);
 
 	// Dummy Data
 	SF_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(InputTag_AttackUpgrade);

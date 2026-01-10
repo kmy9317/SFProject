@@ -270,7 +270,14 @@ void USFGA_Thrust_HeartBreaker::ExecuteRushAttack()
 		}
 	}
 
-	ClearCameraMode();
+	if (CurrentPhaseIndex >= MaxPhaseIndex && CameraModeClass)
+	{
+		SetCameraMode(CameraModeClass);
+	}
+	else
+	{
+		ClearCameraMode();
+	}
 }
 
 int32 USFGA_Thrust_HeartBreaker::CalculatePhase(float TimeHeld) const

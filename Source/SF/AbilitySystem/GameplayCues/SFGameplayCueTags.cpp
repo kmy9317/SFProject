@@ -46,6 +46,9 @@ namespace SFGameplayTags
 	
 
 	UE_DEFINE_GAMEPLAY_TAG(GameplayCue_Buff, TEXT("GameplayCue.Buff"))
+	UE_DEFINE_GAMEPLAY_TAG(GameplayCue_Buff_AreaHeal, TEXT("GameplayCue.Buff.AreaHeal"))
+	UE_DEFINE_GAMEPLAY_TAG(GameplayCue_Buff_AreaHeal_A, TEXT("GameplayCue.Buff.AreaHeal.A"))
+	UE_DEFINE_GAMEPLAY_TAG(GameplayCue_Buff_AreaHeal_B, TEXT("GameplayCue.Buff.AreaHeal.B"))
 
 	UE_DEFINE_GAMEPLAY_TAG(GameplayCue_DeBuff, TEXT("GameplayCue.DeBuff"))
 	UE_DEFINE_GAMEPLAY_TAG(GameplayCue_DeBuff_Burn, TEXT("GameplayCue.DeBuff.Burn"))

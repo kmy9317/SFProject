@@ -5,6 +5,7 @@
 #include "SFGC_Hero_AreaHeal_C_Lightning.generated.h"
 
 class UParticleSystem;
+class UNiagaraSystem; // [추가] 나이아가라 시스템 전방 선언
 class USoundBase;
 
 UCLASS()
@@ -23,15 +24,28 @@ public:
 
 protected:
 
-	//=====================파티클=====================
-	UPROPERTY(EditAnywhere, Category="SF|FX")
+	//=====================파티클 (Cascade)=====================
+	UPROPERTY(EditAnywhere, Category="SF|FX|Cascade")
 	TObjectPtr<UParticleSystem> LightningEffect1; //기본 파티클
 
-	UPROPERTY(EditAnywhere, Category="SF|FX")
+	UPROPERTY(EditAnywhere, Category="SF|FX|Cascade")
 	TObjectPtr<UParticleSystem> LightningEffect2; //추가 파티클(선택)
 
+	UPROPERTY(EditAnywhere, Category="SF|FX|Cascade")
+	TObjectPtr<UParticleSystem> LightningEffect3; //추가 파티클(선택)
+	//==========================================================
+
+	//=====================파티클 (Niagara) [추가]================
+	UPROPERTY(EditAnywhere, Category="SF|FX|Niagara")
+	TObjectPtr<UNiagaraSystem> LightningNiagara1; //나이아가라 1
+
+	UPROPERTY(EditAnywhere, Category="SF|FX|Niagara")
+	TObjectPtr<UNiagaraSystem> LightningNiagara2; //나이아가라 2
+	//==========================================================
+
+	//=====================공통 옵션=====================
 	UPROPERTY(EditAnywhere, Category="SF|FX")
-	FVector ParticleScale = FVector(1.f,1.f,1.f); //크기
+	FVector ParticleScale = FVector(1.f,1.f,1.f); //크기 (Cascade/Niagara 공통 적용)
 	//================================================
 
 	//=====================사운드=====================
@@ -61,4 +75,3 @@ protected:
 	FVector ResolveSpawnLocation(AActor* Target,const FGameplayCueParameters& Parameters) const; //발밑 보정
 	//================================================
 };
-//============================================================

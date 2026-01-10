@@ -3,6 +3,10 @@
 #include "Kismet/GameplayStatics.h"
 #include "Particles/ParticleSystem.h"
 #include "Particles/ParticleSystemComponent.h"
+// [추가] 나이아가라 관련 헤더
+#include "NiagaraFunctionLibrary.h"
+#include "NiagaraSystem.h"
+
 #include "Sound/SoundBase.h"
 #include "GameFramework/Actor.h"
 #include "Engine/World.h"
@@ -54,35 +58,66 @@ void USFGC_Hero_AreaHeal_C_Lightning::HandleGameplayCue(
 	const FVector SpawnLocation = ResolveSpawnLocation(Target,Parameters);
 	const FRotator SpawnRotation = FRotator::ZeroRotator;
 
-	//=====================파티클1=====================
+	//=====================Cascade 파티클=====================
 	if (LightningEffect1)
 	{
 		FTransform T(SpawnRotation,SpawnLocation,ParticleScale);
-		UGameplayStatics::SpawnEmitterAtLocation(World,LightningEffect1,T,true); //스폰
+		UGameplayStatics::SpawnEmitterAtLocation(World,LightningEffect1,T,true);
 	}
-	//================================================
 
-	//=====================파티클2=====================
 	if (LightningEffect2)
 	{
 		FTransform T(SpawnRotation,SpawnLocation,ParticleScale);
-		UGameplayStatics::SpawnEmitterAtLocation(World,LightningEffect2,T,true); //추가 스폰
+		UGameplayStatics::SpawnEmitterAtLocation(World,LightningEffect2,T,true);
 	}
-	//================================================
 
-	//=====================사운드1=====================
+	if (LightningEffect3)
+	{
+		FTransform T(SpawnRotation,SpawnLocation,ParticleScale);
+		UGameplayStatics::SpawnEmitterAtLocation(World,LightningEffect3,T,true);
+	}
+	//========================================================
+
+	//=====================Niagara 파티클 [추가]===============
+	// 나이아가라 시스템은 UNiagaraFunctionLibrary를 사용하여 스폰합니다.
+	if (LightningNiagara1)
+	{
+		UNiagaraFunctionLibrary::SpawnSystemAtLocation(
+			World, 
+			LightningNiagara1, 
+			SpawnLocation, 
+			SpawnRotation, 
+			ParticleScale, 
+			true, 
+			true, 
+			ENCPoolMethod::AutoRelease);
+	}
+
+	if (LightningNiagara2)
+	{
+		UNiagaraFunctionLibrary::SpawnSystemAtLocation(
+			World, 
+			LightningNiagara2, 
+			SpawnLocation, 
+			SpawnRotation, 
+			ParticleScale, 
+			true, 
+			true, 
+			ENCPoolMethod::AutoRelease);
+	}
+	//========================================================
+
+	//=====================사운드=====================
 	if (LightningSound1)
 	{
 		UGameplayStatics::PlaySoundAtLocation(
-			World,LightningSound1,SpawnLocation,VolumeMultiplier,PitchMultiplier); //재생
+			World,LightningSound1,SpawnLocation,VolumeMultiplier,PitchMultiplier);
 	}
-	//================================================
 
-	//=====================사운드2=====================
 	if (LightningSound2)
 	{
 		UGameplayStatics::PlaySoundAtLocation(
-			World,LightningSound2,SpawnLocation,VolumeMultiplier,PitchMultiplier); //추가 재생
+			World,LightningSound2,SpawnLocation,VolumeMultiplier,PitchMultiplier);
 	}
 	//================================================
 }

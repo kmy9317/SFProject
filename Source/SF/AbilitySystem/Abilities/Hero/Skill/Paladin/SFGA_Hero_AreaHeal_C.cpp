@@ -14,6 +14,7 @@
 
 #include "NiagaraFunctionLibrary.h"
 #include "NiagaraComponent.h"
+#include "Camera/SFCameraMode.h"
 #include "Components/SkeletalMeshComponent.h"
 
 USFGA_Hero_AreaHeal_C::USFGA_Hero_AreaHeal_C(const FObjectInitializer& ObjectInitializer)
@@ -63,6 +64,11 @@ void USFGA_Hero_AreaHeal_C::ActivateAbility(
 	ASFCharacterBase* OwnerChar = GetSFCharacterFromActorInfo();
 	if (!OwnerChar){ EndAbility(Handle,ActorInfo,ActivationInfo,true,true); return; }
 
+	if (CameraModeClass)
+	{
+		SetCameraMode(CameraModeClass);
+	}
+	
 	//=====================Trail 생성=====================
 	if (SwordTrailFX)
 	{
@@ -120,25 +126,55 @@ void USFGA_Hero_AreaHeal_C::OnLightningImpact(FGameplayEventData Payload)
 	ASFCharacterBase* OwnerChar=GetSFCharacterFromActorInfo();
 	if(!OwnerChar)return;
 
+	// 코스트 지불 (최초 1회만)
 	if (!CommitAbility(CurrentSpecHandle, CurrentActorInfo, CurrentActivationInfo))
 	{
 		EndAbility(CurrentSpecHandle, CurrentActorInfo, CurrentActivationInfo, true, true);
 		return;
 	}
-	
-	//공격 위치 계산
-	FVector StrikePos=
-		OwnerChar->GetActorLocation()+
-		OwnerChar->GetActorForwardVector()*StrikeDistance;
 
-	//지면 보정
+	// [중요] 시전 당시의 위치와 방향을 캐싱합니다.
+	// 이렇게 해야 캐릭터가 스킬 도중 회전하더라도 번개는 처음 조준한 일직선 방향으로 나갑니다.
+	CachedOriginLocation = OwnerChar->GetActorLocation();
+	CachedForwardVector = OwnerChar->GetActorForwardVector();
+
+	// 카운트 초기화
+	CurrentStrikeIndex = 0;
+
+	// 첫 번째 번개 즉시 실행
+	ExecuteSingleLightning();
+}
+
+void USFGA_Hero_AreaHeal_C::ExecuteSingleLightning()
+{
+	// 어빌리티가 종료되었거나, 설정한 횟수를 초과하면 중단
+	if (!IsActive() || CurrentStrikeIndex >= MaxStrikeCount)
+	{
+		return;
+	}
+
+	ASFCharacterBase* OwnerChar = GetSFCharacterFromActorInfo();
+	if (!OwnerChar) return;
+
+	//----------------------------------------------------------
+	// 1. 위치 계산: 기본 거리 + (현재 순번 * 간격)
+	//----------------------------------------------------------
+	float CurrentDist = StrikeBaseDistance + (CurrentStrikeIndex * StrikeSpacing);
+	
+	FVector StrikePos = 
+		CachedOriginLocation + 
+		(CachedForwardVector * CurrentDist);
+
+	// 지면 보정
 	{
 		FHitResult H;
 		if(GetWorld()->LineTraceSingleByChannel(H,StrikePos+FVector(0,0,200),StrikePos-FVector(0,0,400),ECC_Visibility))
 			StrikePos=H.ImpactPoint+FVector(0,0,5);
 	}
 	
-	//FX 출력(GC)
+	//----------------------------------------------------------
+	// 2. FX 출력(GC)
+	//----------------------------------------------------------
 	if(LightningCueTag.IsValid())
 		if(auto* ASC=UAbilitySystemGlobals::GetAbilitySystemComponentFromActor(OwnerChar))
 		{
@@ -148,46 +184,64 @@ void USFGA_Hero_AreaHeal_C::OnLightningImpact(FGameplayEventData Payload)
 			ASC->ExecuteGameplayCue(LightningCueTag,P);
 		}
 	
-	//타격 판정
+	//----------------------------------------------------------
+	// 3. 타격 판정
+	//----------------------------------------------------------
 	TArray<FHitResult> HitResults;
 	UKismetSystemLibrary::SphereTraceMulti(
 		GetWorld(),StrikePos+FVector(0,0,50),StrikePos-FVector(0,0,50),
 		StrikeRadius,UEngineTypes::ConvertToTraceType(ECC_Pawn),
 		false,{OwnerChar},EDrawDebugTrace::None,HitResults,true);
 
-	if(HitResults.Num()==0)return;
-	
-	//ActorTag기반 태그 캐싱
-	bool OP=OwnerChar->Tags.Contains("Player");
-	bool OE=OwnerChar->Tags.Contains("Enemy");
-
-	//데미지, 디버프 처리
-	for(const FHitResult& Hit : HitResults)
+	if(HitResults.Num() > 0)
 	{
-		AActor* HitActor=Hit.GetActor();
-		if(!HitActor||HitActor==OwnerChar)continue;
+		//ActorTag기반 태그 캐싱
+		bool OP=OwnerChar->Tags.Contains("Player");
+		bool OE=OwnerChar->Tags.Contains("Enemy");
 
-		auto* Target=Cast<ASFCharacterBase>(HitActor);
-		if(!Target)continue;
-
-		bool TP=Target->Tags.Contains("Player");
-		bool TE=Target->Tags.Contains("Enemy");
-
-		//아군 제외
-		if((OP&&TP)||(OE&&TE))continue;
-
-		//데미지 처리
-		ProcessHitResult(Hit,GetScaledBaseDamage(),nullptr);
-
-		//디버프 GE 적용
-		if(DebuffGE)
+		//데미지, 디버프 처리
+		for(const FHitResult& Hit : HitResults)
 		{
-			if(auto* ASC=UAbilitySystemGlobals::GetAbilitySystemComponentFromActor(Target))
+			AActor* HitActor=Hit.GetActor();
+			if(!HitActor||HitActor==OwnerChar)continue;
+
+			auto* Target=Cast<ASFCharacterBase>(HitActor);
+			if(!Target)continue;
+
+			bool TP=Target->Tags.Contains("Player");
+			bool TE=Target->Tags.Contains("Enemy");
+
+			//아군 제외
+			if((OP&&TP)||(OE&&TE))continue;
+
+			//데미지 처리
+			ProcessHitResult(Hit,GetScaledBaseDamage(),nullptr);
+
+			//디버프 GE 적용
+			if(DebuffGE)
 			{
-				auto S=MakeOutgoingGameplayEffectSpec(DebuffGE,1.f);
-				if(S.IsValid())ASC->ApplyGameplayEffectSpecToSelf(*S.Data.Get());
+				if(auto* ASC=UAbilitySystemGlobals::GetAbilitySystemComponentFromActor(Target))
+				{
+					auto S=MakeOutgoingGameplayEffectSpec(DebuffGE,1.f);
+					if(S.IsValid())ASC->ApplyGameplayEffectSpecToSelf(*S.Data.Get());
+				}
 			}
 		}
+	}
+
+	//----------------------------------------------------------
+	// 4. 다음 번개 예약
+	//----------------------------------------------------------
+	CurrentStrikeIndex++;
+	if (CurrentStrikeIndex < MaxStrikeCount)
+	{
+		GetWorld()->GetTimerManager().SetTimer(
+			CascadeTimerHandle,
+			this,
+			&USFGA_Hero_AreaHeal_C::ExecuteSingleLightning,
+			StrikeInterval,
+			false
+		);
 	}
 }
 //==================================================================
@@ -208,6 +262,17 @@ void USFGA_Hero_AreaHeal_C::EndAbility(
 	const FGameplayAbilityActivationInfo ActivationInfo,
 	bool bReplicateEndAbility,bool bWasCancelled)
 {
+	// [중요] 어빌리티가 종료되면 예약된 번개 타이머를 취소해야 안전합니다.
+	if (GetWorld())
+	{
+		GetWorld()->GetTimerManager().ClearTimer(CascadeTimerHandle);
+	}
+
+	if (CameraModeClass)
+	{
+		ClearCameraMode();
+	}
+	
 	//Trail Fade Out 처리
 	if(TrailComp)
 	{
