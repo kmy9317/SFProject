@@ -46,4 +46,7 @@ public:
 	UPROPERTY(EditDefaultsOnly, Category = "Common Upgrade")
 	TSoftObjectPtr<USFCommonLootTable> DefaultCommonLootTable;
 
+	// MoreEnhance 발동 확률 (0.0 ~ 1.0)
+	UPROPERTY(EditDefaultsOnly, Category = "Common Upgrade", meta = (ClampMin = "0.0", ClampMax = "1.0"))
+	float MoreEnhanceChance = 0.33f;
 };

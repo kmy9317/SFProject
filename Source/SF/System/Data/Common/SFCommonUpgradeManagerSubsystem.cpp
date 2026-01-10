@@ -222,17 +222,17 @@ TArray<FSFCommonUpgradeChoice> USFCommonUpgradeManagerSubsystem::RegenerateChoic
     return RegenerateChoicesInternal(PlayerState);
 }
 
-bool USFCommonUpgradeManagerSubsystem::ApplyUpgradeChoice(ASFPlayerState* PlayerState, const FGuid& ChoiceId)
+ESFUpgradeApplyResult USFCommonUpgradeManagerSubsystem::ApplyUpgradeChoice(ASFPlayerState* PlayerState, const FGuid& ChoiceId)
 {
     if (!PlayerState || !ChoiceId.IsValid())
     {
-        return false;
+        return ESFUpgradeApplyResult::Failed;
     }
 
     FSFCommonUpgradeContext* Context = ActiveUpgradeContexts.Find(PlayerState);
     if (!Context)
     {
-        return false;
+        return ESFUpgradeApplyResult::Failed;
     }
 
     // PendingChoices에서 해당 ID 찾기
@@ -248,17 +248,17 @@ bool USFCommonUpgradeManagerSubsystem::ApplyUpgradeChoice(ASFPlayerState* Player
     
     if (!FoundChoice)
     {
-        return false;
+        return ESFUpgradeApplyResult::Failed;
     }
     if (!FoundChoice->UpgradeDefinition)
     {
-        return false;
+        return ESFUpgradeApplyResult::Failed;
     }
 
     UAbilitySystemComponent* ASC = PlayerState->GetAbilitySystemComponent();
     if (!ASC)
     {
-        return false;
+        return ESFUpgradeApplyResult::Failed;
     }
 
     // Fragment별 효과 적용
@@ -282,10 +282,14 @@ bool USFCommonUpgradeManagerSubsystem::ApplyUpgradeChoice(ASFPlayerState* Player
     // MoreEnhance 체크: 태그 있고 아직 사용 안 했으면 추가 선택
     if (!Context->bUsedMoreEnhance && ASC->HasMatchingGameplayTag(SFGameplayTags::Ability_Skill_Passive_MoreEnhance))
     {
-        // 상자당 소모
         Context->bUsedMoreEnhance = true;
-        // true 반환하되 Context는 유지 (Component에서 추가 선택 처리)
-        return true; 
+
+        const USFGameData& GameData = USFGameData::Get();
+        if (FMath::FRand() <= GameData.MoreEnhanceChance)
+        {
+            return ESFUpgradeApplyResult::MoreEnhance;
+        }
+        // 확률 실패 → 아래로 진행
     }
 
     // 완료 콜백 실행
@@ -296,25 +300,25 @@ bool USFCommonUpgradeManagerSubsystem::ApplyUpgradeChoice(ASFPlayerState* Player
 
     // 컨텍스트 정리
     ActiveUpgradeContexts.Remove(PlayerState);
-    return true;
+    return ESFUpgradeApplyResult::Success;
 }
 
-bool USFCommonUpgradeManagerSubsystem::ApplyUpgradeChoiceByIndex(ASFPlayerState* PlayerState, int32 ChoiceIndex)
+ESFUpgradeApplyResult USFCommonUpgradeManagerSubsystem::ApplyUpgradeChoiceByIndex(ASFPlayerState* PlayerState, int32 ChoiceIndex)
 {
     if (!PlayerState)
     {
-        return false;
+        return ESFUpgradeApplyResult::Failed;
     }
 
     FSFCommonUpgradeContext* Context = ActiveUpgradeContexts.Find(PlayerState);
     if (!Context)
     {
-        return false;
+        return ESFUpgradeApplyResult::Failed;
     }
 
     if (!Context->PendingChoices.IsValidIndex(ChoiceIndex))
     {
-        return false;
+        return ESFUpgradeApplyResult::Failed;
     }
 
     return ApplyUpgradeChoice(PlayerState, Context->PendingChoices[ChoiceIndex].UniqueId);

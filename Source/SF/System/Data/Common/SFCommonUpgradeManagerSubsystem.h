@@ -64,6 +64,14 @@ struct FSFCommonUpgradeContext
 	}
 };
 
+UENUM(BlueprintType)
+enum class ESFUpgradeApplyResult : uint8
+{
+	Failed,         // 적용 실패
+	Success,        // 적용 성공, 완료
+	MoreEnhance     // 적용 성공, 추가 선택 필요
+};
+
 /**
  * 일반 강화 및 리롤 로직을 담당하는 서버 전용 서브시스템
  */
@@ -88,11 +96,11 @@ public:
 
 	// 플레이어가 선택한 업그레이드 적용 (UniqueId 기반)
 	UFUNCTION(BlueprintCallable, Category = "SF|Upgrade")
-	bool ApplyUpgradeChoice(ASFPlayerState* PlayerState, const FGuid& ChoiceId);
+	ESFUpgradeApplyResult ApplyUpgradeChoice(ASFPlayerState* PlayerState, const FGuid& ChoiceId);
 
 	// 플레이어가 선택한 업그레이드 적용 (Index 기반)
 	UFUNCTION(BlueprintCallable, Category = "SF|Upgrade")
-	bool ApplyUpgradeChoiceByIndex(ASFPlayerState* PlayerState, int32 ChoiceIndex);
+	ESFUpgradeApplyResult ApplyUpgradeChoiceByIndex(ASFPlayerState* PlayerState, int32 ChoiceIndex);
 
 	// 리롤 비용 계산 (FreeReroll 태그 고려)
 	UFUNCTION(BlueprintCallable, Category = "SF|Upgrade")

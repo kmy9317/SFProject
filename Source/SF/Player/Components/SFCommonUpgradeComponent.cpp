@@ -101,29 +101,26 @@ void USFCommonUpgradeComponent::Server_RequestApplyUpgrade_Implementation(const 
 		return;
 	}
 
-	bool bHasMoreEnhance = Subsystem->HasMoreEnhanceAvailable(PS);
-
 	// 서브시스템에서 검증 및 적용
-	bool bSuccess = Subsystem->ApplyUpgradeChoice(PS, ChoiceId);
-	if (!bSuccess)
+	ESFUpgradeApplyResult Result = Subsystem->ApplyUpgradeChoice(PS, ChoiceId);
+	switch (Result)
 	{
+	case ESFUpgradeApplyResult::Failed:
 		Client_NotifyUpgradeApplyFailed(NSLOCTEXT("SF", "ApplyFailed_InvalidChoice", "유효하지 않은 선택입니다."));
-		return;
+		break;
+
+	case ESFUpgradeApplyResult::MoreEnhance:
+		{
+			TArray<FSFCommonUpgradeChoice> NewChoices = Subsystem->RegenerateChoicesForMoreEnhance(PS);
+			int32 NextCost = Subsystem->CalculateRerollCost(PS);
+			Client_ReceiveUpgradeChoices(NewChoices, true, NextCost);
+		}
+		break;
+
+	case ESFUpgradeApplyResult::Success:
+		Client_NotifyUpgradeApplied();
+		break;
 	}
-
-	// MoreEnhance가 있었으면 새 선택지 생성
-	if (bHasMoreEnhance)
-	{
-		TArray<FSFCommonUpgradeChoice> NewChoices = Subsystem->RegenerateChoicesForMoreEnhance(PS);
-		int32 NextCost = Subsystem->CalculateRerollCost(PS);
-
-		// 추가 선택임을 알리며 전송
-		Client_ReceiveUpgradeChoices(NewChoices, true, NextCost);
-		return;
-	}
-
-	// 적용 완료 알림
-	Client_NotifyUpgradeApplied();
 }
 
 void USFCommonUpgradeComponent::Client_NotifyUpgradeApplied_Implementation()
