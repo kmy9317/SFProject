@@ -49,11 +49,6 @@ ASFDragon::ASFDragon(const FObjectInitializer& ObjectInitializer)
 	
 	GetCapsuleComponent()->SetCollisionResponseToChannel(SF_ObjectChannel_Weapon, ECR_Overlap);
 
-	LockOnSockets.Add(FName("Chest_M"));	// 가슴
-	LockOnSockets.Add(FName("Head_M"));	    // 머리
-	LockOnSockets.Add(FName("Toes1_L"));	// 왼발
-	LockOnSockets.Add(FName("Toes1_R"));	// 오른발
-	LockOnSockets.Add(FName("Tail10_M"));   // 꼬리
 }
 
 void ASFDragon::InitializeComponents()
@@ -66,16 +61,4 @@ void ASFDragon::OnAbilitySystemInitialized()
 	Super::OnAbilitySystemInitialized();
 
 	
-}
-
-TArray<FName> ASFDragon::GetLockOnSockets() const
-{
-	// 설정된 소켓 리스트가 있다면 반환
-	if (LockOnSockets.Num() > 0)
-	{
-		return LockOnSockets;
-	}
-	
-	// 설정이 비어있다면 부모(SFEnemy)의 기본 동작(단일 소켓) 따름
-	return Super::GetLockOnSockets();
 }

@@ -19,13 +19,9 @@ public:
 	ASFDragon(const FObjectInitializer& ObjectInitializer);
 	
 	virtual void InitializeComponents() override;
-	
-	virtual TArray<FName> GetLockOnSockets() const override;
 
 protected:
 
 	virtual void OnAbilitySystemInitialized() override;
 
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "SF|LockOn")
-	TArray<FName> LockOnSockets;
 };

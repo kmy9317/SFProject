@@ -95,7 +95,11 @@ protected:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Enemy|InitializeEffect")
 	TSubclassOf<UGameplayEffect> InitializeEffect;
 	
-	// 기본 락온 소켓 이름 (spine_02 등)
+	// [New] 블루프린트에서 몬스터별로 다르게 설정할 락온 소켓 목록 (0번이 기본 타겟)
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "SF|LockOn")
+	TArray<FName> LockOnSocketCandidates;
+
+	// 기본 락온 소켓 이름 (spine_02 등) - 배열이 비어있을 때 사용될 예비값
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "SF|LockOn")
-	FName DefaultLockOnSocketName = FName("spine_02");
+	FName DefaultLockOnSocketName = FName("spine_03");
 };

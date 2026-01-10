@@ -417,7 +417,13 @@ bool ASFEnemy::CanBeLockedOn() const
 
 TArray<FName> ASFEnemy::GetLockOnSockets() const
 {
-	// 일반 몬스터는 설정된 단일 소켓 하나만 반환
+	// 1. 블루프린트(LockOnSocketCandidates)에 설정된 소켓들이 있다면 그것을 우선 반환
+	if (LockOnSocketCandidates.Num() > 0)
+	{
+		return LockOnSocketCandidates;
+	}
+
+	// 2. 설정된 게 없다면 기본값(spine_03) 하나만 반환
 	return { DefaultLockOnSocketName };
 }
 
