@@ -418,7 +418,7 @@ void ASFPlayerController::CreateBossHUD()
 					BossHUDWidgetInstance = CreateWidget<USFBossHUDWidget>(this, BossHUDWidgetClass);
 				if (BossHUDWidgetInstance)
 				{
-					BossHUDWidgetInstance->AddToViewport(100);
+					BossHUDWidgetInstance->AddToViewport(30);
 					BossHUDWidgetInstance->InitializeBoss(GS->GetStageManager()->GetCurrentBossActor());
 					GS->GetStageManager()->OnBossStateChanged.AddDynamic(this, &ThisClass::RemoveBossHUD);
 				}

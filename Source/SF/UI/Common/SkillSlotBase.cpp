@@ -1,13 +1,13 @@
 #include "UI/Common/SkillSlotBase.h"
 
+#include "GameplayEffect.h"
+
 #include "AbilitySystemComponent.h"
 #include "GameplayAbilitySpec.h"
 #include "AbilitySystem/Abilities/SFGameplayAbility.h"
 #include "Components/Image.h"
-#include "Components/ProgressBar.h"
 #include "Components/TextBlock.h"
 #include "Sound/SoundBase.h"
-#include "Animation/WidgetAnimation.h"
 #include "Kismet/GameplayStatics.h"
 #include "Materials/MaterialInstanceDynamic.h"
 #include "Interface/SFChainedSkill.h"
@@ -26,6 +26,10 @@ void USkillSlotBase::NativeOnWidgetControllerSet()
 	{
 		Text_CooldownCount->SetVisibility(ESlateVisibility::Collapsed);
 	}
+	if (Text_Cost)
+	{
+		Text_Cost->SetVisibility(ESlateVisibility::Collapsed);
+	}
 	if (Img_SkillBorder_Active)
 	{
 		Img_SkillBorder_Active->SetVisibility(ESlateVisibility::SelfHitTestInvisible);
@@ -39,7 +43,7 @@ void USkillSlotBase::NativeOnWidgetControllerSet()
 	{
 		Text_KeyPrompt->SetText(KeyPromptText);
 	}
-
+	
 	USFOverlayWidgetController* OverlayController = GetWidgetControllerTyped<USFOverlayWidgetController>();
 	if (!OverlayController)
 	{

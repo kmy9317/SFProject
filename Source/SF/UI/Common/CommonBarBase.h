@@ -27,6 +27,9 @@ protected:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "UI|Common")
 	bool bIsDecreasing;
 
+	// 첫 번째 업데이트인지 확인하는 플래그
+	bool bHasInitialized = false;
+
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "UI|Common")
 	float InterpSpeedToRecover = 2.5f;
 
@@ -69,4 +72,5 @@ public:
 	// 현재 능력치에 따른 길이 조절 함수
 	UFUNCTION(BlueprintCallable, Category="UI|Function")
 	void UpdateBarWidth(float MaxStat);
+	
 };
