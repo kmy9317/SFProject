@@ -87,23 +87,23 @@ USFCombatComponentBase* ASFBaseAIController::GetCombatComponent() const
 void ASFBaseAIController::Tick(float DeltaSeconds)
 {
     Super::Tick(DeltaSeconds);
-
-    APawn* MyPawn = GetPawn();
-    if (!MyPawn) return;
-
-    // 디버그 화살표: Actor forward vs Control forward
-    DrawDebugDirectionalArrow(GetWorld(),
-        MyPawn->GetActorLocation(),
-        MyPawn->GetActorLocation() + MyPawn->GetActorForwardVector() * 200.f,
-        100.f, FColor::Red, false, -1.f, 0, 5.f);
-
-    FRotator ControlRot = GetControlRotation();
-    FVector ControlDir = FRotationMatrix(ControlRot).GetUnitAxis(EAxis::X);
-
-    DrawDebugDirectionalArrow(GetWorld(),
-        MyPawn->GetActorLocation() + FVector(0, 0, 10),
-        MyPawn->GetActorLocation() + ControlDir * 200.f + FVector(0, 0, 10),
-        100.f, FColor::Green, false, -1.f, 0, 5.f);
+    //
+    // APawn* MyPawn = GetPawn();
+    // if (!MyPawn) return;
+    //
+    // // 디버그 화살표: Actor forward vs Control forward
+    // DrawDebugDirectionalArrow(GetWorld(),
+    //     MyPawn->GetActorLocation(),
+    //     MyPawn->GetActorLocation() + MyPawn->GetActorForwardVector() * 200.f,
+    //     100.f, FColor::Red, false, -1.f, 0, 5.f);
+    //
+    // FRotator ControlRot = GetControlRotation();
+    // FVector ControlDir = FRotationMatrix(ControlRot).GetUnitAxis(EAxis::X);
+    //
+    // DrawDebugDirectionalArrow(GetWorld(),
+    //     MyPawn->GetActorLocation() + FVector(0, 0, 10),
+    //     MyPawn->GetActorLocation() + ControlDir * 200.f + FVector(0, 0, 10),
+    //     100.f, FColor::Green, false, -1.f, 0, 5.f);
 }
 
 void ASFBaseAIController::BeginPlay()

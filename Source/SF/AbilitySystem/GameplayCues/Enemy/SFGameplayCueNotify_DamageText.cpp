@@ -3,6 +3,7 @@
 
 #include "SFGameplayCueNotify_DamageText.h"
 
+#include "GameFramework/PlayerState.h"
 #include "System/SFDamageTextSubSystem.h"
 #include "UI/InGame/UIDataStructs.h"
 
@@ -12,28 +13,41 @@ USFGameplayCueNotify_DamageText::USFGameplayCueNotify_DamageText()
 
 bool USFGameplayCueNotify_DamageText::OnExecute_Implementation(AActor* MyTarget, const FGameplayCueParameters& Parameters) const
 {
-	if (MyTarget)
+	if (!MyTarget) return false;
+	
+	APlayerController* LocalPC = GetWorld()->GetFirstPlayerController();
+	if (!LocalPC || !LocalPC->IsLocalController()) return false;
+	
+	AActor* InstigatorActor = Parameters.Instigator.Get();
+	if (!InstigatorActor) return false;
+	
+	AController* InstigatorController = nullptr;
+	
+	if (APawn* InstigatorPawn = Cast<APawn>(InstigatorActor))
 	{
-		APlayerController* PC = GetWorld()->GetFirstPlayerController();
-		if (!PC || !PC->IsLocalController()) return false;
-        
-		APawn* LocalPawn = PC->GetPawn();
-		if (!LocalPawn)
-		{
-			return false;
-		}
-        
-		if (Parameters.Instigator != LocalPawn)
-		{
-
-			return false;
-		}
-		if (USFDamageTextSubSystem* DamageSystem = MyTarget->GetWorld()->GetSubsystem<USFDamageTextSubSystem>())
-		{
-			DamageSystem->ShowDamage(Parameters.RawMagnitude, MyTarget, Parameters.Location);
-			return true;
-		}
+		InstigatorController = InstigatorPawn->GetController();
 	}
-	return false; 
+	else if (APlayerState* InstigatorPS = Cast<APlayerState>(InstigatorActor))
+	{
+		InstigatorController = InstigatorPS->GetPlayerController();
+	}
+	
+	else if (AController* PC = Cast<AController>(InstigatorActor))
+	{
+		InstigatorController = PC;
+	}
+	
+	
+	if (InstigatorController != LocalPC)
+	{
+		return false;
+	}
+	
+	if (USFDamageTextSubSystem* DamageSystem = MyTarget->GetWorld()->GetSubsystem<USFDamageTextSubSystem>())
+	{
+		DamageSystem->ShowDamage(Parameters.RawMagnitude, MyTarget, Parameters.Location);
+		return true;
+	}
 
+	return false; 
 }

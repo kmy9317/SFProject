@@ -119,7 +119,6 @@ void USFGA_Enemy_Melee::OnTraceHit(FGameplayEventData Payload)
 	}
 	
 	FGameplayEffectContextHandle Context = Payload.ContextHandle;
-	
 	{
 		ApplyDamageToTarget(HitActor, Context);
 	}
