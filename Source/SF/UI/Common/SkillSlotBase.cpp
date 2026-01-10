@@ -15,9 +15,12 @@
 
 void USkillSlotBase::NativeOnWidgetControllerSet()
 {
-	if (PB_Cooldown)
+	if (Img_CooldownCover)
 	{
-		PB_Cooldown->SetVisibility(ESlateVisibility::Collapsed);
+		Img_CooldownCover->SetVisibility(ESlateVisibility::Collapsed);
+       
+		// 다이내믹 머티리얼 인스턴스 미리 생성 (성능 최적화)
+		Img_CooldownCover->GetDynamicMaterial();
 	}
 	if (Text_CooldownCount)
 	{
@@ -186,10 +189,21 @@ void USkillSlotBase::RefreshCooldown()
 			Text_CooldownCount->SetVisibility(ESlateVisibility::SelfHitTestInvisible);
 		}
 
-		if (PB_Cooldown && TotalDuration > 0.f)
+		if (Img_CooldownCover && TotalDuration > 0.f)
 		{
-			PB_Cooldown->SetPercent(CooldownRemaining / TotalDuration);
-			PB_Cooldown->SetVisibility(ESlateVisibility::SelfHitTestInvisible);
+			if (Img_CooldownCover->GetVisibility() == ESlateVisibility::Collapsed)
+			{
+				Img_CooldownCover->SetVisibility(ESlateVisibility::SelfHitTestInvisible);
+			}
+
+			if (UMaterialInstanceDynamic* DMI = Img_CooldownCover->GetDynamicMaterial())
+			{
+				// 남은 시간 비율 (예: 0.5 = 절반 남음)
+				float Percent = FMath::Clamp(CooldownRemaining / TotalDuration, 0.0f, 1.0f);
+             
+				// 머티리얼 그래프에 있는 파라미터 이름 "Percent"에 값을 쏘아줌
+				DMI->SetScalarParameterValue(FName("Percent"), Percent);
+			}
 		}
 	}
 	else
@@ -219,9 +233,9 @@ void USkillSlotBase::RefreshCooldown()
 		{
 			Text_CooldownCount->SetVisibility(ESlateVisibility::Collapsed);
 		}
-		if (PB_Cooldown)
+		if (Img_CooldownCover)
 		{
-			PB_Cooldown->SetVisibility(ESlateVisibility::Collapsed);
+			Img_CooldownCover->SetVisibility(ESlateVisibility::Collapsed);
 		}
 	}
 }
@@ -290,9 +304,7 @@ float USkillSlotBase::GetActiveCooldownDuration(UAbilitySystemComponent* ASC, UG
 	{
 		if (const FActiveGameplayEffect* ActiveGE = ASC->GetActiveGameplayEffect(ActiveHandles[0]))
 		{
-			float Duration = 0.f;
-			ActiveGE->Spec.Def->DurationMagnitude.GetStaticMagnitudeIfPossible(ActiveGE->Spec.GetLevel(), Duration);
-			return Duration;
+			return ActiveGE->GetDuration();
 		}
 	}
 	

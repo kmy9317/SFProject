@@ -8,7 +8,6 @@
 #include "SkillSlotBase.generated.h"
 
 class UImage;
-class UProgressBar;
 class UTextBlock;
 class UWidgetAnimation;
 class USoundBase;
@@ -50,8 +49,8 @@ protected:
 	TObjectPtr<UImage> Img_SkillIcon;
 
 	UPROPERTY(meta = (BindWidget))
-	TObjectPtr<UProgressBar> PB_Cooldown;
-
+	TObjectPtr<UImage> Img_CooldownCover;
+	
 	UPROPERTY(meta = (BindWidget))
 	TObjectPtr<UImage> Img_SkillBorder_Active;
 
