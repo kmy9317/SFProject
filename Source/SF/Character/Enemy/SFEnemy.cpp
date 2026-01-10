@@ -135,19 +135,6 @@ void ASFEnemy::InitializeComponents()
 	EnemyWidgetComponent->InitializeWidget();
 }
 
-void ASFEnemy::PostInitializeComponents()
-{
-	Super::PostInitializeComponents();
-
-	if (!HasAuthority())
-	{
-		if (USFPawnExtensionComponent* PawnExtComp = USFPawnExtensionComponent::FindPawnExtensionComponent(this))
-		{
-			PawnExtComp->InitializeAbilitySystem(AbilitySystemComponent, this);
-		}
-	}
-}
-
 void ASFEnemy::InitializeAbilitySystem()
 {
 	if (!AbilitySystemComponent)

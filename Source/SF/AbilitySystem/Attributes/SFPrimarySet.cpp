@@ -5,6 +5,7 @@
 #include "AbilitySystem/SFAbilitySystemComponent.h"
 #include "Net/UnrealNetwork.h"
 #include "GameplayEffectExtension.h"
+#include "AbilitySystem/GameplayCues/SFGameplayCueTags.h"
 #include "AbilitySystem/GameplayEvent/SFGameplayEventTags.h"
 #include "Character/SFCharacterGameplayTags.h"
 #include "Libraries/SFAbilitySystemLibrary.h"
@@ -109,13 +110,21 @@ void USFPrimarySet::PostGameplayEffectExecute(const FGameplayEffectModCallbackDa
         // [UI] 데미지 폰트 띄우기 메시지
         if (DamageDone > 0.0f)
         {
-            FSFDamageMessageInfo Message;
-            Message.TargetActor = GetOwningActor();
-            Message.DamageAmount = DamageDone;
-            Message.Instigator = Data.EffectSpec.GetEffectContext().GetInstigator();
+            FGameplayCueParameters Params;
+            Params.RawMagnitude = DamageDone;
+            const FHitResult* HitResult = Data.EffectSpec.GetContext().GetHitResult();
+            if (HitResult->Location != FVector::ZeroVector)
+            {
+                Params.Location = HitResult->Location;
+            }
+            else
+            {
+                Params.Location = FVector::ZeroVector;
+            }
+          
+            Params.Instigator = Data.EffectSpec.GetEffectContext().GetInstigator();
 
-            UGameplayMessageSubsystem& MessageSubsystem = UGameplayMessageSubsystem::Get(GetWorld());
-            MessageSubsystem.BroadcastMessage(FGameplayTag::RequestGameplayTag("UI.Event.Damage"), Message);
+            SFASC->ExecuteGameplayCue(SFGameplayTags::GameplayCue_Character_DamageTaken,Params) ;
         }
         
         if (NewHealth > 0)

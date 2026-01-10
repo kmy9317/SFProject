@@ -22,16 +22,13 @@ class SF_API ASFEnemy : public ASFCharacterBase
 
 public:
 	ASFEnemy(const FObjectInitializer& ObjectInitializer = FObjectInitializer::Get());
-
-
+	
 	virtual UAbilitySystemComponent* GetAbilitySystemComponent() const override;
 	virtual void BeginPlay() override;
 
 	virtual void PossessedBy(AController* NewController) override;
 
 	virtual void InitializeComponents();
-
-	virtual void PostInitializeComponents() override;
 	
 	// ASC 초기화
 	virtual void InitializeAbilitySystem();

@@ -26,7 +26,7 @@ void ASFDragonFireballProjectile::BeginPlay()
     if (ProjectileEffect && DefaultNiagaraEffect)
     {
         ProjectileEffect->SetAsset(DefaultNiagaraEffect);
-        ProjectileEffect->ResetSystem(); 
+        ProjectileEffect->Activate(true);
     }
 }
 

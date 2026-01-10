@@ -51,4 +51,9 @@ namespace SFGameplayTags
 	UE_DEFINE_GAMEPLAY_TAG(GameplayCue_DeBuff_Burn, TEXT("GameplayCue.DeBuff.Burn"))
 	UE_DEFINE_GAMEPLAY_TAG(GameplayCue_DeBuff_Frozen, TEXT("GameplayCue.DeBuff.Frozen"))
 	UE_DEFINE_GAMEPLAY_TAG(GameplayCue_DeBuff_Shock, TEXT("GameplayCue.DeBuff.Shock"))
+
+
+
+	//UI
+	UE_DEFINE_GAMEPLAY_TAG(GameplayCue_Character_DamageTaken, TEXT("GameplayCue.Character.DamageTaken"))
 }

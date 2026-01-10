@@ -8,6 +8,8 @@
 #include "Kismet/GameplayStatics.h"
 #include "Camera/PlayerCameraManager.h"
 #include "Character/SFCharacterBase.h"
+#include "Character/Enemy/SFEnemyData.h"
+#include "Character/Enemy/SFEnemyGameplayTags.h"
 #include "Components/CapsuleComponent.h"
 #include "UI/Common/CommonBarBase.h"
 
@@ -31,8 +33,17 @@ void USFEnemyWidgetComponent::InitWidget()
 
 void USFEnemyWidgetComponent::InitializeWidget()
 {
+   
     ASFCharacterBase* OwnerCharacter = Cast<ASFCharacterBase>(GetOwner());
     if (!OwnerCharacter) return;
+    if(USFPawnExtensionComponent* PawnExtComp = USFPawnExtensionComponent::FindPawnExtensionComponent(OwnerCharacter))
+    {
+        const USFEnemyData* EnemyData = PawnExtComp->GetPawnData<USFEnemyData>();
+        if (EnemyData && EnemyData->EnemyType == SFGameplayTags::Enemy_Type_Boss)
+        {
+            return;
+        }
+    }
     UAbilitySystemComponent* ASC = OwnerCharacter->GetAbilitySystemComponent();
     if (IsValid(ASC))
     {
@@ -49,7 +60,6 @@ void USFEnemyWidgetComponent::InitializeWidget()
         SetRelativeLocation(FVector(0.f, 0.f, CapsuleHalfHeight + WidgetVerticalOffset));
     }
     
-    // 위젯 초기 설정
     if (EnemyWidget)
     {
         EnemyWidget->SetBarColor(HealthBarColor);

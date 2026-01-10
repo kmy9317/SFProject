@@ -33,6 +33,8 @@ ASFProjectileBase::ASFProjectileBase()
 
     ProjectileEffect = CreateDefaultSubobject<UNiagaraComponent>(TEXT("ProjectileEffect"));
     ProjectileEffect->SetupAttachment(RootComponent);
+    ProjectileEffect->bAutoActivate = true;
+    ProjectileEffect->SetIsReplicated(true);
 
     InitialLifeSpan = LifeSpan;
 }

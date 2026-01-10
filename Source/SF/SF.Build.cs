@@ -43,7 +43,9 @@ public class SF : ModuleRules
 			"JsonUtilities",
 			"Niagara",
 			"NiagaraAnimNotifies",
-			"EngineCameras"
+			"EngineCameras",
+			"DeveloperSettings"
+			
 		});
 
 		PrivateDependencyModuleNames.AddRange(new string[] { "AITestSuite" });

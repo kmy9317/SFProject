@@ -8,9 +8,7 @@
 #include "SFDragonCombatComponent.generated.h"
 
 struct FSFPhaseData;
-/**
- * Boss Attack Zone - determines which abilities are available
- */
+
 UENUM(BlueprintType)
 enum class EBossAttackZone : uint8
 {
@@ -155,5 +153,11 @@ protected:
     TArray<FSFPhaseData> TriggerPhase;
 
     FGameplayTag PendingPhaseTag;
-
+    
+    UPROPERTY()
+    TArray<FGameplayTag> RecentAbilityHistory;
+    
+    UPROPERTY(EditAnywhere, Category = "AI")
+    int32 MaxHistorySize = 2;
+    
 };

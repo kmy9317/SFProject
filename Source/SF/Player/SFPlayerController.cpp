@@ -321,7 +321,6 @@ void ASFPlayerController::Client_ShowDamageText_Implementation(float DamageAmoun
 	if (NewDamageWidget)
 	{
 		NewDamageWidget->AddToViewport();
-		NewDamageWidget->SetupDamageText(DamageAmount, TextSpawnLocation);
 	}
 }
 

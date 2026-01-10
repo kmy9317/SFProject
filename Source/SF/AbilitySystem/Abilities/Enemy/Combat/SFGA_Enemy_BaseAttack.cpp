@@ -458,6 +458,5 @@ void USFGA_Enemy_BaseAttack::FireGameplayCueWithCosmetic_Actor(FGameplayTag CueT
 		Params.SourceObject = nullptr;
 	}
 	
-
 	GetAbilitySystemComponentFromActorInfo()->AddGameplayCue(CueTag, Params);
 }

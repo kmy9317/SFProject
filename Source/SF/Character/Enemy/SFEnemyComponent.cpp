@@ -56,57 +56,61 @@ void USFEnemyComponent::EndPlay(const EEndPlayReason::Type EndPlayReason)
 
 #pragma region GameFrameWorkInitState
 bool USFEnemyComponent::CanChangeInitState(UGameFrameworkComponentManager* Manager, FGameplayTag CurrentState,
-	FGameplayTag DesiredState) const
+    FGameplayTag DesiredState) const
 {
-	check(Manager);
-	APawn* Pawn = GetPawn<APawn>();
+    check(Manager);
+    APawn* Pawn = GetPawn<APawn>();
 
-	if (!CurrentState.IsValid() && DesiredState == SFGameplayTags::InitState_Spawned)
-	{
-		if (Pawn)
-		{
-			return true;
-		}
-	}
-	else if (CurrentState == SFGameplayTags::InitState_Spawned && DesiredState == SFGameplayTags::InitState_DataAvailable)
-	{
-		if (!GetController<AAIController>())
-		{
-			return false;
-		}
+    if (!CurrentState.IsValid() && DesiredState == SFGameplayTags::InitState_Spawned)
+    {
+       if (Pawn)
+       {
+          return true;
+       }
+    }
+    else if (CurrentState == SFGameplayTags::InitState_Spawned && DesiredState == SFGameplayTags::InitState_DataAvailable)
+    {
+       // [수정] 서버일 때만 AIController를 체크합니다.
+       // 클라이언트는 AIController가 없으므로 이 체크를 건너뛰어야 초기화가 진행됩니다.
+       if (Pawn->HasAuthority())
+       {
+           if (!GetController<AAIController>())
+           {
+              return false;
+           }
+       }
 
-		if (USFPawnExtensionComponent* PawnExtComp = USFPawnExtensionComponent::FindPawnExtensionComponent(Pawn))
-		{
-			if (!PawnExtComp->GetPawnData<USFPawnData>())
-			{
-				return false;
-			}
-		}
-		else
-		{
-			return false;
-		}
+       // [공통] PawnData는 서버/클라이언트 모두 필수입니다.
+       if (USFPawnExtensionComponent* PawnExtComp = USFPawnExtensionComponent::FindPawnExtensionComponent(Pawn))
+       {
+          if (!PawnExtComp->GetPawnData<USFPawnData>())
+          {
+             return false;
+          }
+       }
+       else
+       {
+          return false;
+       }
 
-		return true;
-	}
-	else if (CurrentState == SFGameplayTags::InitState_DataAvailable && DesiredState == SFGameplayTags::InitState_DataInitialized)
-	{
-		return Manager->HasFeatureReachedInitState(Pawn, USFPawnExtensionComponent::NAME_ActorFeatureName, SFGameplayTags::InitState_DataInitialized);
-	}
-	else if (CurrentState == SFGameplayTags::InitState_DataInitialized && DesiredState == SFGameplayTags::InitState_GameplayReady)
-	{
-		return true;
-	}
+       return true;
+    }
+    else if (CurrentState == SFGameplayTags::InitState_DataAvailable && DesiredState == SFGameplayTags::InitState_DataInitialized)
+    {
+       return Manager->HasFeatureReachedInitState(Pawn, USFPawnExtensionComponent::NAME_ActorFeatureName, SFGameplayTags::InitState_DataInitialized);
+    }
+    else if (CurrentState == SFGameplayTags::InitState_DataInitialized && DesiredState == SFGameplayTags::InitState_GameplayReady)
+    {
+       return true;
+    }
 
-	return false;
+    return false;
 }
 
-void USFEnemyComponent::HandleChangeInitState(UGameFrameworkComponentManager* Manager, FGameplayTag CurrentState,
-	FGameplayTag DesiredState)
+void USFEnemyComponent::HandleChangeInitState(UGameFrameworkComponentManager* Manager, FGameplayTag CurrentState,FGameplayTag DesiredState)
 {
-	if (CurrentState == SFGameplayTags::InitState_DataAvailable && DesiredState == SFGameplayTags::InitState_DataInitialized)
+	if (CurrentState == SFGameplayTags ::InitState_DataAvailable && DesiredState == SFGameplayTags::InitState_DataInitialized)
 	{
-		// Enemy 캐릭터의 AbilitySystem 초기화
 		if (ASFEnemy* Enemy = GetPawn<ASFEnemy>())
 		{
 			Enemy->InitializeAbilitySystem();
@@ -114,8 +118,12 @@ void USFEnemyComponent::HandleChangeInitState(UGameFrameworkComponentManager* Ma
 	}
 	else if (CurrentState == SFGameplayTags::InitState_DataInitialized && DesiredState == SFGameplayTags::InitState_GameplayReady)
 	{
-		InitializeAI();
-		InitalizeStateMachineComponent();
+		APawn* Pawn = GetPawn<APawn>();
+		if (Pawn && Pawn->HasAuthority())
+		{
+			InitializeAI();
+			InitalizeStateMachineComponent();
+		}
 	}
 }
 
@@ -132,8 +140,6 @@ void USFEnemyComponent::OnActorInitStateChanged(const FActorInitStateChangedPara
 
 void USFEnemyComponent::CheckDefaultInitialization()
 {
-
-
 	static const TArray<FGameplayTag> StateChain = {
 		SFGameplayTags::InitState_Spawned,
 		SFGameplayTags::InitState_DataAvailable,

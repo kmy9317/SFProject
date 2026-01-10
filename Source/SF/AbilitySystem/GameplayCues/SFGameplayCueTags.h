@@ -53,4 +53,8 @@ namespace SFGameplayTags
 	SF_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(GameplayCue_DeBuff_Burn);
 	SF_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(GameplayCue_DeBuff_Frozen);
 	SF_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(GameplayCue_DeBuff_Shock);
+
+
+	
+	SF_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(GameplayCue_Character_DamageTaken);
 }

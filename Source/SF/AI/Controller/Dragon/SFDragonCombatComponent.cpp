@@ -177,160 +177,137 @@ void USFDragonCombatComponent::EvaluateTarget()
 
 bool USFDragonCombatComponent::SelectAbility(const FEnemyAbilitySelectContext& Context, const FGameplayTagContainer& SearchTags, FGameplayTag& OutSelectedTag)
 {
+    FBossEnemyAbilitySelectContext DragonContext;
+    DragonContext.Self = Context.Self;
+    DragonContext.Target = Context.Target;
+    DragonContext.DistanceToTarget = CachedDistance;
+    DragonContext.AngleToTarget = CachedAngle;
+    DragonContext.PlayerHealthPercentage = GetPlayerHealthPercent();
+    DragonContext.Zone = CurrentZone;
     
-	FBossEnemyAbilitySelectContext DragonContext;
+    OutSelectedTag = FGameplayTag();
 
-	DragonContext.Self = Context.Self;
-	DragonContext.Target = Context.Target;
-	DragonContext.DistanceToTarget = CachedDistance;
-	DragonContext.AngleToTarget = CachedAngle;
+    UAbilitySystemComponent* ASC = UAbilitySystemGlobals::GetAbilitySystemComponentFromActor(DragonContext.Self);
+    if (!ASC || SearchTags.IsEmpty()) return false;
 
-	DragonContext.PlayerHealthPercentage = GetPlayerHealthPercent();
-	DragonContext.Zone = CurrentZone;
-	
-	OutSelectedTag = FGameplayTag();
-
-	UAbilitySystemComponent* ASC = UAbilitySystemGlobals::GetAbilitySystemComponentFromActor(DragonContext.Self);
-	if (!ASC || SearchTags.IsEmpty())
-	{
-		return false;
-	}
-
-
-	FEnemyAbilitySelectContext ContextWithSpatialData = DragonContext;
-	
-	TArray<FGameplayTag> Candidates;
-	TArray<float> Weights;
-	float TotalWeight = 0.f;
-
-	for (const FGameplayAbilitySpec& Spec : ASC->GetActivatableAbilities())
-	{
-		UGameplayAbility* Ability = Spec.Ability;
-		if (!Ability)
-		{
-			continue;
-		}
-
-		FGameplayTagContainer AllTags;
-		AllTags.AppendTags(Ability->AbilityTags);
-		AllTags.AppendTags(Ability->GetAssetTags());
-		
-		if (!AllTags.HasAny(SearchTags))
-		{
-			continue;
-		}
-
-		const FGameplayAbilityActorInfo* ActorInfo = ASC->AbilityActorInfo.Get();
-		
-		if (!Ability->CheckCooldown(Spec.Handle, ActorInfo))
-		{
-			continue;
-		}
-
-		ISFEnemyAbilityInterface* AIInterface = Cast<ISFEnemyAbilityInterface>(Ability);
-		if (!AIInterface)
-		{
-			continue;
-		}
-
-		// Context에 Spec 전달
-		FEnemyAbilitySelectContext ContextWithSpec = ContextWithSpatialData;
-		ContextWithSpec.AbilitySpec = &Spec;
-
-		float Score = AIInterface->CalcAIScore(ContextWithSpec);
-
-		
-		if (Score > 0.f)
-		{
-			FGameplayTag UniqueTag;
-			for (const FGameplayTag& Tag : AllTags)
-			{
-				if (SearchTags.HasTagExact(Tag))
-				{
-					UniqueTag = Tag;
-					break;
-				}
-			}
-			
-			if (!UniqueTag.IsValid())
-			{
-				if (Ability->AbilityTags.Num() > 0)
-				{
-					UniqueTag = Ability->AbilityTags.First();
-				}
-				else if (Ability->GetAssetTags().Num() > 0)
-				{
-					UniqueTag = Ability->GetAssetTags().First();
-				}
-			}
-
-			// 후보 등록 - 이전 공격 제외 로직
-			if (UniqueTag.IsValid())
-			{
-				// 이전에 사용한 공격이면 스킵 (후보가 하나도 없을 때는 허용)
-				if (UniqueTag == LastSelectedAbilityTag && Candidates.Num() > 0)
-				{
-					continue;
-				}
-
-				Candidates.Add(UniqueTag);
-				Weights.Add(Score);
-				TotalWeight += Score;
-			}
-		}
-	}
-
-	if (Candidates.Num() == 0)
-	{
-		return false;
-	}
-	
-	// 1. 현재 후보 중 최고 점수
-	float MaxScore = 0.f;
-	for (float W : Weights)
-	{
-		if (W > MaxScore)
-		{
-			MaxScore = W;
-		}
-	}
-	
-	float ScoreThreshold = MaxScore * 0.85f; 
+    FEnemyAbilitySelectContext ContextWithSpatialData = DragonContext;
     
-	TArray<int32> EliteIndices; // 살아남은 후보들의 인덱스 저장
-	float EliteTotalWeight = 0.f;
+    TArray<FGameplayTag> Candidates;
+    TArray<float> Weights;
+    float TotalWeight = 0.f;
 
-	for (int32 i = 0; i < Weights.Num(); ++i)
-	{
-		if (Weights[i] >= ScoreThreshold)
-		{
-			EliteIndices.Add(i);
-			EliteTotalWeight += Weights[i];
-		}
-	}
-	
-	float RandomValue = FMath::FRandRange(0.f, EliteTotalWeight);
-	bool bFound = false;
+    for (const FGameplayAbilitySpec& Spec : ASC->GetActivatableAbilities())
+    {
+        UGameplayAbility* Ability = Spec.Ability;
+        if (!Ability) continue;
 
-	for (int32 Index : EliteIndices)
-	{
-		float Weight = Weights[Index];
-		if (RandomValue <= Weight)
-		{
-			OutSelectedTag = Candidates[Index];
-			bFound = true;
-			break;
-		}
-		RandomValue -= Weight;
-	}
-	
-	if (!bFound && EliteIndices.Num() > 0)
-	{
-		OutSelectedTag = Candidates[EliteIndices.Last()];
-	}
-	
-	LastSelectedAbilityTag = OutSelectedTag; // 선택한 공격 기록
-	return true;
+        FGameplayTagContainer AllTags;
+        AllTags.AppendTags(Ability->AbilityTags);
+        AllTags.AppendTags(Ability->GetAssetTags());
+        
+        if (!AllTags.HasAny(SearchTags)) continue;
+
+        const FGameplayAbilityActorInfo* ActorInfo = ASC->AbilityActorInfo.Get();
+        if (!Ability->CheckCooldown(Spec.Handle, ActorInfo)) continue;
+
+        ISFEnemyAbilityInterface* AIInterface = Cast<ISFEnemyAbilityInterface>(Ability);
+        if (!AIInterface) continue;
+
+        FEnemyAbilitySelectContext ContextWithSpec = ContextWithSpatialData;
+        ContextWithSpec.AbilitySpec = &Spec;
+
+        // 기본 점수 계산
+        float Score = AIInterface->CalcAIScore(ContextWithSpec);
+        
+        if (Score > 0.f)
+        {
+            FGameplayTag UniqueTag;
+            for (const FGameplayTag& Tag : AllTags)
+            {
+                if (SearchTags.HasTagExact(Tag)) { UniqueTag = Tag; break; }
+            }
+            
+            if (!UniqueTag.IsValid())
+            {
+                UniqueTag = Ability->AbilityTags.Num() > 0 ? Ability->AbilityTags.First() : Ability->GetAssetTags().First();
+            }
+
+            if (UniqueTag.IsValid())
+            {
+                // 최근 사용한 스킬 리스트에 있으면 점수를 대폭 깎음 
+                if (RecentAbilityHistory.Contains(UniqueTag))
+                {
+                    Score *= 0.3f;
+                }
+            	
+                // 0.8 ~ 1.2 사이의 값을 곱해 매번 계산 결과가 미세하게 달라지게 함
+                Score *= FMath::FRandRange(0.8f, 1.2f);
+
+                Candidates.Add(UniqueTag);
+                Weights.Add(Score);
+            }
+        }
+    }
+
+    if (Candidates.Num() == 0) return false;
+    
+    // 현재 후보 중 최고 점수 찾기
+    float MaxScore = 0.f;
+    for (float W : Weights)
+    {
+        if (W > MaxScore) MaxScore = W;
+    }
+    
+     
+    // 최고 점수의 60% 이상인 스킬들은 모두 "Elite" 후보군으로 취급 
+    float ScoreThreshold = MaxScore * 0.6f; 
+    
+    TArray<int32> EliteIndices;
+    float EliteTotalWeight = 0.f;
+
+    for (int32 i = 0; i < Weights.Num(); ++i)
+    {
+        if (Weights[i] >= ScoreThreshold)
+        {
+            EliteIndices.Add(i);
+            EliteTotalWeight += Weights[i];
+        }
+    }
+    
+    // 가중치 기반 무작위 선택
+    float RandomValue = FMath::FRandRange(0.f, EliteTotalWeight);
+    bool bFound = false;
+
+    for (int32 Index : EliteIndices)
+    {
+        float Weight = Weights[Index];
+        if (RandomValue <= Weight)
+        {
+            OutSelectedTag = Candidates[Index];
+            bFound = true;
+            break;
+        }
+        RandomValue -= Weight;
+    }
+    
+    if (!bFound && EliteIndices.Num() > 0)
+    {
+        OutSelectedTag = Candidates[EliteIndices.Last()];
+    }
+    
+    
+    if (OutSelectedTag.IsValid())
+    {
+        RecentAbilityHistory.Add(OutSelectedTag);
+        if (RecentAbilityHistory.Num() > MaxHistorySize)
+        {
+            RecentAbilityHistory.RemoveAt(0);
+        }
+        LastSelectedAbilityTag = OutSelectedTag;
+        return true;
+    }
+
+    return false;
 }
 	
 // 공간 정보 갱신 
