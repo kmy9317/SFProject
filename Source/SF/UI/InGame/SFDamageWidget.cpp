@@ -1,11 +1,7 @@
-// Fill out your copyright notice in the Description page of Project Settings.
-
-
 #include "UI/InGame/SFDamageWidget.h"
 #include "Components/TextBlock.h"
-#include "GameFramework/PlayerController.h"
 #include "Animation/WidgetAnimation.h"
-
+#include "TimerManager.h" // 타이머 매니저 헤더 필요
 
 void USFDamageWidget::NativeConstruct()
 {
@@ -14,31 +10,38 @@ void USFDamageWidget::NativeConstruct()
 
 void USFDamageWidget::PlayDamageEffect(float DamageAmount, bool bIsCritical)
 {
-	
 	if (Txt_DamageText)
 	{
 		Txt_DamageText->SetText(FText::AsNumber(FMath::RoundToInt(DamageAmount)));
+        
+		if (bIsCritical)
+		{
+			Txt_DamageText->SetColorAndOpacity(FSlateColor(FLinearColor::Red));
+		}
+		else
+		{
+			Txt_DamageText->SetColorAndOpacity(FSlateColor(FLinearColor::White));
+		}
 	}
-	if (bIsCritical)
+	
+	if (Anim_PopUp)
 	{
-		Txt_DamageText->SetColorAndOpacity(FSlateColor(FLinearColor::Red));
+		GetWorld()->GetTimerManager().ClearTimer(TimerHandle_ReturnToPool);
+		
+		PlayAnimation(Anim_PopUp);
+		
+		float AnimDuration = Anim_PopUp->GetEndTime();
+		
+		GetWorld()->GetTimerManager().SetTimer(TimerHandle_ReturnToPool, this, &USFDamageWidget::OnReturnTimerElapsed, AnimDuration + 0.1f, false);
 	}
 	else
 	{
-		Txt_DamageText->SetColorAndOpacity(FSlateColor(FLinearColor::White));
-	}
-	if (Anim_PopUp)
-	{
-		PlayAnimation(Anim_PopUp);
+
+		OnFinished.Broadcast(this);
 	}
 }
 
-void USFDamageWidget::OnAnimationFinished_Implementation(const UWidgetAnimation* Animation)
+void USFDamageWidget::OnReturnTimerElapsed()
 {
-	Super::OnAnimationFinished_Implementation(Animation);
-	
-	if (Animation == Anim_PopUp)
-	{
-		OnFinished.Broadcast(this);
-	}
+	OnFinished.Broadcast(this);
 }

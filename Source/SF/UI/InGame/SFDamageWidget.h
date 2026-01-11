@@ -1,17 +1,8 @@
-// Fill out your copyright notice in the Description page of Project Settings.
-
 #pragma once
 
 #include "CoreMinimal.h"
 #include "Blueprint/UserWidget.h"
 #include "SFDamageWidget.generated.h"
-
-class UTextBlock;
-class UWidgetAnimation;
-
-/**
- * 데미지 텍스트 전용 위젯 클래스
- */
 
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnDamageWidgetFinished, UUserWidget*, Widget);
 
@@ -23,20 +14,23 @@ class SF_API USFDamageWidget : public UUserWidget
 public:
 	virtual void NativeConstruct() override;
 
-	
+	// 데미지 효과 재생
 	void PlayDamageEffect(float DamageAmount, bool bIsCritical);
 
-	// 애니메이션 종료 감지
-	virtual void OnAnimationFinished_Implementation(const UWidgetAnimation* Animation) override;
-
-public:
-	// Subsystem이 듣게 될 이벤트
+	// 델리게이트 (서브시스템에서 바인딩)
 	FOnDamageWidgetFinished OnFinished;
 
 protected:
 	UPROPERTY(meta = (BindWidget))
-	TObjectPtr<class UTextBlock> Txt_DamageText;
+	class UTextBlock* Txt_DamageText;
 
-	UPROPERTY(meta = (BindWidgetAnim), Transient)
-	TObjectPtr<UWidgetAnimation> Anim_PopUp;
+	UPROPERTY(Transient, meta = (BindWidgetAnim))
+	class UWidgetAnimation* Anim_PopUp;
+
+private:
+	// 애니메이션 종료 감지용 타이머 핸들
+	FTimerHandle TimerHandle_ReturnToPool;
+
+	// 타이머 콜백 함수
+	void OnReturnTimerElapsed();
 };
