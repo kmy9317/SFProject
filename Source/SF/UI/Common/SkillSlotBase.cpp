@@ -7,7 +7,6 @@
 #include "AbilitySystem/Abilities/SFGameplayAbility.h"
 #include "Components/Image.h"
 #include "Components/TextBlock.h"
-#include "Sound/SoundBase.h"
 #include "Kismet/GameplayStatics.h"
 #include "Materials/MaterialInstanceDynamic.h"
 #include "Interface/SFChainedSkill.h"
@@ -78,7 +77,7 @@ void USkillSlotBase::NativeTick(const FGeometry& MyGeometry, float InDeltaTime)
 	{
 		RefreshCooldown();			// 쿨타임 갱신
 		RefreshActiveDuration();    // 지속시간 갱신
-		RefreshManaCost();          // 마나 소모량 갱신ㄴ
+		RefreshManaCost();          // 마나 소모량 갱신
 	}
 }
 
