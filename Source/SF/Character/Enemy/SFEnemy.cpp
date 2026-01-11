@@ -21,9 +21,7 @@
 #include "GameModes/SFGameState.h"
 #include "GameModes/SFStageManagerComponent.h"
 #include "System/SFGameInstance.h"
-#include "Net/UnrealNetwork.h"
-#include "Components/CapsuleComponent.h"
-#include "Character/SFCharacterGameplayTags.h"
+#include "Physics/SFCollisionChannels.h"
 
 
 #include UE_INLINE_GENERATED_CPP_BY_NAME(SFEnemy)
@@ -65,6 +63,31 @@ ASFEnemy::ASFEnemy(const FObjectInitializer& ObjectInitializer)
     	MoveComp->GroundFriction = 8.0f;
     }
 	
+	if (UCapsuleComponent* CapsuleComp = GetCapsuleComponent())
+	{
+		CapsuleComp->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics);
+		CapsuleComp->SetCollisionProfileName(TEXT("Pawn")); 
+		
+		CapsuleComp->SetCollisionResponseToChannel(ECC_Pawn, ECR_Block);
+		CapsuleComp->SetCollisionResponseToChannel(SF_ObjectChannel_Weapon, ECR_Overlap);
+		CapsuleComp->SetCollisionResponseToChannel(ECC_Camera, ECR_Ignore);
+	}
+	
+	if (USkeletalMeshComponent* MeshComp = GetMesh())
+	{
+		MeshComp->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics);
+		MeshComp->SetCollisionObjectType(ECC_Pawn); 
+
+		
+		MeshComp->SetCollisionResponseToAllChannels(ECR_Ignore);
+		
+		MeshComp->SetCollisionResponseToChannel(ECC_Pawn, ECR_Overlap);
+		MeshComp->SetCollisionResponseToChannel(SF_ObjectChannel_Weapon, ECR_Overlap);
+		
+		MeshComp->SetCollisionResponseToChannel(ECC_Visibility, ECR_Block);
+		MeshComp->SetCollisionResponseToChannel(ECC_Camera, ECR_Ignore); 
+		MeshComp->SetGenerateOverlapEvents(true);
+	}
 }
 
 UAbilitySystemComponent* ASFEnemy::GetAbilitySystemComponent() const

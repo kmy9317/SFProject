@@ -172,7 +172,8 @@ void ASFBaseAIController::OnCCStart(FGameplayTag StateTag)
     if (StateTag == SFGameplayTags::Character_State_Stunned ||
         StateTag == SFGameplayTags::Character_State_Dead ||
         StateTag == SFGameplayTags::Character_State_Groggy ||
-        StateTag == SFGameplayTags::Character_State_PhaseIntro)
+        StateTag == SFGameplayTags::Character_State_PhaseIntro||
+        StateTag == SFGameplayTags::Character_State_Hit)
     {
         SetActorTickEnabled(false);
         if (UBehaviorTreeComponent* BTComp = Cast<UBehaviorTreeComponent>(BrainComponent))

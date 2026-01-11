@@ -21,8 +21,6 @@ USFGA_EnemyHitReaction::USFGA_EnemyHitReaction()
     TriggerData.TriggerSource = EGameplayAbilityTriggerSource::GameplayEvent;
     AbilityTriggers.Add(TriggerData);
 
-    ActivationOwnedTags.AddTag(SFGameplayTags::Character_State_Hit);
-
     bRetriggerInstancedAbility = true;
 }
 
@@ -39,7 +37,7 @@ void USFGA_EnemyHitReaction::ActivateAbility(
         EndAbility(CurrentSpecHandle, CurrentActorInfo, CurrentActivationInfo, true, true);
         return;
     }
-
+    
     if (!TriggerEventData)
     {
         EndAbility(CurrentSpecHandle, CurrentActorInfo, CurrentActivationInfo, true, false);
@@ -74,10 +72,10 @@ void USFGA_EnemyHitReaction::ActivateAbility(
         return;
     }
 
+    
     FVector HitLocation = ExtractHitLocationFromEvent(TriggerEventData);
     FVector AttackDir = ExtractHitDirectionFromEvent(TriggerEventData);
-
-    // 파티클 실행 (항상 실행)
+    
     FGameplayCueParameters CueParams;
     CueParams.Location = HitLocation;
 
@@ -90,22 +88,20 @@ void USFGA_EnemyHitReaction::ActivateAbility(
     CueParams.AggregatedSourceTags.AddTag(TypeTag);
 
     ASC->ExecuteGameplayCue(SFGameplayTags::GameplayCue_HitReaction_Type_Enemy, CueParams);
-
-    // 무적 체크: 무적 상태면 리액션 무시
+    
     if (bIsInvincible)
     {
         EndAbility(CurrentSpecHandle, CurrentActorInfo, CurrentActivationInfo, true, false);
         return;
     }
-
-    // 몽타주가 이미 재생 중이면 스킵
+    
     if (MontageTask && MontageTask->IsActive())
     {
         EndAbility(CurrentSpecHandle, CurrentActorInfo, CurrentActivationInfo, true, false);
         return;
     }
 
-    // 몽타주 재생
+    // 4. 몽타주 선택 및 재생
     FVector Forward = Character->GetActorForwardVector();
     float Dot = FVector::DotProduct(Forward, AttackDir);
 
@@ -113,6 +109,8 @@ void USFGA_EnemyHitReaction::ActivateAbility(
 
     if (SelectedMontage)
     {
+        ASC->AddLooseGameplayTag(SFGameplayTags::Character_State_Hit);
+
         MontageTask = UAbilityTask_PlayMontageAndWait::CreatePlayMontageAndWaitProxy(
             this, NAME_None, SelectedMontage);
 
@@ -130,14 +128,44 @@ void USFGA_EnemyHitReaction::ActivateAbility(
     EndAbility(CurrentSpecHandle, CurrentActorInfo, CurrentActivationInfo, true, false);
 }
 
+void USFGA_EnemyHitReaction::EndAbility(
+    const FGameplayAbilitySpecHandle Handle, 
+    const FGameplayAbilityActorInfo* ActorInfo, 
+    const FGameplayAbilityActivationInfo ActivationInfo, 
+    bool bReplicateEndAbility, 
+    bool bWasCancelled)
+{
+    if (UAbilitySystemComponent* ASC = GetAbilitySystemComponentFromActorInfo())
+    {
+        ASC->RemoveLooseGameplayTag(SFGameplayTags::Character_State_Hit);
+    }
+
+    if (MontageTask)
+    {
+        MontageTask->EndTask();
+        MontageTask = nullptr;
+    }
+
+    if (!bWasCancelled && bActivateInvincibilityOnEnd)
+    {
+        ActivateInvincibility();
+    }
+    else
+    {
+        UWorld* World = GetWorld();
+        if (World && InvincibilityTimerHandle.IsValid())
+        {
+            World->GetTimerManager().ClearTimer(InvincibilityTimerHandle);
+            InvincibilityTimerHandle.Invalidate();
+        }
+    }
+
+    Super::EndAbility(Handle, ActorInfo, ActivationInfo, bReplicateEndAbility, bWasCancelled);
+}
+
 void USFGA_EnemyHitReaction::ActivateInvincibility()
 {
-    
-    if (bIsInvincible)
-    {
-        return;
-    }
-    
+    if (bIsInvincible) return;
     bIsInvincible = true;
 
     UWorld* World = GetWorld();
@@ -161,22 +189,15 @@ void USFGA_EnemyHitReaction::DeactivateInvincibility()
 FVector USFGA_EnemyHitReaction::ExtractHitLocationFromEvent(const FGameplayEventData* EventData) const
 {
     if (!EventData) return FVector::ZeroVector;
-
     const FGameplayEffectContextHandle& Ctx = EventData->ContextHandle;
     if (!Ctx.IsValid()) return FVector::ZeroVector;
-
-    if (const FHitResult* HR = Ctx.GetHitResult())
-    {
-        return HR->ImpactPoint;
-    }
-
+    if (const FHitResult* HR = Ctx.GetHitResult()) return HR->ImpactPoint;
     return FVector::ZeroVector;
 }
 
 FVector USFGA_EnemyHitReaction::ExtractHitDirectionFromEvent(const FGameplayEventData* EventData) const
 {
     if (!EventData) return FVector::ZeroVector;
-
     const FGameplayEffectContextHandle& Ctx = EventData->ContextHandle;
     if (!Ctx.IsValid()) return FVector::ZeroVector;
 
@@ -187,63 +208,17 @@ FVector USFGA_EnemyHitReaction::ExtractHitDirectionFromEvent(const FGameplayEven
     {
         FVector Dir = HR->ImpactPoint - Avatar->GetActorLocation();  
         Dir.Z = 0.f;
-        if (!Dir.IsNearlyZero())
-            return Dir.GetSafeNormal();
+        if (!Dir.IsNearlyZero()) return Dir.GetSafeNormal();
     }
-
     if (AActor* Instigator = const_cast<AActor*>(EventData->Instigator.Get()))
     {
         FVector Dir = Instigator->GetActorLocation() - Avatar->GetActorLocation();
         Dir.Z = 0.f;
-        if (!Dir.IsNearlyZero())
-            return Dir.GetSafeNormal();
+        if (!Dir.IsNearlyZero()) return Dir.GetSafeNormal();
     }
-
     return FVector::ZeroVector;
 }
 
-void USFGA_EnemyHitReaction::OnMontageCompleted()
-{
-    EndAbility(CurrentSpecHandle, CurrentActorInfo, CurrentActivationInfo, true, false);
-}
-
-void USFGA_EnemyHitReaction::OnMontageCancelled()
-{
-    EndAbility(CurrentSpecHandle, CurrentActorInfo, CurrentActivationInfo, true, true);
-}
-
-void USFGA_EnemyHitReaction::OnMontageInterrupted()
-{
-    EndAbility(CurrentSpecHandle, CurrentActorInfo, CurrentActivationInfo, true, true);
-}
-
-void USFGA_EnemyHitReaction::EndAbility(
-    const FGameplayAbilitySpecHandle Handle, 
-    const FGameplayAbilityActorInfo* ActorInfo, 
-    const FGameplayAbilityActivationInfo ActivationInfo, 
-    bool bReplicateEndAbility, 
-    bool bWasCancelled)
-{
-    if (MontageTask)
-    {
-        MontageTask->EndTask();
-        MontageTask = nullptr;
-    }
-
-    if (!bWasCancelled && bActivateInvincibilityOnEnd)
-    {
-        ActivateInvincibility();
-    }
-    else
-    {
-     
-        UWorld* World = GetWorld();
-        if (World && InvincibilityTimerHandle.IsValid())
-        {
-            World->GetTimerManager().ClearTimer(InvincibilityTimerHandle);
-            InvincibilityTimerHandle.Invalidate();
-        }
-    }
-
-    Super::EndAbility(Handle, ActorInfo, ActivationInfo, bReplicateEndAbility, bWasCancelled);
-}
+void USFGA_EnemyHitReaction::OnMontageCompleted() { EndAbility(CurrentSpecHandle, CurrentActorInfo, CurrentActivationInfo, true, false); }
+void USFGA_EnemyHitReaction::OnMontageCancelled() { EndAbility(CurrentSpecHandle, CurrentActorInfo, CurrentActivationInfo, true, true); }
+void USFGA_EnemyHitReaction::OnMontageInterrupted() { EndAbility(CurrentSpecHandle, CurrentActorInfo, CurrentActivationInfo, true, true); }
