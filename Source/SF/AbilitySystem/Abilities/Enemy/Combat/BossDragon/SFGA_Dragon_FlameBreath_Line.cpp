@@ -381,19 +381,51 @@ AActor* USFGA_Dragon_FlameBreath_Line::FindPrimaryTarget()
     return CombatComp->GetCurrentTarget();
 }
 
-void USFGA_Dragon_FlameBreath_Line::OnDamageReceivedDuringCharge(UAbilitySystemComponent* Source, const FGameplayEffectSpec& SpecApplied, FActiveGameplayEffectHandle ActiveHandle)
+void USFGA_Dragon_FlameBreath_Line::OnDamageReceivedDuringCharge(
+	UAbilitySystemComponent* Source, 
+	const FGameplayEffectSpec& SpecApplied, 
+	FActiveGameplayEffectHandle ActiveHandle)
 {
-    float Damage = SpecApplied.GetSetByCallerMagnitude(SFGameplayTags::Data_Damage_BaseDamage, false, 0.f);
 
-    if (Damage > 0.f)
-    {
-       AccumulatedInterruptDamage += Damage;
-
-       if (AccumulatedInterruptDamage >= InterruptThreshold)
-       {
-          InterruptBreath();
-       }
-    }
+	bool bHasDamage = false;
+	float DamageAmount = 0.0f;
+	
+	for (const FGameplayModifierInfo& Modifier : SpecApplied.Def->Modifiers)
+	{
+		if (Modifier.Attribute.GetName() == TEXT("Damage"))
+		{
+			bHasDamage = true;
+			
+			float EvaluatedMagnitude = 0.0f;
+			if (Modifier.ModifierMagnitude.AttemptCalculateMagnitude(SpecApplied, EvaluatedMagnitude))
+			{
+				DamageAmount = EvaluatedMagnitude;
+			}
+			break;
+		}
+	}
+	
+	if (!bHasDamage)
+	{
+		DamageAmount = SpecApplied.GetSetByCallerMagnitude(
+			SFGameplayTags::Data_Damage_BaseDamage, 
+			false, 
+			0.0f
+		);
+		bHasDamage = (DamageAmount > 0.0f);
+	}
+	
+	if (!bHasDamage || DamageAmount <= 0.0f)
+	{
+		return;
+	}
+	
+	AccumulatedInterruptDamage += DamageAmount;
+	
+	if (AccumulatedInterruptDamage >= InterruptThreshold)
+	{
+		InterruptBreath();
+	}
 }
 
 void USFGA_Dragon_FlameBreath_Line::InterruptBreath()

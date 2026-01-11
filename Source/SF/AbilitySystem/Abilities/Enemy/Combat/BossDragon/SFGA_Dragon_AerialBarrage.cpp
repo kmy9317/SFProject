@@ -23,6 +23,7 @@ USFGA_Dragon_AerialBarrage::USFGA_Dragon_AerialBarrage()
     
     ActivationOwnedTags.AddTag(SFGameplayTags::Character_State_Invulnerable);
     ActivationOwnedTags.AddTag(SFGameplayTags::Dragon_Movement_Flying);
+    ActivationOwnedTags.AddTag(SFGameplayTags::Character_State_NoCollision);
 }
 
 void USFGA_Dragon_AerialBarrage::ActivateAbility(

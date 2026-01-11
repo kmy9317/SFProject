@@ -12,6 +12,7 @@
 #include "Components/CapsuleComponent.h"
 #include "Interface/SFEnemyAbilityInterface.h"
 #include "AI/Controller/Dragon/SFDragonCombatComponent.h"
+#include "Character/SFCharacterGameplayTags.h"
 
 
 USFGA_Dragon_Charge::USFGA_Dragon_Charge()
@@ -19,8 +20,11 @@ USFGA_Dragon_Charge::USFGA_Dragon_Charge()
     AbilityID = FName("Dragon_Charge");
     AttackType = EAttackType::Melee;
 
+    
     AbilityTags.AddTag(SFGameplayTags::Ability_Dragon_Charge);
     CoolDownTag = SFGameplayTags::Ability_Cooldown_Dragon_Charge;
+
+    ActivationOwnedTags.AddTag(SFGameplayTags::Character_State_NoCollision);
 }
 
 void USFGA_Dragon_Charge::ActivateAbility(

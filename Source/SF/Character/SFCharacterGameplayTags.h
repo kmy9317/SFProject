@@ -49,4 +49,6 @@ namespace SFGameplayTags
 
 	//== Enemy==
 	SF_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(Character_State_PhaseIntro);
+	
+	SF_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(Character_State_NoCollision);
 }

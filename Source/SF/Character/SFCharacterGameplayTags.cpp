@@ -50,5 +50,10 @@ namespace SFGameplayTags
 
 	//Eenmey
 	UE_DEFINE_GAMEPLAY_TAG(Character_State_PhaseIntro, "Character.State.PhaseIntro");
+
+	
+	UE_DEFINE_GAMEPLAY_TAG(Character_State_NoCollision, "Character.State.NoCollision");
+
+	
 	
 }

@@ -316,33 +316,25 @@ void ASFEnemy::RegisterCollisionTagEvents()
 {
 	if (UAbilitySystemComponent* ASC = GetAbilitySystemComponent())
 	{
-		ASC->RegisterGameplayTagEvent(SFGameplayTags::Character_State_PhaseIntro, EGameplayTagEventType::NewOrRemoved)
-		   .AddUObject(this, &ThisClass::OnCollisionTagChanged);
-
+		
 		ASC->RegisterGameplayTagEvent(SFGameplayTags::Character_State_Dead, EGameplayTagEventType::NewOrRemoved)
 		   .AddUObject(this, &ThisClass::OnCollisionTagChanged);
 		
-		if (ASC->HasMatchingGameplayTag(SFGameplayTags::Character_State_PhaseIntro) || 
-			ASC->HasMatchingGameplayTag(SFGameplayTags::Character_State_Dead))
-		{
-			TurnCollisionOff();
-		}
+		ASC->RegisterGameplayTagEvent(SFGameplayTags::Character_State_NoCollision, EGameplayTagEventType::NewOrRemoved)
+		   .AddUObject(this, &ThisClass::OnCollisionTagChanged);
 	}
 }
 
 void ASFEnemy::OnCollisionTagChanged(const FGameplayTag Tag, int32 NewCount)
 {
-	if (Tag == SFGameplayTags::Character_State_PhaseIntro ||
-		Tag == SFGameplayTags::Character_State_Dead)
+	
+	if (Tag == SFGameplayTags::Character_State_Dead)
 	{
-		if (NewCount > 0)
-		{
-			TurnCollisionOff();
-		}
-		else if (Tag == SFGameplayTags::Character_State_PhaseIntro)
-		{
-			TurnCollisionOn();
-		}
+		if (NewCount > 0) TurnCollisionOff();
+	}
+	else if (Tag.MatchesTag(SFGameplayTags::Character_State_NoCollision))
+	{
+		UpdateAbilityCollision(NewCount > 0);
 	}
 }
 
@@ -374,6 +366,17 @@ void ASFEnemy::TurnCollisionOff()
 	{
 		CapsuleComp->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 		CapsuleComp->SetGenerateOverlapEvents(false);
+	}
+}
+
+void ASFEnemy::UpdateAbilityCollision(bool bShouldOverlap)
+{
+	if (UCapsuleComponent* CapsuleComp = GetCapsuleComponent())
+	{
+		ECollisionResponse NewResponse = bShouldOverlap ? ECR_Overlap : ECR_Block;
+       
+		CapsuleComp->SetCollisionResponseToChannel(ECC_Pawn, NewResponse);
+		
 	}
 }
 

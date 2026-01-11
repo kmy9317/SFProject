@@ -374,50 +374,82 @@ void USFGA_Dragon_Bite::PlayGrabMontage()
     }
 }
 
-void USFGA_Dragon_Bite::OnDamageRecieved(UAbilitySystemComponent* Source, const FGameplayEffectSpec& SpecApplied,
-    FActiveGameplayEffectHandle ActiveHandle)
+void USFGA_Dragon_Bite::OnDamageRecieved(UAbilitySystemComponent* Source, const FGameplayEffectSpec& SpecApplied, FActiveGameplayEffectHandle ActiveHandle)
 {
-   if (!GrabbedTarget.IsValid()) return;
-
-   
-   if (SpecApplied.GetPeriod() > 0.0f)
-   {
-      return; 
-   }
-
-   float CurrentTime = GetWorld()->GetTimeSeconds();
-   if (CurrentTime - LastDamageTime < DamageCountCoolDown) return;
-
+    if (!GrabbedTarget.IsValid()) 
+    {
+        return;
+    }
+	
+    if (SpecApplied.GetPeriod() > 0.0f)
+    {
+        return; 
+    }
+	
+    float CurrentTime = GetWorld()->GetTimeSeconds();
+    if (CurrentTime - LastDamageTime < DamageCountCoolDown) 
+    {
+        return;
+    }
+	
+    bool bHasDamage = false;
+    float DamageAmount = 0.0f;
+	
     for (const FGameplayModifierInfo& Modifier : SpecApplied.Def->Modifiers)
     {
-       if (Modifier.Attribute.AttributeName == "Damage")
-       {
-          LastDamageTime = CurrentTime;
-          CurrentHitCount++;
-
-          if (CurrentHitCount >= RescueCount)
-          {
-             if (GrabDurationTimerHandle.IsValid())
-             {
-                GetWorld()->GetTimerManager().ClearTimer(GrabDurationTimerHandle);
-             }
-             
-             ApplyStaggerToSelf();
-             
-             ASFCharacterBase* Dragon = GetSFCharacterFromActorInfo();
-             if (Dragon && Dragon->GetMesh())
-             {
-                UAnimInstance* AnimInst = Dragon->GetMesh()->GetAnimInstance();
-                if (AnimInst && BiteMontage)
-                {
-                   AnimInst->Montage_Stop(0.2f, BiteMontage);
-                }
-             }
-
-             EndAbility(CurrentSpecHandle, CurrentActorInfo, CurrentActivationInfo, true, false);
-          }
-          break;
-       }
+        if (Modifier.Attribute.GetName() == TEXT("Damage"))
+        {
+            bHasDamage = true;
+        	
+            FGameplayEffectAttributeCaptureDefinition CaptureDef;
+            float EvaluatedMagnitude = 0.0f;
+            if (Modifier.ModifierMagnitude.AttemptCalculateMagnitude(SpecApplied, EvaluatedMagnitude))
+            {
+                DamageAmount = EvaluatedMagnitude;
+            }
+            break;
+        }
+    }
+	
+    if (!bHasDamage)
+    {
+        DamageAmount = SpecApplied.GetSetByCallerMagnitude(
+            SFGameplayTags::Data_Damage_BaseDamage, 
+            false, 
+            0.0f
+        );
+        bHasDamage = (DamageAmount > 0.0f);
+    }
+	
+    if (!bHasDamage || DamageAmount <= 0.0f)
+    {
+        return;
+    }
+	
+    LastDamageTime = CurrentTime;
+    CurrentHitCount++;
+	
+    if (CurrentHitCount >= RescueCount)
+    {
+        // Grab 타이머 정리
+        if (GrabDurationTimerHandle.IsValid())
+        {
+            GetWorld()->GetTimerManager().ClearTimer(GrabDurationTimerHandle);
+        }
+    	
+        ApplyStaggerToSelf();
+    	
+        ASFCharacterBase* Dragon = GetSFCharacterFromActorInfo();
+        if (Dragon && Dragon->GetMesh())
+        {
+            UAnimInstance* AnimInst = Dragon->GetMesh()->GetAnimInstance();
+            if (AnimInst && BiteMontage)
+            {
+                AnimInst->Montage_Stop(0.2f, BiteMontage);
+            }
+        }
+    	
+        EndAbility(CurrentSpecHandle, CurrentActorInfo, CurrentActivationInfo, true, false);
     }
 }
 

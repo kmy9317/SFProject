@@ -46,6 +46,7 @@ public:
 
 	void TurnCollisionOn();
 	void TurnCollisionOff();
+	void UpdateAbilityCollision(bool bShouldOverlap);
 
 	// ISFLockOnInterface Implementation
 	virtual bool CanBeLockedOn() const override;
