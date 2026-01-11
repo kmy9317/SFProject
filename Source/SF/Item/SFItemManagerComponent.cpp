@@ -122,20 +122,52 @@ void USFItemManagerComponent::Server_UseItem_Implementation(FSFItemSlotHandle Sl
         return;
     }
 
-    // ========== 슬롯 타입별 분기 ==========
-    // 인벤토리 → 퀵바 (자동장착)
-    if (Slot.SlotType == ESFItemSlotType::Inventory)
+    // 소모품만 사용 가능
+    if (const USFItemFragment_Consumable* ConsumeFrag = ItemInstance->FindFragmentByClass<USFItemFragment_Consumable>())
     {
-        TryAutoEquipToQuickbar(Slot);
+        UseConsumableItem(ItemInstance, ConsumeFrag, Slot);
+    }
+}
+
+void USFItemManagerComponent::Server_QuickAction_Implementation(FSFItemSlotHandle Slot)
+{
+    if (!IsValidSlot(Slot) || IsSlotEmpty(Slot))
+    {
         return;
     }
 
-    // 퀵바 → 인벤토리 (장착해제)
-    if (Slot.SlotType == ESFItemSlotType::Quickbar)
+    switch (Slot.SlotType)
     {
+    case ESFItemSlotType::Inventory:
+        TryAutoEquipToQuickbar(Slot);
+        break;
+
+    case ESFItemSlotType::Quickbar:
         TryUnequipToInventory(Slot);
+        break;
+    }
+}
+
+void USFItemManagerComponent::UseConsumableItem(USFItemInstance* ItemInstance, const class USFItemFragment_Consumable* ConsumeFrag, const FSFItemSlotHandle& Slot)
+{
+    UAbilitySystemComponent* ASC = GetAbilitySystemComponent();
+    if (!ASC)
+    {
         return;
     }
+
+    FGameplayTag TriggerTag = GetConsumeAbilityTriggerTag(ConsumeFrag);
+    if (!TriggerTag.IsValid())
+    {
+        return;
+    }
+
+    FGameplayEventData EventData;
+    EventData.OptionalObject = ItemInstance;
+    EventData.Instigator = GetOwner();
+    EventData.EventMagnitude = static_cast<float>(Slot.SlotIndex);
+
+    ASC->HandleGameplayEvent(TriggerTag, &EventData);
 }
 
 bool USFItemManagerComponent::TryAutoEquipToQuickbar(const FSFItemSlotHandle& FromSlot)

@@ -39,7 +39,7 @@ FReply USFInventoryEntryWidget::NativeOnMouseButtonDown(const FGeometry& InGeome
 			if (ItemManager)
 			{
 				FSFItemSlotHandle ItemSlot(ESFItemSlotType::Inventory, OwningSlotWidget->GetSlotIndex());
-				ItemManager->Server_UseItem(ItemSlot);
+				ItemManager->Server_QuickAction(ItemSlot);
 				return FReply::Handled();
 			}
 		}

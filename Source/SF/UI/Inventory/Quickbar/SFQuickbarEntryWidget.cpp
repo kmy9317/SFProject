@@ -38,7 +38,7 @@ FReply USFQuickbarEntryWidget::NativeOnMouseButtonDown(const FGeometry& InGeomet
 			if (ItemManager)
 			{
 				FSFItemSlotHandle ItemSlot(ESFItemSlotType::Quickbar, OwningSlotWidget->GetSlotIndex());
-				ItemManager->Server_UseItem(ItemSlot);
+				ItemManager->Server_QuickAction(ItemSlot);
 				return FReply::Handled();
 			}
 		}

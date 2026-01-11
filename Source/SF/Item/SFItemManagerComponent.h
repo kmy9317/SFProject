@@ -52,6 +52,9 @@ public:
 	void Server_UseItem(FSFItemSlotHandle Slot);
 
 	UFUNCTION(Server, Reliable, BlueprintCallable, Category = "Item")
+	void Server_QuickAction(FSFItemSlotHandle Slot);
+
+	UFUNCTION(Server, Reliable, BlueprintCallable, Category = "Item")
 	void Server_DropItem(FSFItemSlotHandle Slot);
 
 public:
@@ -63,6 +66,8 @@ public:
 	void ConsumeFromSlot(const FSFItemSlotHandle& Slot, int32 Count = 1);
 
 protected:
+
+	void UseConsumableItem(USFItemInstance* ItemInstance, const class USFItemFragment_Consumable* ConsumeFrag, const FSFItemSlotHandle& Slot);
 
 	// 자동 장착/해제
 	bool TryAutoEquipToQuickbar(const FSFItemSlotHandle& FromSlot);
