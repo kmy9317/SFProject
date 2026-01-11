@@ -84,17 +84,6 @@ void ASFEnemy::BeginPlay()
 			{
 				EnemyManager->RegisterEnemy(this);
 			}
-
-			if (const USFEnemyData* Data = Cast<USFEnemyData>(EnemyPawnData))
-			{
-				if (Data->EnemyType == SFGameplayTags::Enemy_Type_Boss)
-				{
-					if (USFStageManagerComponent* StageManager = SFGameState->GetStageManager())
-					{
-						StageManager->RegisterBossActor(this);
-					}
-				}
-			}
 		}
 	}
 	
@@ -200,6 +189,8 @@ void ASFEnemy::InitializeAttributeSet(USFPawnExtensionComponent* PawnExtComp)
 		// 이렇게 하면 컨트롤러(Blueprint)에서 설정한 시야 값을 사용하게 됩니다.
 		// AttrMap.Add(SFGameplayTags::Data_Enemy_SightRadius, AttrData->SightRadius);
 		// AttrMap.Add(SFGameplayTags::Data_Enemy_LoseSightRadius, AttrData->LoseSightRadius);
+		SyncAttributeSet(AttrMap, ScalingContext);
+		
 	}
 	if (IsValid(InitializeEffect))
 	{
@@ -218,6 +209,36 @@ void ASFEnemy::InitializeAttributeSet(USFPawnExtensionComponent* PawnExtComp)
 	}
 }
 
+void ASFEnemy::SyncAttributeSet(TMap<FGameplayTag, float>& AttrMap, FSFEnemyScalingContext ScalingContext)
+{
+	if (AttrMap.Num() == 0) return;
+	
+	const float HealthPerPlayer = 1.0f; 
+	const float AttackPerPlayer = 0.15f;
+	const float StageMultiplier = 1.0f + (ScalingContext.StageIndex * 0.1f);
+	
+	float PlayerCountFactor = 1.0f + (FMath::Max(0, ScalingContext.PlayerCount - 1) * HealthPerPlayer);
+	float AttackFactor = 1.0f + (FMath::Max(0, ScalingContext.PlayerCount - 1) * AttackPerPlayer);
+	
+	for (auto& Pair : AttrMap)
+	{
+		FGameplayTag Tag = Pair.Key;
+		float& Value = Pair.Value;
+
+		if (Tag == SFGameplayTags::Data_MaxHealth)
+		{
+			Value *= StageMultiplier * PlayerCountFactor;
+		}
+		else if (Tag == SFGameplayTags::Data_AttackPower)
+		{
+			Value *= StageMultiplier * AttackFactor;
+		}
+		else if (Tag == SFGameplayTags::Data_Defense)
+		{
+			Value *= StageMultiplier;
+		}
+	}
+}
 
 void ASFEnemy::InitializeMovementComponent()
 {
@@ -341,16 +362,18 @@ void ASFEnemy::TurnCollisionOn()
 
 void ASFEnemy::TurnCollisionOff()
 {
-	if (GetCapsuleComponent())
+	if (USkeletalMeshComponent* MeshComp = GetMesh())
 	{
-		GetCapsuleComponent()->SetCollisionEnabled(ECollisionEnabled::NoCollision);
-		GetCapsuleComponent()->SetGenerateOverlapEvents(false);
+		MeshComp->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics);
+		MeshComp->SetSimulatePhysics(true);
+		
+		MeshComp->SetCollisionResponseToChannel(ECC_WorldStatic, ECR_Block);
 	}
 	
-	if (GetMesh())
+	if (UCapsuleComponent* CapsuleComp = GetCapsuleComponent())
 	{
-		GetMesh()->SetCollisionEnabled(ECollisionEnabled::NoCollision);
-		GetMesh()->SetGenerateOverlapEvents(false);
+		CapsuleComp->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+		CapsuleComp->SetGenerateOverlapEvents(false);
 	}
 }
 
@@ -446,5 +469,19 @@ void ASFEnemy::OnAbilitySystemInitialized()
 		}
 		
 	}
+	if (ASFGameState* SFGameState = GetWorld()->GetGameState<ASFGameState>())
+	{
+		if (const USFEnemyData* Data = Cast<USFEnemyData>(EnemyPawnData))
+		{
+			if (Data->EnemyType == SFGameplayTags::Enemy_Type_Boss)
+			{
+				if (USFStageManagerComponent* StageManager = SFGameState->GetStageManager())
+				{
+					StageManager->RegisterBossActor(this);
+				}
+			}
+		}	
+	}
+	
 	
 }

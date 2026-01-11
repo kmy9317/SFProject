@@ -112,18 +112,7 @@ void USFPrimarySet::PostGameplayEffectExecute(const FGameplayEffectModCallbackDa
         {
             FGameplayCueParameters Params;
             Params.RawMagnitude = DamageDone;
-            const FHitResult* HitResult = Data.EffectSpec.GetContext().GetHitResult();
-            if (HitResult && HitResult->Location != FVector::ZeroVector)
-            {
-                Params.Location = HitResult->Location;
-            }
-            else
-            {
-                Params.Location = FVector::ZeroVector;
-            }
-          
-            Params.Instigator = Data.EffectSpec.GetEffectContext().GetInstigator();
-
+            Params.EffectContext = Data.EffectSpec.GetContext();
             SFASC->ExecuteGameplayCue(SFGameplayTags::GameplayCue_Character_DamageTaken,Params) ;
         }
         

@@ -11,9 +11,9 @@ void USFBossHUDWidget::InitializeBoss(ACharacter* BossActor)
 	
 	if (!BossActor && !EnemyBoss)
 	{
-		SetVisibility(ESlateVisibility::Hidden); return;
+		SetVisibility(ESlateVisibility::Hidden);
+		return;
 	}
-	SetVisibility(ESlateVisibility::Visible);
 	BP_OnNameChanged(EnemyBoss->GetName());
 
 	UAbilitySystemComponent* ASC = EnemyBoss->GetAbilitySystemComponent();
@@ -25,6 +25,14 @@ void USFBossHUDWidget::InitializeBoss(ACharacter* BossActor)
 		CurrentHealth = ASC->GetGameplayAttributeValue(USFPrimarySet_Enemy::GetHealthAttribute(), bFound);
 		CurrentMaxHealth = ASC->GetGameplayAttributeValue(USFPrimarySet_Enemy::GetMaxHealthAttribute(), bFound);
 
+		if (CurrentMaxHealth <= 0.0f)
+		{
+			SetVisibility(ESlateVisibility::Hidden); 
+		}
+		else
+		{
+			SetVisibility(ESlateVisibility::Visible);
+		}
 		ASC->GetGameplayAttributeValueChangeDelegate(USFPrimarySet_Enemy::GetHealthAttribute())
 		.AddUObject(this, &ThisClass::OnHealthChanged);
 		ASC->GetGameplayAttributeValueChangeDelegate(USFPrimarySet_Enemy::GetMaxHealthAttribute())
@@ -45,11 +53,24 @@ void USFBossHUDWidget::OnHealthChanged(const FOnAttributeChangeData& Data)
 	BP_OnHealthChanged(CurrentHealth, CurrentMaxHealth, Percent);
 }
 
+// SFBossHUDWidget.cpp 수정
 void USFBossHUDWidget::OnMaxHealthChanged(const FOnAttributeChangeData& Data)
 {
+	// 1. 값을 먼저 업데이트합니다.
 	CurrentMaxHealth = Data.NewValue;
-	float Percent = (CurrentMaxHealth > 0.0f) ? (CurrentHealth / CurrentMaxHealth) : 0.0f;
-	BP_OnHealthChanged(CurrentHealth, CurrentMaxHealth, Percent);
+
+	// 2. 업데이트된 값이 유효한지 확인합니다.
+	if (CurrentMaxHealth > 0.0f) 
+	{
+		if (GetVisibility() != ESlateVisibility::Visible)
+		{
+			SetVisibility(ESlateVisibility::Visible);
+			// 여기서 BP_OnStartFillAnimation() 같은 이벤트를 호출하면 더 좋습니다.
+		}
+       
+		float Percent = (CurrentHealth / CurrentMaxHealth);
+		BP_OnHealthChanged(CurrentHealth, CurrentMaxHealth, Percent);
+	}
 }
 
 void USFBossHUDWidget::OnDamageRecived(const FOnAttributeChangeData& Data)

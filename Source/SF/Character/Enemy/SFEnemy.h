@@ -15,6 +15,7 @@ class USFCombatSet;
 class USFPawnData;
 class USFPrimarySet;
 class UUserWidget;
+struct FSFEnemyScalingContext;
 
 UCLASS(Blueprintable)
 class SF_API ASFEnemy : public ASFCharacterBase, public ISFLockOnInterface
@@ -36,6 +37,8 @@ public:
 	
 	//Attrtibute 초기화
 	virtual void InitializeAttributeSet(USFPawnExtensionComponent* PawnExtComp);
+
+	virtual void SyncAttributeSet(TMap<FGameplayTag, float>& AttributeMap, FSFEnemyScalingContext ScalingContext);
 
 	virtual void InitializeMovementComponent();
 

@@ -22,7 +22,7 @@ public:
 	virtual void Initialize(FSubsystemCollectionBase& Collection) override;
 	virtual void Deinitialize() override;
 	
-	void ShowDamage(float DamageAmount, AActor* TargetActor, FVector HitLocation);
+	void ShowDamage(float DamageAmount, AActor* TargetActor, FVector HitLocation, bool bIsCritical);
 
 private:
 	UWidgetComponent* GetFromPool();

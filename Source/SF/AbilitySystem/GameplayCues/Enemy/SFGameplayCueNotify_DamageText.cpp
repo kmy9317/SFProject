@@ -3,6 +3,7 @@
 
 #include "SFGameplayCueNotify_DamageText.h"
 
+#include "AbilitySystem/GameplayEffect/SFGameplayEffectContext.h"
 #include "GameFramework/PlayerState.h"
 #include "System/SFDamageTextSubSystem.h"
 #include "UI/InGame/UIDataStructs.h"
@@ -17,8 +18,12 @@ bool USFGameplayCueNotify_DamageText::OnExecute_Implementation(AActor* MyTarget,
 	
 	APlayerController* LocalPC = GetWorld()->GetFirstPlayerController();
 	if (!LocalPC || !LocalPC->IsLocalController()) return false;
+
+
+	FGameplayEffectContextHandle ContextHandle = Parameters.EffectContext;
+	if (!ContextHandle.IsValid()) return false;
 	
-	AActor* InstigatorActor = Parameters.Instigator.Get();
+	AActor* InstigatorActor = ContextHandle.GetInstigator();
 	if (!InstigatorActor) return false;
 	
 	AController* InstigatorController = nullptr;
@@ -42,10 +47,21 @@ bool USFGameplayCueNotify_DamageText::OnExecute_Implementation(AActor* MyTarget,
 	{
 		return false;
 	}
+
+	FVector HitLocation = FVector::ZeroVector;
+	if (const FHitResult* HitResult = ContextHandle.GetHitResult())
+	{
+		HitLocation = HitResult->ImpactPoint;
+	}
 	
 	if (USFDamageTextSubSystem* DamageSystem = MyTarget->GetWorld()->GetSubsystem<USFDamageTextSubSystem>())
 	{
-		DamageSystem->ShowDamage(Parameters.RawMagnitude, MyTarget, Parameters.Location);
+		bool bIsCritical = false;
+		if (FSFGameplayEffectContext* SFContext = static_cast<FSFGameplayEffectContext*>(ContextHandle.Get()))
+		{
+			bIsCritical = SFContext->IsCriticalHit();
+		}
+		DamageSystem->ShowDamage(Parameters.RawMagnitude, MyTarget, HitLocation, bIsCritical);
 		return true;
 	}
 

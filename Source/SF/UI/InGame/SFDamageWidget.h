@@ -24,7 +24,7 @@ public:
 	virtual void NativeConstruct() override;
 
 	
-	void PlayDamageEffect(float DamageAmount);
+	void PlayDamageEffect(float DamageAmount, bool bIsCritical);
 
 	// 애니메이션 종료 감지
 	virtual void OnAnimationFinished_Implementation(const UWidgetAnimation* Animation) override;

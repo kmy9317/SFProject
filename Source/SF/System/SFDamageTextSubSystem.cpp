@@ -40,7 +40,7 @@ void USFDamageTextSubSystem::Deinitialize()
     Super::Deinitialize();
 }
 
-void USFDamageTextSubSystem::ShowDamage(float DamageAmount, AActor* TargetActor, FVector HitLocation)
+void USFDamageTextSubSystem::ShowDamage(float DamageAmount, AActor* TargetActor, FVector HitLocation, bool bIsCritical)
 {
     if (!TargetActor || !DamageWidgetClass) return;
 
@@ -59,7 +59,7 @@ void USFDamageTextSubSystem::ShowDamage(float DamageAmount, AActor* TargetActor,
         ActiveWidgetMap.Add(DamageWidget, WidgetComp);
         DamageWidget->OnFinished.RemoveAll(this);
         DamageWidget->OnFinished.AddDynamic(this, &ThisClass::OnWidgetAnimationFinished);
-        DamageWidget->PlayDamageEffect(DamageAmount);
+        DamageWidget->PlayDamageEffect(DamageAmount, bIsCritical);
     }
 }
 

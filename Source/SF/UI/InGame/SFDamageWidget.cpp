@@ -12,14 +12,21 @@ void USFDamageWidget::NativeConstruct()
 	Super::NativeConstruct();
 }
 
-void USFDamageWidget::PlayDamageEffect(float DamageAmount)
+void USFDamageWidget::PlayDamageEffect(float DamageAmount, bool bIsCritical)
 {
 	
 	if (Txt_DamageText)
 	{
 		Txt_DamageText->SetText(FText::AsNumber(FMath::RoundToInt(DamageAmount)));
 	}
-	
+	if (bIsCritical)
+	{
+		Txt_DamageText->SetColorAndOpacity(FSlateColor(FLinearColor::Red));
+	}
+	else
+	{
+		Txt_DamageText->SetColorAndOpacity(FSlateColor(FLinearColor::White));
+	}
 	if (Anim_PopUp)
 	{
 		PlayAnimation(Anim_PopUp);

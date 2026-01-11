@@ -377,16 +377,16 @@ void USFGA_Dragon_Bite::PlayGrabMontage()
 void USFGA_Dragon_Bite::OnDamageRecieved(UAbilitySystemComponent* Source, const FGameplayEffectSpec& SpecApplied,
     FActiveGameplayEffectHandle ActiveHandle)
 {
-    if (!GrabbedTarget.IsValid())
-    {
-       return;
-    }
+   if (!GrabbedTarget.IsValid()) return;
 
-    float CurrentTime = GetWorld()->GetTimeSeconds();
-    if (CurrentTime - LastDamageTime < DamageCountCoolDown)
-    {
-       return;
-    }
+   
+   if (SpecApplied.GetPeriod() > 0.0f)
+   {
+      return; 
+   }
+
+   float CurrentTime = GetWorld()->GetTimeSeconds();
+   if (CurrentTime - LastDamageTime < DamageCountCoolDown) return;
 
     for (const FGameplayModifierInfo& Modifier : SpecApplied.Def->Modifiers)
     {

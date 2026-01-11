@@ -63,15 +63,16 @@ void USFGA_Dragon_Charge::ActivateAbility(
         }
     }
 
-    if (UCapsuleComponent* Capsule = Dragon->GetCapsuleComponent())
+    if (USkeletalMeshComponent* Mesh = Dragon->GetMesh())
     {
-        OriginalPawnResponse = Capsule->GetCollisionResponseToChannel(ECC_Pawn);
-        Capsule->SetCollisionResponseToChannel(ECC_Pawn, ECR_Overlap);
-        Capsule->SetGenerateOverlapEvents(true);
+        Mesh->SetGenerateOverlapEvents(true);
+        
+        OriginalPawnResponse = Mesh->GetCollisionResponseToChannel(ECC_Pawn);
+        Mesh->SetCollisionResponseToChannel(ECC_Pawn, ECR_Overlap);
 
         if (ActorInfo->IsNetAuthority())
         {
-            Capsule->OnComponentBeginOverlap.AddDynamic(this, &USFGA_Dragon_Charge::OnChargeOverlap);
+            Mesh->OnComponentBeginOverlap.AddDynamic(this, &USFGA_Dragon_Charge::OnChargeOverlap);
         }
     }
 

@@ -13,9 +13,6 @@ USTRUCT(BlueprintType)
 struct FEnemyAttributeData : public FTableRowBase
 {
 	GENERATED_BODY()
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite)
-	TSubclassOf<USFPawnData> PawnData = nullptr;
 	
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	float MaxHealth = 100.f;
