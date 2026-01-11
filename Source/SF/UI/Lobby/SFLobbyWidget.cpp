@@ -74,48 +74,47 @@ void USFLobbyWidget::ConfigureGameState()
 
 void USFLobbyWidget::UpdatePlayerSelectionDisplay(const TArray<FSFPlayerSelectionInfo>& PlayerSelections)
 {
-	// Refresh Hero Selection
-	for (UUserWidget* HeroEntryAsWidget :HeroSelectionTileView->GetDisplayedEntryWidgets())
+	// 선택 된 영웅 검색
+	USFHeroDefinition* MySelectedHeroDef = nullptr;
+	const FSFPlayerSelectionInfo* MySelection = FindMySelection(PlayerSelections);
+
+	if (MySelection && MySelection->IsValid())
 	{
-		USFHeroEntryWidget* HeroEntryWidget = Cast<USFHeroEntryWidget>(HeroEntryAsWidget);
-		if (HeroEntryWidget)
+		MySelectedHeroDef = MySelection->GetHeroDefinition();
+	}
+	
+	// 화면에 보이는 모든 위젯을 순회하며 '내 영웅'인지 확인
+	if (HeroSelectionTileView)
+	{
+		for (UUserWidget* HeroEntryAsWidget : HeroSelectionTileView->GetDisplayedEntryWidgets())
 		{
-			HeroEntryWidget->SetSelected(false);
+			USFHeroEntryWidget* HeroEntryWidget = Cast<USFHeroEntryWidget>(HeroEntryAsWidget);
+			if (!HeroEntryWidget)
+			{
+				continue;
+			}
+           
+			const USFHeroDefinition* WidgetHeroDef = HeroEntryWidget->GetHeroDefinition();
+           
+			// 내 선택이 존재하고(nullptr 아님) && 이 위젯이 그 영웅이라면 -> 황금색
+			// 그 외 모든 경우(내가 선택 안 함, 남이 선택함, 다른 영웅 등) ->흰색
+			bool bIsMine = (MySelectedHeroDef != nullptr) && (WidgetHeroDef == MySelectedHeroDef);
+           
+			HeroEntryWidget->SetSelected(bIsMine);
 		}
 	}
 
-	// Update Team Selection Slots
-	for (const FSFPlayerSelectionInfo& PlayerSelection : PlayerSelections)
-	{
-		if (!PlayerSelection.IsValid())
-		{
-			continue;
-		}
-
-		// HeroDefintion과 연관된 HeroEntryWidget을 찾아서 선택된 상태로 업데이트
-		USFHeroEntryWidget* SelectedEntry = HeroSelectionTileView->GetEntryWidgetFromItem<USFHeroEntryWidget>(PlayerSelection.GetHeroDefinition());
-		if (SelectedEntry)
-		{
-			SelectedEntry->SetSelected(true);
-		}
-	}
-
-	//  PlayerSelection 업데이트 시 Ready 버튼 상태도 업데이트
+	// 3. Ready 버튼 활성화 상태 업데이트
 	UpdateReadyButtonEnabled(PlayerSelections);
 
-	// 3. 내 플레이어의 선택 정보를 찾아 Image_Hero 갱신
-
+	// 4. 내 플레이어의 선택 정보를 찾아 Image_Hero 갱신
 	if (Image_Hero)
 	{
-		const FSFPlayerSelectionInfo* MySelection = FindMySelection(PlayerSelections);
-
-		// 1. 내 선택 정보가 있고, HeroDefinition이 유효한지 확인
+		// 위에서 이미 MySelection을 찾았으므로 재사용 가능하지만, 기존 흐름 유지를 위해 로직 보존
 		if (MySelection && MySelection->GetHeroDefinition())
 		{
 			USFHeroDefinition* SelectedHeroDef = MySelection->GetHeroDefinition();
             
-			// [핵심 변경] private 변수에 직접 접근(X) -> public 함수 LoadIcon() 사용(O)
-			// LoadIcon() 내부에서 TSoftObjectPtr을 로드하여 UTexture2D*를 리턴해줄 것입니다.
 			UTexture2D* IconTexture = SelectedHeroDef->LoadIcon(); 
 
 			if (IconTexture)
@@ -125,13 +124,11 @@ void USFLobbyWidget::UpdatePlayerSelectionDisplay(const TArray<FSFPlayerSelectio
 			}
 			else
 			{
-				// 로드 실패 혹은 아이콘 없음
 				Image_Hero->SetVisibility(ESlateVisibility::Hidden); 
 			}
 		}
 		else
 		{
-			// 선택된 영웅 없음
 			Image_Hero->SetVisibility(ESlateVisibility::Hidden);
 		}
 	}
@@ -143,6 +140,11 @@ void USFLobbyWidget::HeroDefinitionLoaded()
 	if (USFAssetManager::Get().GetLoadedHeroDefinitions(LoadedHeroDefinitions))
 	{
 		HeroSelectionTileView->SetListItems(LoadedHeroDefinitions);
+
+		if (SFGameState)
+		{
+			UpdatePlayerSelectionDisplay(SFGameState->GetPlayerSelections());
+		}
 	}
 }
 
