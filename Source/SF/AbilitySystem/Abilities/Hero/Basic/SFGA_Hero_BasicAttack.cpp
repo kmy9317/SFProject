@@ -16,6 +16,7 @@
 #include "AbilitySystem/GameplayEvent/SFGameplayEventTags.h"
 #include "AbilitySystem/Attributes/Hero/SFPrimarySet_Hero.h"
 #include "Character/SFCharacterGameplayTags.h"
+#include "Character/Hero/Component/SFLockOnComponent.h"
 #include "Input/SFInputGameplayTags.h"
 #include "SFBasicAttackData.h"
 
@@ -207,58 +208,45 @@ void USFGA_Hero_BasicAttack::UpdateWarpTargetFromInput()
 	ACharacter* Character = Cast<ACharacter>(GetAvatarActorFromActorInfo());
 	if (!Character) return;
 
-	UMotionWarpingComponent* MotionWarpingComp = Character->GetComponentByClass<UMotionWarpingComponent>();
-	if (!MotionWarpingComp) return;
-
-	FRotator TargetRotation = CachedTargetRotation;
-
-	// 1. 로컬 클라이언트 처리 (실시간 입력 우선)
-	if (Character->IsLocallyControlled())
+	// 1. 락온 여부 확인
+	bool bIsLockedOn = false;
+	if (USFLockOnComponent* LockOnComp = Character->FindComponentByClass<USFLockOnComponent>())
 	{
-		FVector LiveInput = Character->GetLastMovementInputVector();
-		
-		// 실시간 입력이 존재하면 캐시를 갱신하고 해당 방향을 사용함
-		if (!LiveInput.IsNearlyZero())
+		if (LockOnComp->GetCurrentTarget())
 		{
-			TargetRotation = LiveInput.Rotation();
-			CachedTargetRotation = TargetRotation; 
+			bIsLockedOn = true;
 		}
 	}
-	// 2. 서버 및 타 클라이언트 처리 (가속도 기반 추론)
+
+	// [분기 처리]
+	if (bIsLockedOn)
+	{
+		// Case A: 락온 상태 -> 부모 클래스의 로직 사용 (락온 타겟 우선 + 지터링 방지)
+		UpdateWarpTargetImmediately();
+	}
 	else
 	{
-		if (auto* CMC = Character->GetCharacterMovement())
+		// Case B: 락온 아님 -> BasicAttack 고유의 "캐시된 입력(CachedTargetRotation)" 사용
+		UMotionWarpingComponent* MotionWarpingComp = Character->GetComponentByClass<UMotionWarpingComponent>();
+		if (MotionWarpingComp)
 		{
-			FVector MoveDir = CMC->GetCurrentAcceleration().GetSafeNormal2D();
-			if (!MoveDir.IsNearlyZero())
+			FRotator TargetRotation = CachedTargetRotation;
+			TargetRotation.Pitch = 0.f;
+			TargetRotation.Roll = 0.f;
+
+			// Far Projection (캐릭터 회전 방지)
+			const float DirectionalWarpDistance = 10000.f; 
+			FVector TargetLocation = Character->GetActorLocation() + (TargetRotation.Vector() * DirectionalWarpDistance);
+
+			// 워핑 적용
+			MotionWarpingComp->AddOrUpdateWarpTargetFromLocationAndRotation(WarpTargetNameOverride, TargetLocation, TargetRotation);
+
+			// 서버 동기화 (부모 클래스의 RPC 재사용)
+			if (Character->IsLocallyControlled() && !Character->HasAuthority())
 			{
-				TargetRotation = MoveDir.Rotation();
-			}
-			else
-			{
-				// 이동 입력이 없으면 현재 캐릭터의 방향을 유지함
-				TargetRotation = Character->GetActorRotation();
+				ServerSetWarpRotation(WarpTargetNameOverride, TargetRotation);
 			}
 		}
-	}
-
-	TargetRotation.Pitch = 0.f;
-	TargetRotation.Roll = 0.f;
-
-	// [핵심] 캐릭터 회전(Spin) 방지를 위해 타겟을 10,000 단위(100m) 앞에 생성함 (Far Projection)
-	const float DirectionalWarpDistance = 10000.f; 
-	FVector TargetLocation = Character->GetActorLocation() + (TargetRotation.Vector() * DirectionalWarpDistance);
-
-	// 로컬 워핑 컴포넌트를 업데이트함
-	if (Character->IsLocallyControlled() || !TargetRotation.Equals(Character->GetActorRotation(), 1.0f))
-	{
-		MotionWarpingComp->AddOrUpdateWarpTargetFromLocationAndRotation(WarpTargetNameOverride, TargetLocation, TargetRotation);
-	}
-
-	// 서버로 회전값을 동기화함
-	if (Character->IsLocallyControlled() && !Character->HasAuthority())
-	{
-		ServerSetWarpRotation(WarpTargetNameOverride, TargetRotation);
 	}
 }
 
@@ -305,25 +293,25 @@ bool USFGA_Hero_BasicAttack::CheckAndApplyStepCost(float CostAmount)
 	return true;
 }
 
-void USFGA_Hero_BasicAttack::ServerSetWarpRotation_Implementation(FName TargetName, FRotator TargetRotation)
-{
-	ACharacter* Character = Cast<ACharacter>(GetAvatarActorFromActorInfo());
-	if (!Character) return;
-
-	UMotionWarpingComponent* MotionWarpingComp = Character->GetComponentByClass<UMotionWarpingComponent>();
-	if (!MotionWarpingComp) return;
-
-	// 서버에서도 동일한 원거리 투영 로직을 적용하여 동기화 오차를 줄임
-	const float DirectionalWarpDistance = 10000.f;
-	FVector TargetLocation = Character->GetActorLocation() + (TargetRotation.Vector() * DirectionalWarpDistance);
-
-	MotionWarpingComp->AddOrUpdateWarpTargetFromLocationAndRotation(TargetName, TargetLocation, TargetRotation);
-}
-
-bool USFGA_Hero_BasicAttack::ServerSetWarpRotation_Validate(FName TargetName, FRotator TargetRotation)
-{
-	return true;
-}
+// void USFGA_Hero_BasicAttack::ServerSetWarpRotation_Implementation(FName TargetName, FRotator TargetRotation)
+// {
+// 	ACharacter* Character = Cast<ACharacter>(GetAvatarActorFromActorInfo());
+// 	if (!Character) return;
+//
+// 	UMotionWarpingComponent* MotionWarpingComp = Character->GetComponentByClass<UMotionWarpingComponent>();
+// 	if (!MotionWarpingComp) return;
+//
+// 	// 서버에서도 동일한 원거리 투영 로직을 적용하여 동기화 오차를 줄임
+// 	const float DirectionalWarpDistance = 10000.f;
+// 	FVector TargetLocation = Character->GetActorLocation() + (TargetRotation.Vector() * DirectionalWarpDistance);
+//
+// 	MotionWarpingComp->AddOrUpdateWarpTargetFromLocationAndRotation(TargetName, TargetLocation, TargetRotation);
+// }
+//
+// bool USFGA_Hero_BasicAttack::ServerSetWarpRotation_Validate(FName TargetName, FRotator TargetRotation)
+// {
+// 	return true;
+// }
 
 // ----------------------------------------------------------------------------------------------------------------
 // Event Handlers

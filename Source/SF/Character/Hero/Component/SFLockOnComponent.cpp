@@ -169,9 +169,6 @@ void USFLockOnComponent::TryLockOn()
 	if (CurrentTarget)
 	{
 		EndLockOn(); // Server RPC
-		
-		// [Optional] 해제 시에도 카메라를 정면으로 돌리고 싶다면 여기서 호출
-		// ResetCamera(); 
 	}
 	else
 	{
@@ -180,7 +177,7 @@ void USFLockOnComponent::TryLockOn()
 		if (LocalBest)
 		{
 			// 타겟 발견: 서버로 요청
-			Server_TryLockOn();
+			Server_TryLockOn(LocalBest);
 			bIsResettingCamera = false; // 리셋 중단
 		}
 		else
@@ -210,7 +207,7 @@ void USFLockOnComponent::ResetCamera()
 	}
 }
 
-void USFLockOnComponent::Server_TryLockOn_Implementation()
+void USFLockOnComponent::Server_TryLockOn_Implementation(AActor* TargetActor)
 {
 	// 이미 타겟이 있다면 해제 (Toggle 방식)
 	if (CurrentTarget)
@@ -219,17 +216,21 @@ void USFLockOnComponent::Server_TryLockOn_Implementation()
 		return;
 	}
 
-	AActor* BestTarget = FindBestTarget();
-	if (BestTarget)
+	if (IsTargetValid(TargetActor))
 	{
-		FName SocketName = DefaultLockOnSocketName;
-		if (const ISFLockOnInterface* Interface = Cast<const ISFLockOnInterface>(BestTarget))
+		float Distance = FVector::Dist(GetOwner()->GetActorLocation(), TargetActor->GetActorLocation());
+		
+		if (Distance <= LockOnDistance * 1.2f) 
 		{
-			TArray<FName> Sockets = Interface->GetLockOnSockets();
-			if (Sockets.Num() > 0) SocketName = Sockets[0];
-		}
+			FName SocketName = DefaultLockOnSocketName;
+			if (const ISFLockOnInterface* Interface = Cast<const ISFLockOnInterface>(TargetActor))
+			{
+				TArray<FName> Sockets = Interface->GetLockOnSockets();
+				if (Sockets.Num() > 0) SocketName = Sockets[0];
+			}
 
-		Server_SetCurrentTarget(BestTarget, SocketName);
+			Server_SetCurrentTarget(TargetActor, SocketName);
+		}
 	}
 }
 
@@ -836,12 +837,19 @@ FVector USFLockOnComponent::GetActorSocketLocation(AActor* Actor, FName SocketNa
 	
 	if (SocketName != NAME_None)
 	{
-		if (USceneComponent* Mesh = Actor->FindComponentByClass<USceneComponent>())
+		USceneComponent* TargetMesh = nullptr;
+		if (ACharacter* CharActor = Cast<ACharacter>(Actor))
 		{
-			if (Mesh->DoesSocketExist(SocketName))
-			{
-				return Mesh->GetSocketLocation(SocketName);
-			}
+			TargetMesh = CharActor->GetMesh();
+		}
+		else
+		{
+			TargetMesh = Actor->FindComponentByClass<USceneComponent>();
+		}
+
+		if (TargetMesh && TargetMesh->DoesSocketExist(SocketName))
+		{
+			return TargetMesh->GetSocketLocation(SocketName);
 		}
 	}
 	return Actor->GetActorLocation();

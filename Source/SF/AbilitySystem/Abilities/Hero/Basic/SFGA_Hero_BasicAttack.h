@@ -46,9 +46,9 @@ protected: // Core Execution
 	 */
 	bool CheckAndApplyStepCost(float CostAmount);
 
-	/** 서버에 워핑 타겟 회전값을 동기화함 (Reliable RPC) */
-	UFUNCTION(Server, Reliable, WithValidation)
-	void ServerSetWarpRotation(FName TargetName, FRotator TargetRotation);
+	// /** 서버에 워핑 타겟 회전값을 동기화함 (Reliable RPC) */
+	// UFUNCTION(Server, Reliable, WithValidation)
+	// void ServerSetWarpRotation(FName TargetName, FRotator TargetRotation);
 
 	/** 현재 단계의 태그를 적용함 */
 	void ApplyStepGameplayTags(const FGameplayTagContainer& Tags);

@@ -5,6 +5,7 @@
 #include "MotionWarpingComponent.h"
 #include "AbilitySystem/Attributes/Hero/SFPrimarySet_Hero.h"
 #include "GameFramework/Character.h"
+#include "Character/Hero/Component/SFLockOnComponent.h"
 
 void USFHeroMovementComponent::BeginPlay()
 {
@@ -111,6 +112,48 @@ void USFHeroMovementComponent::MoveAutonomous(float ClientTimeStamp, float Delta
 		const FSFCharacterNetworkMoveData* MoveData = static_cast<const FSFCharacterNetworkMoveData*>(GetCurrentNetworkMoveData());
 		if (MoveData && MoveData->bNetworkHasWarpTarget)
 		{
+			// 서버에서 락온 타겟이 있으면 클라이언트로부터 받은 워프 타겟 데이터를 무시하고 락온 방향으로 직접 계산
+			ACharacter* Character = Cast<ACharacter>(GetCharacterOwner());
+			if (Character)
+			{
+				if (USFLockOnComponent* LockOnComp = Character->FindComponentByClass<USFLockOnComponent>())
+				{
+					if (AActor* LockedTarget = LockOnComp->GetCurrentTarget())
+					{
+						// 락온 타겟 방향으로 워프 타겟 재계산 (클라이언트 입력 방향 무시)
+						FVector CharacterLocation = Character->GetActorLocation();
+						FVector TargetLocation = LockedTarget->GetActorLocation();
+						FVector DirectionToTarget = (TargetLocation - CharacterLocation).GetSafeNormal2D();
+						
+						if (!DirectionToTarget.IsNearlyZero())
+						{
+							// 워프 타겟 위치 계산 (Task의 Range를 모르므로 현재 위치와 타겟 사이의 적절한 거리 사용)
+							float DistanceToTarget = FVector::Dist2D(CharacterLocation, TargetLocation);
+							static const float DefaultWarpRange = 200.f; // 기본값 (Task의 Range와 일치해야 함)
+							
+							FVector WarpLocation;
+							if (DistanceToTarget <= DefaultWarpRange)
+							{
+								WarpLocation = TargetLocation;
+							}
+							else
+							{
+								WarpLocation = CharacterLocation + (DirectionToTarget * DefaultWarpRange);
+							}
+							
+							CurrentWarpTargetLocation = WarpLocation;
+							CurrentWarpTargetRotation = DirectionToTarget.Rotation();
+							bHasActiveWarpTarget = true;
+							ApplyWarpTargetToMotionWarping();
+							
+							Super::MoveAutonomous(ClientTimeStamp, DeltaTime, CompressedFlags, NewAccel);
+							return;
+						}
+					}
+				}
+			}
+			
+			// 락온 타겟이 없는 경우에만 클라이언트로부터 받은 워프 타겟 데이터 사용
 			CurrentWarpTargetLocation = MoveData->NetworkWarpTargetLocation;
 			CurrentWarpTargetRotation = MoveData->NetworkWarpTargetRotation;
 			bHasActiveWarpTarget = true;

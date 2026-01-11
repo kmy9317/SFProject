@@ -4,6 +4,7 @@
 #include "SFLogChannels.h"
 #include "Character/SFCharacterBase.h"
 #include "Character/Hero/Component/SFHeroMovementComponent.h"
+#include "Character/Hero/Component/SFLockOnComponent.h"
 #include "Combat/SFCombatTags.h"
 
 USFAbilityTask_UpdateWarpTarget::USFAbilityTask_UpdateWarpTarget(const FObjectInitializer& ObjectInitializer)
@@ -59,7 +60,35 @@ void USFAbilityTask_UpdateWarpTarget::Activate()
 	}
 
 	// 초기 방향 설정
-	InitialForwardDirection = OwnerCharacter->GetActorForwardVector();
+	if (!LockedTarget.IsValid())
+	{
+		if (USFLockOnComponent* LockOnComp = OwnerCharacter->FindComponentByClass<USFLockOnComponent>())
+		{
+			if (AActor* TargetFromComp = LockOnComp->GetCurrentTarget())
+			{
+				SetLockedTarget(TargetFromComp);
+			}
+		}
+	}
+
+	if (LockedTarget.IsValid())
+	{
+		FVector DirToTarget = (LockedTarget->GetActorLocation() - OwnerCharacter->GetActorLocation()).GetSafeNormal2D();
+        
+		if (DirToTarget.IsNearlyZero())
+		{
+			InitialForwardDirection = OwnerCharacter->GetActorForwardVector();
+		}
+		else
+		{
+			InitialForwardDirection = DirToTarget;
+		}
+	}
+	else
+	{
+		InitialForwardDirection = OwnerCharacter->GetActorForwardVector();
+	}
+	
 	CurrentWarpDirection = InitialForwardDirection;
 	CurrentWarpLocation = OwnerCharacter->GetActorLocation() + (CurrentWarpDirection * Range);
 
@@ -107,12 +136,35 @@ void USFAbilityTask_UpdateWarpTarget::TickTask(float DeltaTime)
 		return;
 	}
 	// Case 4: Windup 중 - 방향 업데이트
-	if (LockedTarget.IsValid())
+	// 매 틱마다 LockOnComponent에서 락온 타겟을 확인 (락온 타겟이 변경될 수 있음)
+	if (USFLockOnComponent* LockOnComp = OwnerCharacter->FindComponentByClass<USFLockOnComponent>())
 	{
-		UpdateWarpTargetFromLockedTarget(DeltaTime);
+		if (AActor* TargetFromComp = LockOnComp->GetCurrentTarget())
+		{
+			// 락온 타겟이 변경되었거나 처음 설정되는 경우
+			if (!LockedTarget.IsValid() || LockedTarget != TargetFromComp)
+			{
+				SetLockedTarget(TargetFromComp);
+			}
+			UpdateWarpTargetFromLockedTarget(DeltaTime);
+		}
+		else
+		{
+			// 락온 타겟이 해제된 경우
+			if (LockedTarget.IsValid())
+			{
+				ClearLockedTarget();
+			}
+			UpdateWarpTargetFromInput(DeltaTime);
+		}
 	}
 	else
 	{
+		// LockOnComponent가 없는 경우
+		if (LockedTarget.IsValid())
+		{
+			ClearLockedTarget();
+		}
 		UpdateWarpTargetFromInput(DeltaTime);
 	}
 }
@@ -135,7 +187,23 @@ void USFAbilityTask_UpdateWarpTarget::ResetInitialDirection()
 {
 	if (OwnerCharacter.IsValid())
 	{
-		InitialForwardDirection = OwnerCharacter->GetActorForwardVector();
+		if (LockedTarget.IsValid())
+		{
+			FVector DirToTarget = (LockedTarget->GetActorLocation() - OwnerCharacter->GetActorLocation()).GetSafeNormal2D();
+			if (!DirToTarget.IsNearlyZero())
+			{
+				InitialForwardDirection = DirToTarget;
+			}
+			else
+			{
+				InitialForwardDirection = OwnerCharacter->GetActorForwardVector();
+			}
+		}
+		else
+		{
+			InitialForwardDirection = OwnerCharacter->GetActorForwardVector();
+		}
+
 		CurrentWarpDirection = InitialForwardDirection;
 		CurrentWarpLocation = OwnerCharacter->GetActorLocation() + (CurrentWarpDirection * Range);
 
@@ -145,6 +213,21 @@ void USFAbilityTask_UpdateWarpTarget::ResetInitialDirection()
 
 void USFAbilityTask_UpdateWarpTarget::UpdateWarpTargetFromInput(float DeltaTime)
 {
+	// 락온 타겟이 있는지 다시 확인 (타이밍 이슈 대비)
+	if (USFLockOnComponent* LockOnComp = OwnerCharacter->FindComponentByClass<USFLockOnComponent>())
+	{
+		if (AActor* TargetFromComp = LockOnComp->GetCurrentTarget())
+		{
+			// 락온 타겟이 있으면 입력 방향 무시하고 락온 타겟 방향 사용
+			if (!LockedTarget.IsValid() || LockedTarget != TargetFromComp)
+			{
+				SetLockedTarget(TargetFromComp);
+			}
+			UpdateWarpTargetFromLockedTarget(DeltaTime);
+			return;
+		}
+	}
+	
 	FVector InputDirection = GetPlayerInputDirection();
 
 	// 입력이 없으면 현재 방향 유지
@@ -185,13 +268,8 @@ void USFAbilityTask_UpdateWarpTarget::UpdateWarpTargetFromLockedTarget(float Del
 	FVector CharacterLocation = OwnerCharacter->GetActorLocation();
 	FVector TargetLocation = LockedTarget->GetActorLocation();
 	FVector DirectionToTarget = (TargetLocation - CharacterLocation).GetSafeNormal2D();
-
-	// 최대 회전 각도 제한
-	if (MaxAngle > 0.f && MaxAngle < 180.f)
-	{
-		DirectionToTarget = ClampDirectionToMaxAngle(DirectionToTarget);
-	}
-
+	
+	// 락온 타겟이 있을 때는 입력 방향 무시하고 락온 타겟 방향만 사용 (각도 제한 없음)
 	// 방향 보간
 	FVector NewDirection = InterpolateDirection(CurrentWarpDirection, DirectionToTarget, DeltaTime);
 	NewDirection.Z = 0.f;
@@ -286,6 +364,16 @@ FVector USFAbilityTask_UpdateWarpTarget::GetPlayerInputDirection() const
 	if (!OwnerCharacter.IsValid())
 	{
 		return FVector::ForwardVector;
+	}
+
+	// 락온 타겟이 있으면 입력 방향을 반환하지 않음 (락온 타겟 방향 우선)
+	if (USFLockOnComponent* LockOnComp = OwnerCharacter->FindComponentByClass<USFLockOnComponent>())
+	{
+		if (LockOnComp->GetCurrentTarget())
+		{
+			// 락온 타겟이 있으면 입력 방향 대신 캐릭터 전방 방향 반환 (입력 방향 무시)
+			return OwnerCharacter->GetActorForwardVector();
+		}
 	}
 
 	FVector InputDirection = OwnerCharacter->GetLastInputDirection();

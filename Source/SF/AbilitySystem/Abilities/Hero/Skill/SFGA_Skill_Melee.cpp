@@ -7,6 +7,7 @@
 #include "AbilitySystem/GameplayEvent/SFGameplayEventTags.h"
 #include "AbilitySystem/Tasks/Combat/SFAbilityTask_UpdateWarpTarget.h"
 #include "Character/SFCharacterBase.h"
+#include "Character/Hero/Component/SFLockOnComponent.h"
 #include "Equipment/SFEquipmentDefinition.h"
 #include "System/SFAssetManager.h"
 #include "System/Data/SFGameData.h"
@@ -400,6 +401,107 @@ void USFGA_Skill_Melee::ApplyWarpTarget(const FVector& Location, const FRotator&
 float USFGA_Skill_Melee::GetScaledBaseDamage() const
 {
 	return BaseDamage.GetValueAtLevel(GetAbilityLevel());
+}
+
+FRotator USFGA_Skill_Melee::GetBestWarpRotation()
+{
+    ACharacter* Character = Cast<ACharacter>(GetAvatarActorFromActorInfo());
+    if (!Character) return FRotator::ZeroRotator;
+
+    FRotator ResultRotation = Character->GetActorRotation();
+    bool bFoundLockOn = false;
+
+    // 1. 락온 타겟 확인 (최우선 순위)
+    if (USFLockOnComponent* LockOnComp = Character->FindComponentByClass<USFLockOnComponent>())
+    {
+        if (AActor* TargetActor = LockOnComp->GetCurrentTarget())
+        {
+            FVector DirectionToTarget = (TargetActor->GetActorLocation() - Character->GetActorLocation()).GetSafeNormal2D();
+            if (!DirectionToTarget.IsNearlyZero())
+            {
+                ResultRotation = DirectionToTarget.Rotation();
+                bFoundLockOn = true;
+            }
+        }
+    }
+
+    // 2. 락온이 없을 때만 입력/이동 방향 사용
+    if (!bFoundLockOn)
+    {
+        if (Character->IsLocallyControlled())
+        {
+            // 로컬: 실시간 입력 사용
+            FVector LiveInput = Character->GetLastMovementInputVector();
+            if (!LiveInput.IsNearlyZero())
+            {
+                ResultRotation = LiveInput.Rotation();
+            }
+        }
+        else
+        {
+            // 서버/타인: 가속도 기반 추론
+            if (UCharacterMovementComponent* CMC = Character->GetCharacterMovement())
+            {
+                FVector MoveDir = CMC->GetCurrentAcceleration().GetSafeNormal2D();
+                if (!MoveDir.IsNearlyZero())
+                {
+                    ResultRotation = MoveDir.Rotation();
+                }
+            }
+        }
+    }
+
+    return ResultRotation;
+}
+
+void USFGA_Skill_Melee::UpdateWarpTargetImmediately()
+{
+    ACharacter* Character = Cast<ACharacter>(GetAvatarActorFromActorInfo());
+    if (!Character) return;
+
+    UMotionWarpingComponent* MotionWarpingComp = Character->GetComponentByClass<UMotionWarpingComponent>();
+    if (!MotionWarpingComp) return;
+
+    // 1. 최적의 회전값 계산 (락온 > 입력)
+    FRotator TargetRotation = GetBestWarpRotation();
+    TargetRotation.Pitch = 0.f;
+    TargetRotation.Roll = 0.f;
+
+    // 2. Far Projection (원거리 투영)으로 회전 보정 강화
+    const float DirectionalWarpDistance = 10000.f; 
+    FVector TargetLocation = Character->GetActorLocation() + (TargetRotation.Vector() * DirectionalWarpDistance);
+    
+    // 3. 워핑 타겟 이름 결정 (Override가 있으면 사용, 없으면 기본값)
+    FName TargetName = WarpTargetNameOverride.IsNone() ? FName("AttackTarget") : WarpTargetNameOverride;
+
+    // 4. 로컬 컴포넌트 갱신
+    MotionWarpingComp->AddOrUpdateWarpTargetFromLocationAndRotation(TargetName, TargetLocation, TargetRotation);
+
+    // 5. 서버로 동기화 (클라이언트인 경우)
+    if (Character->IsLocallyControlled() && !Character->HasAuthority())
+    {
+        ServerSetWarpRotation(TargetName, TargetRotation);
+    }
+}
+
+void USFGA_Skill_Melee::ServerSetWarpRotation_Implementation(FName TargetName, FRotator TargetRotation)
+{
+    ACharacter* Character = Cast<ACharacter>(GetAvatarActorFromActorInfo());
+    if (!Character) return;
+
+    UMotionWarpingComponent* MotionWarpingComp = Character->GetComponentByClass<UMotionWarpingComponent>();
+    if (!MotionWarpingComp) return;
+
+    // 서버에서도 동일하게 Far Projection 적용하여 위치 계산
+    const float DirectionalWarpDistance = 10000.f;
+    FVector TargetLocation = Character->GetActorLocation() + (TargetRotation.Vector() * DirectionalWarpDistance);
+
+    MotionWarpingComp->AddOrUpdateWarpTargetFromLocationAndRotation(TargetName, TargetLocation, TargetRotation);
+}
+
+bool USFGA_Skill_Melee::ServerSetWarpRotation_Validate(FName TargetName, FRotator TargetRotation)
+{
+    return true;
 }
 
 void USFGA_Skill_Melee::ResetHitActors()

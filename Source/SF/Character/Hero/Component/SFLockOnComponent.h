@@ -101,7 +101,7 @@ protected:
 	// ==========================================
 
 	UFUNCTION(Server, Reliable)
-	void Server_TryLockOn();
+	void Server_TryLockOn(AActor* TargetActor);
 
 	UFUNCTION(Server, Reliable)
 	void Server_EndLockOn();

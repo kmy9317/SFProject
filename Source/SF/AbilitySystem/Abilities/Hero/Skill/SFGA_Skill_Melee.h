@@ -77,6 +77,15 @@ protected:
 	UFUNCTION(BlueprintCallable, Category = "SF|Damage")
 	float GetScaledBaseDamage() const;
 	
+	UFUNCTION(BlueprintPure, Category = "SF|Warp")
+	FRotator GetBestWarpRotation();
+
+	UFUNCTION(BlueprintCallable, Category = "SF|Warp")
+	void UpdateWarpTargetImmediately();
+
+	UFUNCTION(Server, Reliable, WithValidation)
+	void ServerSetWarpRotation(FName TargetName, FRotator TargetRotation);
+	
 protected:
 
 	// ========== Damage Settings ==========
