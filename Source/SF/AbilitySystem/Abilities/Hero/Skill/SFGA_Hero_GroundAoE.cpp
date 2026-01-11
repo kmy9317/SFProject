@@ -9,6 +9,8 @@
 #include "AbilitySystemComponent.h"
 #include "Camera/PlayerCameraManager.h"
 #include "Kismet/GameplayStatics.h"
+#include "InputCoreTypes.h"
+#include "GameFramework/PlayerController.h"
 
 USFGA_Hero_GroundAoE::USFGA_Hero_GroundAoE(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
@@ -18,6 +20,13 @@ USFGA_Hero_GroundAoE::USFGA_Hero_GroundAoE(const FObjectInitializer& ObjectIniti
 
 void USFGA_Hero_GroundAoE::ActivateAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, const FGameplayEventData* TriggerEventData)
 {
+	MontageTask = nullptr;
+	AimingMontageTask = nullptr;
+	SpawnedReticle = nullptr;
+	InputReleaseTask = nullptr;
+	InputPressTask = nullptr;
+	WaitEventTask = nullptr;
+	
 	Super::ActivateAbility(Handle, ActorInfo, ActivationInfo, TriggerEventData);
 
 	if (!CommitCheck(Handle, ActorInfo, ActivationInfo))
@@ -111,6 +120,41 @@ void USFGA_Hero_GroundAoE::TickReticle()
 		return;
 	}
 
+	if (MontageTask)
+	{
+		return;
+	}
+	
+	APlayerController* PC = Cast<APlayerController>(GetControllerFromActorInfo());
+	if (PC)
+	{
+		// 우클릭 감지
+		if (PC->WasInputKeyJustPressed(EKeys::RightMouseButton))
+		{
+			if (UAbilitySystemComponent* ASC = GetAbilitySystemComponentFromActorInfo())
+			{
+				FGameplayTag BlockTag = FGameplayTag::RequestGameplayTag(FName("Ability.Skill.Activated"));
+
+				ASC->AddLooseGameplayTag(BlockTag);
+
+				TWeakObjectPtr<UAbilitySystemComponent> WeakASC = ASC;
+                
+				FTimerHandle TimerHandle;
+				GetWorld()->GetTimerManager().SetTimer(TimerHandle, [WeakASC, BlockTag]()
+				{
+					if (WeakASC.IsValid())
+					{
+						WeakASC->RemoveLooseGameplayTag(BlockTag);
+					}
+				}, 0.3f, false);
+			}
+
+			// 어빌리티 취소
+			CancelAbility(CurrentSpecHandle, CurrentActorInfo, CurrentActivationInfo, true);
+			return;
+		}
+	}
+	
 	// 마우스 위치 추적 및 Reticle 업데이트
 	FVector HitLocation;
 	if (GetGroundLocationUnderCursor(HitLocation))

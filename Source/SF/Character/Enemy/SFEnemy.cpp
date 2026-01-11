@@ -213,9 +213,9 @@ void ASFEnemy::SyncAttributeSet(TMap<FGameplayTag, float>& AttrMap, FSFEnemyScal
 {
 	if (AttrMap.Num() == 0) return;
 	
-	const float HealthPerPlayer = 1.0f; 
-	const float AttackPerPlayer = 0.15f;
-	const float StageMultiplier = 1.0f + (ScalingContext.StageIndex * 0.1f);
+	const float HealthPerPlayer = 1.2f; 
+	const float AttackPerPlayer = 0.1f;
+	const float StageMultiplier = 1.f + ((ScalingContext.SubStageIndex - 1) * 0.65);
 	
 	float PlayerCountFactor = 1.0f + (FMath::Max(0, ScalingContext.PlayerCount - 1) * HealthPerPlayer);
 	float AttackFactor = 1.0f + (FMath::Max(0, ScalingContext.PlayerCount - 1) * AttackPerPlayer);
@@ -231,11 +231,11 @@ void ASFEnemy::SyncAttributeSet(TMap<FGameplayTag, float>& AttrMap, FSFEnemyScal
 		}
 		else if (Tag == SFGameplayTags::Data_AttackPower)
 		{
-			Value *= StageMultiplier * AttackFactor;
+			Value *= AttackFactor;
 		}
 		else if (Tag == SFGameplayTags::Data_Defense)
 		{
-			Value *= StageMultiplier;
+			Value *= AttackFactor;
 		}
 	}
 }
