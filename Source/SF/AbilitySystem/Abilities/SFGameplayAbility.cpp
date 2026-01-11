@@ -479,3 +479,37 @@ void USFGameplayAbility::DisablePlayerInput()
 		}
 	}
 }
+
+float USFGameplayAbility::GetCalculatedManaCost(UAbilitySystemComponent* ASC) const
+{
+	const UGameplayEffect* CostGE = GetCostGameplayEffect();
+	if (!CostGE) return 0.f;
+
+	// ASC가 없으면 자신 가져오기
+	if (!ASC) ASC = GetAbilitySystemComponentFromActorInfo();
+	if (!ASC) return 0.f;
+
+	// 가상의 (Spec) 
+	FGameplayEffectContextHandle ContextHandle = ASC->MakeEffectContext();
+	ContextHandle.AddInstigator(ASC->GetOwner(), ASC->GetOwner());
+
+	// Spec 생성 - 레벨 정보 함께
+	FGameplayEffectSpec Spec(CostGE, ContextHandle, GetAbilityLevel());
+
+	// 모든 수치(Curve + Attribute) 계산 수행
+	Spec.CalculateModifierMagnitudes();
+
+	// Mana 속성을 찾아서 값 반환
+	for (int32 i = 0; i < Spec.Modifiers.Num(); ++i)
+	{
+		const FGameplayModifierInfo& ModInfo = CostGE->Modifiers[i];
+		
+		if (ModInfo.Attribute.AttributeName.Contains(TEXT("Mana")))
+		{
+			// 계산된 최종 값(Evaluated)
+			return FMath::Abs(Spec.GetModifierMagnitude(i, true));
+		}
+	}
+	
+	return 0.f;
+}

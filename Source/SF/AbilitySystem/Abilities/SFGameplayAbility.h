@@ -113,6 +113,10 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "SF|Ability|Input")
 	void DisablePlayerInput();
 
+	// 계산된 마나 코스트 반환
+	UFUNCTION(BlueprintCallable, Category = "SF|Cost")
+	float GetCalculatedManaCost(UAbilitySystemComponent* ASC = nullptr) const;
+
 	bool ShouldPersistOnTravel() const { return bShouldPersistOnTravel; }
 	
 protected:

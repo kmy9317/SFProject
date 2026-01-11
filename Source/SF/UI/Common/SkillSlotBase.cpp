@@ -76,8 +76,9 @@ void USkillSlotBase::NativeTick(const FGeometry& MyGeometry, float InDeltaTime)
 
 	if (CachedAbilitySpecHandle.IsValid())
 	{
-		RefreshCooldown();			//쿨타임 갱신
+		RefreshCooldown();			// 쿨타임 갱신
 		RefreshActiveDuration();    // 지속시간 갱신
+		RefreshManaCost();          // 마나 소모량 갱신ㄴ
 	}
 }
 
@@ -288,6 +289,58 @@ void USkillSlotBase::RefreshActiveDuration()
 			{
 				Img_SkillBorder_Active->SetVisibility(ESlateVisibility::Collapsed);
 			}
+		}
+	}
+	
+}
+
+void USkillSlotBase::RefreshManaCost()
+{
+	USFOverlayWidgetController* OverlayController = GetWidgetControllerTyped<USFOverlayWidgetController>();
+	if (!OverlayController)
+	{
+		return;
+	}
+	
+	UAbilitySystemComponent* ASC = OverlayController->GetWidgetControllerParams().AbilitySystemComponent;
+	if (!ASC)
+	{
+		return;
+	}
+	
+	FGameplayAbilitySpec* Spec = ASC->FindAbilitySpecFromHandle(CachedAbilitySpecHandle);
+	if (!Spec || !Spec->Ability)
+	{
+		return;
+	}
+
+	const USFGameplayAbility* SFAbility = Cast<USFGameplayAbility>(Spec->Ability);
+	if (!SFAbility)
+	{
+		return;
+	}
+
+	// (실제 마나 소모량 계산)
+	float CurrentManaCost = SFAbility->GetCalculatedManaCost(ASC);
+
+	// 6. 값 변화 체크 -> 값이 같으면 UI 갱신 안 함)
+	if (FMath::IsNearlyEqual(CachedManaCost, CurrentManaCost))
+	{
+		return;
+	}
+
+	CachedManaCost = CurrentManaCost;
+	
+	if (Text_Cost)
+	{
+		if (CurrentManaCost > 0.f)
+		{
+			Text_Cost->SetText(FText::AsNumber(FMath::RoundToInt(CurrentManaCost)));
+			Text_Cost->SetVisibility(ESlateVisibility::SelfHitTestInvisible);
+		}
+		else
+		{
+			Text_Cost->SetVisibility(ESlateVisibility::Collapsed);
 		}
 	}
 	

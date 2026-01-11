@@ -27,6 +27,8 @@ protected:
 	void RefreshCooldown();
 	// 지속시간 갱신용 (Border)
 	void RefreshActiveDuration();
+	// 마나 소모값 갱신용
+	void RefreshManaCost();
 
 	float GetActiveCooldownDuration(UAbilitySystemComponent* ASC, UGameplayAbility* Ability);
 	// 현재 사용중인 스킬로 인해 적용된 지속시간을 찾아내는 헬퍼 함수
@@ -96,6 +98,10 @@ private:
 
 	int32 CachedChainIndex = INDEX_NONE;
 
+	// 값이 변했을 때만 텍스트를 바꾸기 위한 임시 저장 변수
+	float CachedManaCost = -1.f;
+	
 	UPROPERTY()
 	TObjectPtr<UMaterialInstanceDynamic> SkillBorderDMI;
+	
 };
