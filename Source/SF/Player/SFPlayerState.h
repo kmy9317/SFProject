@@ -136,8 +136,8 @@ public:
 	//===========================
 
 	int32 GetGold() const { return Gold; }
-	void SetGold(const int32 NewGold) { Gold = NewGold; }
-	void AddGold(const int32 Amount) { Gold += Amount; }
+	void SetGold(const int32 NewGold);
+	void AddGold(const int32 Amount);
   
 	UFUNCTION(Server, Reliable)
 	void Server_SetGold(int32 NewGold);
