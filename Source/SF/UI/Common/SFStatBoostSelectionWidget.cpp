@@ -34,6 +34,8 @@ void USFStatBoostSelectionWidget::NativeOnInitialized()
         Text_ExtraSelectionNotice->SetVisibility(ESlateVisibility::Collapsed);
     }
 
+    UpdateCurrentGoldDisplay();
+    
     UpdateRerollButtonState();
 }
 
@@ -246,6 +248,8 @@ void USFStatBoostSelectionWidget::UpdateRerollButtonState()
         return;
     }
 
+    UpdateCurrentGoldDisplay();
+    
     bool bCanAfford = (CachedNextRerollCost == 0) || (PS->GetGold() >= CachedNextRerollCost);
     Btn_Reroll->SetIsEnabled(bCanAfford);
     UpdateRerollCostDisplay(CachedNextRerollCost);
@@ -332,4 +336,24 @@ void USFStatBoostSelectionWidget::NotifyClose()
     }
 
     OnSelectionCompleteDelegate.Broadcast();
+}
+
+void USFStatBoostSelectionWidget::UpdateCurrentGoldDisplay()
+{
+    if (!Text_CurrentGold)
+    {
+        return;
+    }
+
+    APlayerController* PC = GetOwningPlayer();
+    if (!PC)
+    {
+        return;
+    }
+
+    if (ASFPlayerState* PS = PC->GetPlayerState<ASFPlayerState>())
+    {
+        int32 CurrentGold = PS->GetGold();
+        Text_CurrentGold->SetText(FText::AsNumber(CurrentGold));
+    }
 }

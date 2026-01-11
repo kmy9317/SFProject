@@ -10,6 +10,8 @@
 #include "Player/SFPlayerState.h"
 #include "Player/Components/SFPlayerCombatStateComponent.h"
 #include "Player/Components/SFPlayerStatsComponent.h"
+#include "System/SFPlayFabSubsystem.h"
+#include "Kismet/GameplayStatics.h"
 
 USFGameOverManagerComponent::USFGameOverManagerComponent(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
@@ -425,6 +427,8 @@ void USFGameOverManagerComponent::OnRep_bGameOver()
 {
 	if (bGameOver)
 	{
+		SaveLocalPlayerGoldToPlayFab();
+		
 		OnGameOver.Broadcast();
 
 		if (UGameplayMessageSubsystem::HasInstance(this))
@@ -440,6 +444,8 @@ void USFGameOverManagerComponent::OnRep_GameClearMessage()
 {
 	if (GameClearMessage.bGameClear)
 	{
+		SaveLocalPlayerGoldToPlayFab();
+		
 		if (UGameplayMessageSubsystem::HasInstance(this))
 		{
 			UGameplayMessageSubsystem& GMS = UGameplayMessageSubsystem::Get(this);
@@ -467,5 +473,35 @@ void USFGameOverManagerComponent::OnRep_ReadyCount()
 		Message.ReadyCount = ReadyCount;
 		Message.TotalCount = GetTotalPlayerCount();
 		GMS.BroadcastMessage(SFGameplayTags::Message_Game_LobbyReadyCount, Message);
+	}
+}
+
+void USFGameOverManagerComponent::SaveLocalPlayerGoldToPlayFab()
+{
+	// 1. 로컬 플레이어 컨트롤러 가져오기
+	APlayerController* LocalPC = GetWorld()->GetFirstPlayerController();
+	if (!LocalPC || !LocalPC->IsLocalController())
+	{
+		return;
+	}
+
+	// 2. PlayerState 가져오기
+	ASFPlayerState* PS = LocalPC->GetPlayerState<ASFPlayerState>();
+	if (!PS)
+	{
+		return;
+	}
+
+	// 3. PlayFab Subsystem 가져오기
+	UGameInstance* GI = GetWorld()->GetGameInstance();
+	if (USFPlayFabSubsystem* PlayFabSubsystem = GI ? GI->GetSubsystem<USFPlayFabSubsystem>() : nullptr)
+	{
+		int32 CurrentGold = PS->GetGold();
+
+		UE_LOG(LogSF, Log, TEXT("[GameOverManager] Saving Gold to PlayFab: %d"), CurrentGold);
+
+		// 4. 데이터 갱신 및 저장 요청
+		PlayFabSubsystem->SetGold(CurrentGold);
+		PlayFabSubsystem->SavePlayerData();
 	}
 }

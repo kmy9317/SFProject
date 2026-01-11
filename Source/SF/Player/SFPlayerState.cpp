@@ -48,9 +48,6 @@ ASFPlayerState::ASFPlayerState(const FObjectInitializer& ObjectInitializer)
 	StatsComponent = CreateDefaultSubobject<USFPlayerStatsComponent>(TEXT("StatsComponent"));
 	
 	SetNetUpdateFrequency(100.f);
-
-	// TODO : 테스트용 삭제 예정
-	Gold = 500;
 }
 
 void ASFPlayerState::EndPlay(const EEndPlayReason::Type EndPlayReason)
@@ -281,6 +278,11 @@ void ASFPlayerState::StartLoadingPawnData()
 			OnPawnDataLoadComplete(GetDefault<USFPawnData>());
 		}
 	}
+}
+
+void ASFPlayerState::Server_SetGold_Implementation(int32 NewGold)
+{
+	SetGold(NewGold);
 }
 
 void ASFPlayerState::OnPawnDataLoadComplete(const USFPawnData* LoadedPawnData)

@@ -85,6 +85,8 @@ private:
 	void CleanupInvalidReadyPlayers();
 	void CheckAllPlayersReady();
 
+	void SaveLocalPlayerGoldToPlayFab();
+	
 public:
 	UPROPERTY(BlueprintAssignable, Category = "SF|Events")
 	FOnGameOverDelegate OnGameOver;

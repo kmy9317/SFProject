@@ -90,6 +90,11 @@ protected:
     UFUNCTION(BlueprintCallable, Category = "SF|UI")
     void UpdateRerollCostDisplay(int32 Cost);
 
+    void UpdateCurrentGoldDisplay();
+    
+    UPROPERTY(BlueprintReadOnly, meta = (BindWidget))
+    TObjectPtr<UTextBlock> Text_CurrentGold;
+    
     void DisableAllCards();
 
     void ProcessPendingAction();
