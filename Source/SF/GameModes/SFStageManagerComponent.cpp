@@ -5,6 +5,7 @@
 #include "Animation/Hero/AnimNotify/SFAnimNotify_SendGameplayEvent.h"
 #include "Net/UnrealNetwork.h"
 #include "Player/SFPlayerState.h"
+#include "System/SFPlayFabSubsystem.h"
 #include "System/SFStageSubsystem.h"
 
 USFStageManagerComponent::USFStageManagerComponent(const FObjectInitializer& ObjectInitializer)
@@ -79,6 +80,7 @@ void USFStageManagerComponent::NotifyStageClear()
         }
     }
     
+    SaveLocalPlayerGoldToPlayFab();
     bStageCleared = true;
 
     OnStageCleared.Broadcast(CurrentStageInfo);
@@ -88,6 +90,8 @@ void USFStageManagerComponent::OnRep_bStageCleared()
 {
     if (bStageCleared)
     {
+        UE_LOG(LogTemp, Error, TEXT("[GameOverManager] Stage Cleared!"));
+        SaveLocalPlayerGoldToPlayFab();
         OnStageCleared.Broadcast(CurrentStageInfo);
     }
 }
@@ -142,6 +146,40 @@ void USFStageManagerComponent::OnRep_CurrentBossActor()
     OnBossStateChanged.Broadcast(CurrentBossActor);
 }
 
+void USFStageManagerComponent::SaveLocalPlayerGoldToPlayFab()
+{
+    // 1. 로컬 플레이어 컨트롤러 가져오기
+    APlayerController* LocalPC = GetWorld()->GetFirstPlayerController();
+    if (!LocalPC || !LocalPC->IsLocalController())
+    {
+        UE_LOG(LogTemp, Error, TEXT("[GameOverManager] LocalControllerFailed"));
+        return;
+    }
 
+    // 2. PlayerState 가져오기
+    ASFPlayerState* PS = LocalPC->GetPlayerState<ASFPlayerState>();
+    if (!PS)
+    {
+        UE_LOG(LogTemp, Error, TEXT("[GameOverManager] PSFailed"));
+        return;
+    }
+
+    // 3. PlayFab Subsystem 가져오기
+    UGameInstance* GI = GetWorld()->GetGameInstance();
+    if (USFPlayFabSubsystem* PlayFabSubsystem = GI ? GI->GetSubsystem<USFPlayFabSubsystem>() : nullptr)
+    {
+        int32 CurrentGold = PS->GetGold();
+
+        UE_LOG(LogTemp, Error, TEXT("[GameOverManager] Saving Gold to PlayFab: %d"), CurrentGold);
+
+        // 4. 데이터 갱신 및 저장 요청
+        PlayFabSubsystem->SetGold(CurrentGold);
+        PlayFabSubsystem->SavePlayerData();
+    }
+    else
+    {
+        UE_LOG(LogTemp, Error, TEXT("[GameOverManager] PFSFailed"));
+    }
+}
 
 

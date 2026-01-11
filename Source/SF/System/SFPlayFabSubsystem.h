@@ -117,5 +117,7 @@ private:
 	static constexpr int32 MaxRetrySendUpgradeAttempts = 30;
 
 	bool bPermanentUpgradeStartedThisGame = false;
+
+	bool bInitialGoldSynced = false;
 	//====================================================================
 };

@@ -45,7 +45,6 @@ public:
 	UFUNCTION(BlueprintPure, Category = "SF|Stage")
 	int32 GetPlayerCount() const;
 
-	UFUNCTION(BlueprintPure, Category = "SF|Stage")
 	FSFEnemyScalingContext GetEnemyScalingContext() const;
 
 private:
@@ -79,4 +78,6 @@ private:
 
 	UPROPERTY(ReplicatedUsing = OnRep_CurrentBossActor)
 	TObjectPtr<ACharacter> CurrentBossActor;
+
+	void SaveLocalPlayerGoldToPlayFab();
 };

@@ -284,10 +284,20 @@ void USFPlayFabSubsystem::TrySendPermanentUpgradeDataToServer()
 	if (PS->HasAuthority())
 	{
 		PS->SetPermanentUpgradeData(UpgradeData);
+		if (!bInitialGoldSynced)
+		{
+			PS->SetGold(GetGold());
+			bInitialGoldSynced = true;
+		}
 	}
 	else
 	{
 		PS->Server_SubmitPermanentUpgradeData(UpgradeData);
+		if (!bInitialGoldSynced)
+		{
+			PS->Server_SetGold(GetGold());
+			bInitialGoldSynced = true;
+		}
 	}
 
 	bPermanentUpgradeSent = true;
@@ -343,6 +353,7 @@ void USFPlayFabSubsystem::TryStartPermanentUpgradeForThisGame()
 void USFPlayFabSubsystem::ResetPermanentUpgradeForNewGameSession()
 {
 	bPermanentUpgradeStartedThisGame = false;
+	bInitialGoldSynced = false;
 	ResetPermanentUpgradeSendState();
 
 	UE_LOG(LogTemp, Warning,

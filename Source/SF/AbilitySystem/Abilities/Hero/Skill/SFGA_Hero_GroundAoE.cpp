@@ -26,6 +26,11 @@ void USFGA_Hero_GroundAoE::ActivateAbility(const FGameplayAbilitySpecHandle Hand
 		return;
 	}
 
+	if (AActor* Avatar = GetAvatarActorFromActorInfo())
+	{
+		TargetLocation = Avatar->GetActorLocation();
+	}
+	
 	// 1. 준비 단계 시작 (Loop 몽타주 재생)
 	if (AimingLoopMontage)
 	{

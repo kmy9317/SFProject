@@ -4,34 +4,46 @@
 
 USFGA_ApplyTagEffect::USFGA_ApplyTagEffect()
 {
-	// 인스턴싱 정책: 상태 저장이 필요 없다면 NonInstanced가 가볍지만,
-	// 안전하게 실행하려면 InstancedPerActor를 유지해도 됩니다.
 	InstancingPolicy = EGameplayAbilityInstancingPolicy::InstancedPerActor;
-
-	// 자동 발동이므로 Trigger 별도 설정 불필요 (코드에서 직접 호출함)
-	// ActivationPolicy = ESFAbilityActivationPolicy::OnInputTriggered; // 필요 시 주석 처리
 }
 
-// [핵심 로직] 어빌리티가 Actor에게 주어졌을 때(GiveAbility 시점) 호출됨
+// 1. 어빌리티를 획득했을 때 (태그 부착)
 void USFGA_ApplyTagEffect::OnAvatarSet(const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilitySpec& Spec)
 {
 	Super::OnAvatarSet(ActorInfo, Spec);
 
-	// 이미 활성화 상태라면 패스
-	if (Spec.IsActive())
+	// ASC 확보
+	UAbilitySystemComponent* ASC = ActorInfo->AbilitySystemComponent.Get();
+	if (!ASC) return;
+
+	// [핵심] 어빌리티 보유 시 무조건 태그 부착
+	if (TagToAdd.IsValid())
 	{
-		return;
+		ASC->AddLooseGameplayTag(TagToAdd);
 	}
 
-	// 권한이 있는 곳(주로 서버)에서만 실행하여 이펙트 적용/태그 제거를 수행
+	// --- 기존 자동 발동 로직 ---
+	if (Spec.IsActive()) return;
+
 	if (ActorInfo->IsNetAuthority())
 	{
-		UAbilitySystemComponent* ASC = ActorInfo->AbilitySystemComponent.Get();
-		if (ASC)
-		{
-			// 즉시 어빌리티 실행 시도 -> ActivateAbility 호출됨
-			ASC->TryActivateAbility(Spec.Handle);
-		}
+		ASC->TryActivateAbility(Spec.Handle);
+	}
+}
+
+// 2. 어빌리티를 잃었을 때 (태그 제거)
+void USFGA_ApplyTagEffect::OnRemoveAbility(const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilitySpec& Spec)
+{
+	// 부모 로직 먼저 호출 (필요한 정리 작업)
+	Super::OnRemoveAbility(ActorInfo, Spec);
+
+	UAbilitySystemComponent* ASC = ActorInfo->AbilitySystemComponent.Get();
+	if (!ASC) return;
+
+	// [핵심] 어빌리티 제거 시 태그도 같이 제거
+	if (TagToAdd.IsValid())
+	{
+		ASC->RemoveLooseGameplayTag(TagToAdd);
 	}
 }
 
@@ -39,7 +51,6 @@ void USFGA_ApplyTagEffect::ActivateAbility(const FGameplayAbilitySpecHandle Hand
 {
 	Super::ActivateAbility(Handle, ActorInfo, ActivationInfo, TriggerEventData);
 
-	// 1. 커밋 (쿨타임/코스트 확인)
 	if (!CommitAbility(Handle, ActorInfo, ActivationInfo))
 	{
 		EndAbility(Handle, ActorInfo, ActivationInfo, true, true);
@@ -53,7 +64,7 @@ void USFGA_ApplyTagEffect::ActivateAbility(const FGameplayAbilitySpecHandle Hand
 		return;
 	}
 
-	// 2. 태그 제거 로직
+	// 1. 태그 제거 로직 (기존)
 	if (TagToRemove.IsValid())
 	{
 		FGameplayTagContainer TagsToRemoveContainer;
@@ -61,12 +72,11 @@ void USFGA_ApplyTagEffect::ActivateAbility(const FGameplayAbilitySpecHandle Hand
 		ASC->RemoveActiveEffectsWithGrantedTags(TagsToRemoveContainer);
 	}
 
-	// 3. 지정된 이펙트 부여 로직
+	// 2. 지정된 이펙트 부여 로직 (기존)
 	if (TargetGameplayEffectClass)
 	{
 		FGameplayEffectContextHandle ContextHandle = ASC->MakeEffectContext();
 		ContextHandle.AddSourceObject(this);
-
 		FGameplayEffectSpecHandle SpecHandle = ASC->MakeOutgoingSpec(TargetGameplayEffectClass, EffectLevel, ContextHandle);
 
 		if (SpecHandle.IsValid())
@@ -75,6 +85,5 @@ void USFGA_ApplyTagEffect::ActivateAbility(const FGameplayAbilitySpecHandle Hand
 		}
 	}
 
-	// 4. 어빌리티 종료 (즉시 발동 후 역할이 끝났으므로 종료)
 	EndAbility(Handle, ActorInfo, ActivationInfo, true, false);
 }
