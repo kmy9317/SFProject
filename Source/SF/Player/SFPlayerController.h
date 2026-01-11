@@ -10,7 +10,7 @@
 
 struct FSFPermanentUpgradeData;
 class USFBossHUDWidget;
-class USFStageAnnouncementWidget;
+class UStagePrintWidget;
 class USFQuickbarComponent;
 class USFItemManagerComponent;
 class USFInventoryManagerComponent;
@@ -134,7 +134,7 @@ protected:
 
 	// 스테이지 레벨 전용 위젯 클래스
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "UI|InGame")
-	TSubclassOf<USFStageAnnouncementWidget> StageAnnouncementWidgetClass;
+	TSubclassOf<UStagePrintWidget> UStagePrintWidgetClass;
 	
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "SF_Data")
 	UDataTable* StageDataTable;

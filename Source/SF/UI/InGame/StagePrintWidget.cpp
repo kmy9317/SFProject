@@ -1,13 +1,12 @@
-#include "UI/InGame/SFStageAnnouncementWidget.h"
+// Fill out your copyright notice in the Description page of Project Settings.
+
+
+#include "UI/InGame/StagePrintWidget.h"
+
 #include "Components/TextBlock.h"
 #include "Animation/WidgetAnimation.h"
 
-void USFStageAnnouncementWidget::NativeConstruct()
-{
-	Super::NativeConstruct();
-}
-
-void USFStageAnnouncementWidget::ShowStageAnnouncement(const FText& StageName)
+void UStagePrintWidget::ShowStageAnnouncement(const FText& StageName)
 {
 	// 1. 텍스트 설정
 	if (Text_StageName)
@@ -22,7 +21,7 @@ void USFStageAnnouncementWidget::ShowStageAnnouncement(const FText& StageName)
 	if (Anim_FadeInOut)
 	{
 		FWidgetAnimationDynamicEvent EndEvent;
-		EndEvent.BindDynamic(this, &USFStageAnnouncementWidget::OnAnnounceFinished);
+		EndEvent.BindDynamic(this, &UStagePrintWidget::OnAnnounceFinished);
 		BindToAnimationFinished(Anim_FadeInOut, EndEvent);
 		
 		PlayAnimation(Anim_FadeInOut, 0.0f, 1, EUMGSequencePlayMode::Forward, 1.0f);
@@ -34,7 +33,7 @@ void USFStageAnnouncementWidget::ShowStageAnnouncement(const FText& StageName)
 	}
 }
 
-void USFStageAnnouncementWidget::OnAnnounceFinished()
+void UStagePrintWidget::OnAnnounceFinished()
 {
 	RemoveFromParent();
 }

@@ -28,7 +28,7 @@
 #include "UI/InGame/SFIndicatorWidgetBase.h"
 #include "UI/InGame/SFDamageWidget.h"
 #include "LoadingScreenManager.h"
-#include "UI/InGame/SFStageAnnouncementWidget.h"
+#include "UI/InGame/StagePrintWidget.h"
 
 ASFPlayerController::ASFPlayerController(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
@@ -469,9 +469,9 @@ void ASFPlayerController::ShowStageAnnouncementUI(FDataTableRowHandle StageHandl
 	
 	FSFStageConfig* ConfigRow = StageHandle.GetRow<FSFStageConfig>(TEXT("ShowUI"));
 	
-	if (!ConfigRow || !StageAnnouncementWidgetClass) return;
+	if (!ConfigRow || !UStagePrintWidgetClass) return;
 
-	if (USFStageAnnouncementWidget* Widget = CreateWidget<USFStageAnnouncementWidget>(this, StageAnnouncementWidgetClass))
+	if (UStagePrintWidget* Widget = CreateWidget<UStagePrintWidget>(this, UStagePrintWidgetClass))
 	{
 		Widget->AddToViewport(10);
 		Widget->ShowStageAnnouncement(ConfigRow->StageInfo.DisplayName);

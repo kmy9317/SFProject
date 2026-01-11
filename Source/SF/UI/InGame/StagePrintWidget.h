@@ -1,19 +1,24 @@
+// Fill out your copyright notice in the Description page of Project Settings.
+
 #pragma once
 
 #include "CoreMinimal.h"
 #include "Blueprint/UserWidget.h"
-#include "SFStageAnnouncementWidget.generated.h"
+#include "StagePrintWidget.generated.h"
+
+/**
+ * 
+ */
 
 class UTextBlock;
 class UWidgetAnimation;
 
 UCLASS()
-class SF_API USFStageAnnouncementWidget : public UUserWidget
+class SF_API UStagePrintWidget : public UUserWidget
 {
 	GENERATED_BODY()
 
 public:
-	virtual void NativeConstruct() override;
 	
 	// 외부에서 이 함수를 호출해 연출을 시작
 	UFUNCTION(BlueprintCallable, Category = "SF|UI")
