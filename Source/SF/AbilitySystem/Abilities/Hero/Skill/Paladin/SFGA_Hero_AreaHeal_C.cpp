@@ -103,6 +103,7 @@ void USFGA_Hero_AreaHeal_C::ActivateAbility(
 	{
 		auto* M=UAbilityTask_PlayMontageAndWait::CreatePlayMontageAndWaitProxy(this,"LM",LightningMontage);
 		M->OnCompleted.AddDynamic(this,&USFGA_Hero_AreaHeal_C::OnMontageEnded);
+		M->OnBlendOut.AddDynamic(this, &USFGA_Hero_AreaHeal_C::OnMontageEnded);
 		M->OnInterrupted.AddDynamic(this,&USFGA_Hero_AreaHeal_C::OnMontageEnded);
 		M->OnCancelled.AddDynamic(this,&USFGA_Hero_AreaHeal_C::OnMontageEnded);
 		M->ReadyForActivation();
@@ -263,10 +264,13 @@ void USFGA_Hero_AreaHeal_C::EndAbility(
 	bool bReplicateEndAbility,bool bWasCancelled)
 {
 	// [중요] 어빌리티가 종료되면 예약된 번개 타이머를 취소해야 안전합니다.
-	if (GetWorld())
+	if (UWorld* World = GetWorld())
 	{
-		GetWorld()->GetTimerManager().ClearTimer(CascadeTimerHandle);
+		World->GetTimerManager().ClearTimer(CascadeTimerHandle);
+		World->GetTimerManager().ClearTimer(TrailUpdateHandle);    // 추가!
+		World->GetTimerManager().ClearTimer(TrailFadeHandle);      // 추가!
 	}
+
 
 	if (CameraModeClass)
 	{

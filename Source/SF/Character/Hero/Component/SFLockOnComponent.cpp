@@ -12,6 +12,7 @@
 #include "NiagaraFunctionLibrary.h"
 #include "NiagaraComponent.h"
 #include "AbilitySystem/Abilities/SFGameplayAbilityTags.h"
+#include "Character/Enemy/SFEnemy.h"
 #include "Net/UnrealNetwork.h"
 
 USFLockOnComponent::USFLockOnComponent(const FObjectInitializer& ObjectInitializer)
@@ -47,63 +48,137 @@ void USFLockOnComponent::TickComponent(float DeltaTime, ELevelTick TickType, FAc
 {
 	Super::TickComponent(DeltaTime, TickType, ThisTickFunction);
 
-	APawn* OwnerPawn = Cast<APawn>(GetOwner());
-	if (!OwnerPawn) return;
+    APawn* OwnerPawn = Cast<APawn>(GetOwner());
+    if (!OwnerPawn) return;
 
-	// [Server Logic] 타겟 유효성 검사 및 자동 해제
-	if (OwnerPawn->HasAuthority())
-	{
-		ServerUpdate_TargetValidation(DeltaTime);
-	}
+    // [Server] 타겟 유효성 검사
+    if (OwnerPawn->HasAuthority())
+    {
+        ServerUpdate_TargetValidation(DeltaTime);
+        
+        // 서버에서 원격 클라이언트 회전 처리
+        if (CurrentTarget && IsValid(CurrentTarget) && !OwnerPawn->IsLocallyControlled())
+        {
+            ServerUpdate_RemoteClientRotation(DeltaTime);
+        }
+    }
 
-	// [Client Logic] 로컬 플레이어를 위한 카메라/회전/입력 처리
-	// [Client] 로컬 플레이어 로직
-	if (OwnerPawn->IsLocallyControlled())
-	{
-		if (CurrentTarget)
-		{
-			// 락온 중: 타겟 추적
-			if (IsValid(CurrentTarget))
-			{
-				ClientUpdate_SwitchingInput(DeltaTime);
-				ClientUpdate_Rotation(DeltaTime);
-				UpdateLockOnEffectLocation();
-			}
-		}
-		else if (bIsResettingCamera)
-		{
-			// 락온 아님: 카메라 리셋 보간
-			if (APlayerController* PC = Cast<APlayerController>(OwnerPawn->GetController()))
-			{
-				// 유저가 마우스나 스틱으로 카메라를 움직이면 리셋 즉시 중단 (Input Break)
-				float MouseX = 0.0f, MouseY = 0.0f;
-				PC->GetInputMouseDelta(MouseX, MouseY);
-				
-				float StickX = 0.0f, StickY = 0.0f;
-				PC->GetInputAnalogStickState(EControllerAnalogStick::CAS_RightStick, StickX, StickY);
+    // [Client] 로컬 플레이어 로직
+    if (OwnerPawn->IsLocallyControlled())
+    {
+        if (CurrentTarget && IsValid(CurrentTarget))
+        {
+            ClientUpdate_SwitchingInput(DeltaTime);
+            ClientUpdate_Rotation(DeltaTime);
+            UpdateLockOnEffectLocation();
+        }
+        else
+        {
+            // 락온 해제 시 CMC 상태 확인 및 복원
+            EnsureDefaultRotationMode();
+            
+            // 카메라 리셋 로직
+            if (bIsResettingCamera)
+            {
+                if (APlayerController* PC = Cast<APlayerController>(OwnerPawn->GetController()))
+                {
+                    // 입력 감지 시 리셋 중단
+                    float MouseX = 0.0f, MouseY = 0.0f;
+                    PC->GetInputMouseDelta(MouseX, MouseY);
+                    
+                    float StickX = 0.0f, StickY = 0.0f;
+                    PC->GetInputAnalogStickState(EControllerAnalogStick::CAS_RightStick, StickX, StickY);
 
-				// 입력이 감지되면 리셋 취소 (임계값 0.1f)
-				if (FMath::Abs(MouseX) > 0.1f || FMath::Abs(MouseY) > 0.1f || 
-					FMath::Abs(StickX) > 0.1f || FMath::Abs(StickY) > 0.1f)
-				{
-					bIsResettingCamera = false;
-					return;
-				}
+                    if (FMath::Abs(MouseX) > 0.1f || FMath::Abs(MouseY) > 0.1f || 
+                        FMath::Abs(StickX) > 0.1f || FMath::Abs(StickY) > 0.1f)
+                    {
+                        bIsResettingCamera = false;
+                        return;
+                    }
 
-				// 기존 리셋 로직 수행
-				FRotator CurrentRot = PC->GetControlRotation();
-				FRotator NewRot = FMath::RInterpTo(CurrentRot, CameraResetTargetRotation, DeltaTime, CameraResetInterpSpeed);
-				PC->SetControlRotation(NewRot);
+                    // 리셋 보간
+                    FRotator CurrentRot = PC->GetControlRotation();
+                    FRotator NewRot = FMath::RInterpTo(CurrentRot, CameraResetTargetRotation, DeltaTime, CameraResetInterpSpeed);
+                    PC->SetControlRotation(NewRot);
 
-				// 목표에 거의 도달했으면 리셋 종료
-				if (FMath::IsNearlyEqual(CurrentRot.Yaw, CameraResetTargetRotation.Yaw, 1.0f) &&
-					FMath::IsNearlyEqual(CurrentRot.Pitch, CameraResetTargetRotation.Pitch, 1.0f))
-				{
-					bIsResettingCamera = false;
-				}
-			}
-		}
-	}
+                    // 완료 체크
+                    if (FMath::IsNearlyEqual(CurrentRot.Yaw, CameraResetTargetRotation.Yaw, 1.0f) &&
+                        FMath::IsNearlyEqual(CurrentRot.Pitch, CameraResetTargetRotation.Pitch, 1.0f))
+                    {
+                        bIsResettingCamera = false;
+                    }
+                }
+            }
+        }
+    }
+}
+
+void USFLockOnComponent::EnsureDefaultRotationMode()
+{
+    ACharacter* Character = Cast<ACharacter>(GetOwner());
+    if (!Character) return;
+    
+    UCharacterMovementComponent* CMC = Character->GetCharacterMovement();
+    if (!CMC) return;
+    
+    // 락온 중이 아닌데 CMC가 락온 모드면 복원
+    if (!CurrentTarget && !CMC->bOrientRotationToMovement)
+    {
+        CMC->bOrientRotationToMovement = true;
+        CMC->bUseControllerDesiredRotation = false;
+    }
+}
+
+void USFLockOnComponent::ServerUpdate_RemoteClientRotation(float DeltaTime)
+{
+    APawn* OwnerPawn = Cast<APawn>(GetOwner());
+    ACharacter* Character = Cast<ACharacter>(OwnerPawn);
+    if (!Character) return;
+
+    UCharacterMovementComponent* CMC = Character->GetCharacterMovement();
+    if (!CMC) return;
+
+    // Dodge 중이면 스킵 (Dodge가 회전 제어)
+    if (const IGameplayTagAssetInterface* TagInterface = Cast<const IGameplayTagAssetInterface>(OwnerPawn))
+    {
+        if (TagInterface->HasMatchingGameplayTag(SFGameplayTags::Ability_Hero_Dodge))
+        {
+            return;
+        }
+    }
+
+    // Sprint 체크
+    bool bIsSprinting = false;
+    if (const IGameplayTagAssetInterface* TagInterface = Cast<const IGameplayTagAssetInterface>(OwnerPawn))
+    {
+        if (SprintTag.IsValid() && TagInterface->HasMatchingGameplayTag(SprintTag))
+        {
+            bIsSprinting = true;
+        }
+    }
+
+    if (bIsSprinting)
+    {
+        CMC->bOrientRotationToMovement = true;
+        CMC->bUseControllerDesiredRotation = false;
+    }
+    else
+    {
+        // 타겟 방향으로 직접 회전 (카메라 없이)
+        CMC->bOrientRotationToMovement = false;
+        CMC->bUseControllerDesiredRotation = false;  // 직접 제어
+
+        FVector OwnerLoc = OwnerPawn->GetActorLocation();
+        FVector TargetLoc = GetActorSocketLocation(CurrentTarget, CurrentTargetSocketName);
+        FVector DirectionToTarget = (TargetLoc - OwnerLoc).GetSafeNormal2D();
+
+        if (!DirectionToTarget.IsNearlyZero())
+        {
+            FRotator TargetRot = FRotator(0.0f, DirectionToTarget.Rotation().Yaw, 0.0f);
+            FRotator SmoothRot = FMath::RInterpTo(Character->GetActorRotation(), TargetRot, DeltaTime, 15.0f);
+            Character->SetActorRotation(SmoothRot);
+        }
+    }
 }
 
 // =========================================================
@@ -471,83 +546,86 @@ void USFLockOnComponent::OnRep_CurrentTargetSocketName()
 void USFLockOnComponent::ClientUpdate_Rotation(float DeltaTime)
 {
 	APawn* OwnerPawn = Cast<APawn>(GetOwner());
-	if (!OwnerPawn) return;
+    if (!OwnerPawn) return;
 
-	if (const IGameplayTagAssetInterface* TagInterface = Cast<const IGameplayTagAssetInterface>(OwnerPawn))
-	{
-		if (TagInterface->HasMatchingGameplayTag(SFGameplayTags::Ability_Hero_Dodge))
-		{
-			return; 
-		}
-	}
-	
-	APlayerController* PC = Cast<APlayerController>(OwnerPawn->GetController());
-	if (!PC) return;
+    // Dodge 중이면 스킵 (Dodge 어빌리티가 회전 관리)
+    if (const IGameplayTagAssetInterface* TagInterface = Cast<const IGameplayTagAssetInterface>(OwnerPawn))
+    {
+        if (TagInterface->HasMatchingGameplayTag(SFGameplayTags::Ability_Hero_Dodge))
+        {
+            return; 
+        }
+    }
+    
+    APlayerController* PC = Cast<APlayerController>(OwnerPawn->GetController());
+    if (!PC) return;
 
-	// 1. 타겟 위치 계산
-	FVector TargetLoc = GetActorSocketLocation(CurrentTarget, CurrentTargetSocketName);
-	FVector CameraLoc = PC->PlayerCameraManager->GetCameraLocation();
-	
-	// LookAt Rotation
-	FRotator LookAtRot = UKismetMathLibrary::FindLookAtRotation(CameraLoc, TargetLoc);
+    // ========================================
+    // 1. 카메라 회전 (타겟 추적)
+    // ========================================
+    FVector TargetLoc = GetActorSocketLocation(CurrentTarget, CurrentTargetSocketName);
+    FVector CameraLoc = PC->PlayerCameraManager->GetCameraLocation();
+    
+    FRotator LookAtRot = UKismetMathLibrary::FindLookAtRotation(CameraLoc, TargetLoc);
 
-	// 2. Pitch 제한 (Smart Pitch Clamp)
-	float DistanceToTarget = FVector::Dist(OwnerPawn->GetActorLocation(), TargetLoc);
-	float CurrentPitchMax = PitchLimitMax;
+    // Pitch 제한 (Smart Pitch Clamp)
+    float DistanceToTarget = FVector::Dist(OwnerPawn->GetActorLocation(), TargetLoc);
+    float CurrentPitchMax = PitchLimitMax;
 
-	if (DistanceToTarget < CloseRangeThreshold)
-	{
-		float Alpha = FMath::Clamp(DistanceToTarget / CloseRangeThreshold, 0.0f, 1.0f);
-		CurrentPitchMax = FMath::Lerp(CloseRangePitchLimitMax, PitchLimitMax, Alpha);
-	}
+    if (DistanceToTarget < CloseRangeThreshold)
+    {
+        float Alpha = FMath::Clamp(DistanceToTarget / CloseRangeThreshold, 0.0f, 1.0f);
+        CurrentPitchMax = FMath::Lerp(CloseRangePitchLimitMax, PitchLimitMax, Alpha);
+    }
 
-	LookAtRot.Pitch = FMath::Clamp(LookAtRot.Pitch, PitchLimitMin, CurrentPitchMax);
+    LookAtRot.Pitch = FMath::Clamp(LookAtRot.Pitch, PitchLimitMin, CurrentPitchMax);
 
-	// 3. 보간 (Interpolation)
-	float CurrentInterpSpeed = bIsSwitchingTarget ? TargetSwitchInterpSpeed : CameraInterpSpeed;
-	FRotator SmoothRot = FMath::RInterpTo(LastLockOnRotation, LookAtRot, DeltaTime, CurrentInterpSpeed);
+    // 보간
+    float CurrentInterpSpeed = bIsSwitchingTarget ? TargetSwitchInterpSpeed : CameraInterpSpeed;
+    FRotator SmoothRot = FMath::RInterpTo(LastLockOnRotation, LookAtRot, DeltaTime, CurrentInterpSpeed);
 
-	PC->SetControlRotation(SmoothRot);
-	LastLockOnRotation = SmoothRot;
+    PC->SetControlRotation(SmoothRot);
+    LastLockOnRotation = SmoothRot;
 
-	// 스위칭 완료 체크
-	if (bIsSwitchingTarget)
-	{
-		FRotator Delta = (LookAtRot - LastLockOnRotation).GetNormalized();
-		if (FMath::Abs(Delta.Yaw) < 2.0f && FMath::Abs(Delta.Pitch) < 2.0f)
-		{
-			bIsSwitchingTarget = false;
-		}
-	}
+    // 스위칭 완료 체크
+    if (bIsSwitchingTarget)
+    {
+        FRotator Delta = (LookAtRot - LastLockOnRotation).GetNormalized();
+        if (FMath::Abs(Delta.Yaw) < 2.0f && FMath::Abs(Delta.Pitch) < 2.0f)
+        {
+            bIsSwitchingTarget = false;
+        }
+    }
 
-	// 4. 캐릭터 회전 (Sprint 상태가 아닐 때만 타겟 보기)
-	bool bIsSprinting = false;
-	if (const IGameplayTagAssetInterface* TagInterface = Cast<const IGameplayTagAssetInterface>(OwnerPawn))
-	{
-		if (SprintTag.IsValid() && TagInterface->HasMatchingGameplayTag(SprintTag))
-		{
-			bIsSprinting = true;
-		}
-	}
+    // ========================================
+    // 2. 캐릭터 회전 (Sprint 체크 포함)
+    // ========================================
+    bool bIsSprinting = false;
+    if (const IGameplayTagAssetInterface* TagInterface = Cast<const IGameplayTagAssetInterface>(OwnerPawn))
+    {
+        if (SprintTag.IsValid() && TagInterface->HasMatchingGameplayTag(SprintTag))
+        {
+            bIsSprinting = true;
+        }
+    }
 
-	ACharacter* Character = Cast<ACharacter>(OwnerPawn);
-	if (Character)
-	{
-		if (bIsSprinting)
-		{
-			Character->GetCharacterMovement()->bOrientRotationToMovement = true;
-			Character->GetCharacterMovement()->bUseControllerDesiredRotation = false;
-		}
-		else
-		{
-			// Strafing: 카메라는 타겟을 보고, 몸은 카메라(타겟) 방향 정렬
-			Character->GetCharacterMovement()->bOrientRotationToMovement = false;
-			Character->GetCharacterMovement()->bUseControllerDesiredRotation = true;
-			FRotator TargetBodyRot = FRotator(0.0f, LastLockOnRotation.Yaw, 0.0f);
-			FRotator SmoothBodyRot = FMath::RInterpTo(Character->GetActorRotation(), TargetBodyRot, DeltaTime, 15.0f);
-			Character->SetActorRotation(SmoothBodyRot);
-		}
-	}
+    ACharacter* Character = Cast<ACharacter>(OwnerPawn);
+    if (Character)
+    {
+        UCharacterMovementComponent* CMC = Character->GetCharacterMovement();
+        
+        if (bIsSprinting)
+        {
+            CMC->bOrientRotationToMovement = true;
+            CMC->bUseControllerDesiredRotation = false;
+        }
+        else
+        {
+            // CMC에 회전 위임 (SetActorRotation 제거로 충돌 방지)
+            CMC->bOrientRotationToMovement = false;
+            CMC->bUseControllerDesiredRotation = true;
+        }
+    }
 }
 
 void USFLockOnComponent::ClientUpdate_SwitchingInput(float DeltaTime)
@@ -807,6 +885,28 @@ bool USFLockOnComponent::IsTargetValid(AActor* TargetActor) const
 
 bool USFLockOnComponent::IsHostile(AActor* TargetActor) const
 {
+	// 1. Enemy 클래스면 적으로 간주 (가장 확실)
+	if (TargetActor->IsA<ASFEnemy>())
+	{
+		return true;
+	}
+    
+	// 2. GameplayTag 체크 (fallback)
+	if (TargetTags.Num() > 0)
+	{
+		if (const IGameplayTagAssetInterface* TagInterface = Cast<const IGameplayTagAssetInterface>(TargetActor))
+		{
+			FGameplayTagContainer OwnedTags;
+			TagInterface->GetOwnedGameplayTags(OwnedTags);
+            
+			if (OwnedTags.HasAny(TargetTags))
+			{
+				return true;
+			}
+		}
+	}
+    
+	// 2. Team 시스템 (fallback)
 	const APawn* OwnerPawn = Cast<APawn>(GetOwner());
 	if (!OwnerPawn) return false;
 
@@ -818,7 +918,7 @@ bool USFLockOnComponent::IsHostile(AActor* TargetActor) const
 		return OwnerTeamAgent->GetTeamAttitudeTowards(*TargetActor) == ETeamAttitude::Hostile;
 	}
 
-	return true;
+	return false;
 }
 
 FVector USFLockOnComponent::GetActorSocketLocation(AActor* Actor, FName SocketName) const

@@ -34,14 +34,33 @@ bool USFPrimarySet_Hero::PreGameplayEffectExecute(FGameplayEffectModCallbackData
 		return false;
 	}
 
+	USFAbilitySystemComponent* SFASC = GetSFAbilitySystemComponent();
+	if (!SFASC)
+	{
+		return true;
+	}
+
+	// Dead 또는 Downed 상태 체크
+	const bool bIsDeadOrDowned = SFASC->HasMatchingGameplayTag(SFGameplayTags::Character_State_Dead) ||
+								  SFASC->HasMatchingGameplayTag(SFGameplayTags::Character_State_Downed);
+
+	// Damage 차단 (Downed 상태)
 	if (Data.EvaluatedData.Attribute == GetDamageAttribute())
 	{
-		USFAbilitySystemComponent* SFASC = GetSFAbilitySystemComponent();
-		if (SFASC && SFASC->HasMatchingGameplayTag(SFGameplayTags::Character_State_Downed))
+		if (SFASC->HasMatchingGameplayTag(SFGameplayTags::Character_State_Downed))
 		{
 			return false;
 		}
 	}
+
+	if (Data.EvaluatedData.Attribute == GetHealthAttribute())
+	{
+		if (Data.EvaluatedData.Magnitude > 0.f && bIsDeadOrDowned)
+		{
+			return false;
+		}
+	}
+
 
 	return true;
 }

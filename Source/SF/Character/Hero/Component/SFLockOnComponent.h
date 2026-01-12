@@ -49,6 +49,10 @@ public:
 	UFUNCTION(BlueprintPure, Category = "SF|LockOn")
 	bool IsLockedOn() const { return CurrentTarget != nullptr; }
 
+	void EnsureDefaultRotationMode();
+
+	void ServerUpdate_RemoteClientRotation(float DeltaTime);
+
 protected:
 	// ==========================================
 	//  업데이트 로직 (Tick 분리)
