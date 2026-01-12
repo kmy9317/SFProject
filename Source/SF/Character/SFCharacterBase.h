@@ -61,8 +61,12 @@ public:
 protected:
 	// Called when the game starts or when spawned
 	virtual void BeginPlay() override;
+	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
 
 	virtual void Tick(float DeltaSeconds) override;
+
+	virtual void RegisterToMiniMap();
+	virtual void UnregisterFromMiniMap();
 
 protected:
 

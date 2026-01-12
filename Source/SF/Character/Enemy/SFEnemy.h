@@ -7,6 +7,7 @@
 #include "Abilities/GameplayAbilityTypes.h"
 #include "Interface/SFLockOnInterface.h"
 #include "GameplayEffectTypes.h" // FOnAttributeChangeData 사용에 필요
+#include "Interface/SFMiniMapTrackable.h"
 #include "SFEnemy.generated.h"
 
 class USFCombatSet_Enemy;
@@ -18,7 +19,7 @@ class UUserWidget;
 struct FSFEnemyScalingContext;
 
 UCLASS(Blueprintable)
-class SF_API ASFEnemy : public ASFCharacterBase, public ISFLockOnInterface
+class SF_API ASFEnemy : public ASFCharacterBase, public ISFLockOnInterface,public ISFMiniMapTrackable
 {
 	GENERATED_BODY()
 
@@ -56,6 +57,13 @@ public:
 	FName GetName() const;
 
 	void CheckBossDeath();
+
+	//Minimap Interface
+	virtual FVector GetMiniMapWorldPosition_Implementation() const override;
+	virtual EMiniMapIconType GetMiniMapIconType_Implementation() const override;
+	
+	virtual bool ShouldShowOnMiniMap_Implementation() const override;
+	
 	
 protected:
 

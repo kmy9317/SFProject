@@ -10,6 +10,7 @@
 #include "Hero/SFHeroComponent.h"
 #include "Physics/SFCollisionChannels.h"
 #include "Player/SFPlayerState.h"
+#include "System/SFMinimapSubsystem.h"
 #include "Team/SFTeamTypes.h"
 
 ASFCharacterBase::ASFCharacterBase(const FObjectInitializer& ObjectInitializer)
@@ -117,6 +118,15 @@ void ASFCharacterBase::ToggleCrouch()
 void ASFCharacterBase::BeginPlay()
 {
 	Super::BeginPlay();
+	RegisterToMiniMap();
+	
+}
+
+void ASFCharacterBase::EndPlay(const EEndPlayReason::Type EndPlayReason)
+{
+	UnregisterFromMiniMap();
+	
+	Super::EndPlay(EndPlayReason);
 }
 
 void ASFCharacterBase::PossessedBy(AController* NewController)
@@ -172,6 +182,31 @@ void ASFCharacterBase::Tick(float DeltaSeconds)
 	Super::Tick(DeltaSeconds);
 
 	UpdateAnimValue();
+}
+
+void ASFCharacterBase::RegisterToMiniMap()
+{
+	UWorld* World = GetWorld();
+	if (!World) return;
+
+	USFMinimapSubsystem* MiniMap = World->GetSubsystem<USFMinimapSubsystem>();
+	if (!MiniMap)
+	{
+		return;
+	}
+
+	MiniMap->RegisterTarget(this);
+}
+
+void ASFCharacterBase::UnregisterFromMiniMap()
+{
+	UWorld* World = GetWorld();
+	if (!World || World->bIsTearingDown) return;
+	USFMinimapSubsystem* MiniMap = World->GetSubsystem<USFMinimapSubsystem>();
+	if (MiniMap)
+	{
+		MiniMap->UnregisterTarget(this);
+	}
 }
 
 bool ASFCharacterBase::IsFalling() const

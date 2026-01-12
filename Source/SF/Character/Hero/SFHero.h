@@ -4,6 +4,7 @@
 
 #include "CoreMinimal.h"
 #include "Character/SFCharacterBase.h"
+#include "Interface/SFMiniMapTrackable.h"
 #include "SFHero.generated.h"
 
 class USFHeroWidgetComponent;
@@ -14,7 +15,7 @@ class ASFPlayerController;
  * 
  */
 UCLASS()
-class SF_API ASFHero : public ASFCharacterBase
+class SF_API ASFHero : public ASFCharacterBase, public ISFMiniMapTrackable
 {
 	GENERATED_BODY()
 public:
@@ -54,6 +55,11 @@ protected:
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "SF|UI")
 	TObjectPtr<USFHeroWidgetComponent> HeroWidgetComponent;
+
+	//Minimap Interface
+	virtual FVector GetMiniMapWorldPosition_Implementation() const override;
+	virtual EMiniMapIconType GetMiniMapIconType_Implementation() const override;
+	virtual bool ShouldShowOnMiniMap_Implementation() const override;
 
 private:
 	UPROPERTY()

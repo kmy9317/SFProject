@@ -22,6 +22,7 @@
 #include "GameModes/SFStageManagerComponent.h"
 #include "System/SFGameInstance.h"
 #include "Physics/SFCollisionChannels.h"
+#include "System/SFMinimapSubsystem.h"
 
 
 #include UE_INLINE_GENERATED_CPP_BY_NAME(SFEnemy)
@@ -109,7 +110,6 @@ void ASFEnemy::BeginPlay()
 			}
 		}
 	}
-	
 }
 
 void ASFEnemy::PossessedBy(AController* NewController)
@@ -510,4 +510,37 @@ void ASFEnemy::OnAbilitySystemInitialized()
 	}
 	
 	
+}
+
+// Minimap Interface
+FVector ASFEnemy::GetMiniMapWorldPosition_Implementation() const
+{
+	return GetActorLocation();
+}
+
+EMiniMapIconType ASFEnemy::GetMiniMapIconType_Implementation() const
+{
+	if (const USFEnemyData* Data = Cast<USFEnemyData>(EnemyPawnData))
+	{
+		if (Data->EnemyType == SFGameplayTags::Enemy_Type_Boss)
+		{
+			return EMiniMapIconType::Boss;
+		}
+	}
+	return EMiniMapIconType::Enemy;
+}
+
+bool ASFEnemy::ShouldShowOnMiniMap_Implementation() const
+{
+    if (IsValid(this))
+    	return false;
+	
+    if (AbilitySystemComponent)
+    {
+        if (AbilitySystemComponent->HasMatchingGameplayTag(SFGameplayTags::Character_State_Dead))
+        {
+            return false;
+        }
+    }
+    return true;
 }

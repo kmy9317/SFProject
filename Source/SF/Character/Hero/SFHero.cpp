@@ -166,3 +166,25 @@ void ASFHero::OnDownedTagChanged(const FGameplayTag CallbackTag, int32 NewCount)
 		InteractionBox->SetCollisionResponseToChannel(SF_TraceChannel_Interaction, NewResponse);
 	}
 }
+//Minimap Interface
+FVector ASFHero::GetMiniMapWorldPosition_Implementation() const
+{
+	return GetActorLocation();
+}
+
+EMiniMapIconType ASFHero::GetMiniMapIconType_Implementation() const
+{
+	return EMiniMapIconType::Player;
+}
+
+bool ASFHero::ShouldShowOnMiniMap_Implementation() const
+{
+	if (GetAbilitySystemComponent())
+	{
+		if (!GetAbilitySystemComponent()->HasMatchingGameplayTag(SFGameplayTags::Character_State_Dead))
+		{
+			return true;
+		}
+	}
+	return false;
+}
