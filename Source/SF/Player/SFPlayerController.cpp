@@ -29,6 +29,7 @@
 #include "UI/InGame/SFDamageWidget.h"
 #include "LoadingScreenManager.h"
 #include "UI/InGame/StagePrintWidget.h"
+#include "UI/InGame/SFMinimapWidget.h"
 
 ASFPlayerController::ASFPlayerController(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
@@ -57,6 +58,8 @@ void ASFPlayerController::BeginPlay()
 		this, 
 		&ThisClass::OnDamageMessageReceived
 	);
+	
+	CreateMinimapIndicators();
 
 	// 로컬 플레이어인 경우 팀원 표시 로직 실행
 	if (IsLocalController())
@@ -254,6 +257,24 @@ void ASFPlayerController::CreateTeammateIndicators()
 	}
 }
 
+void ASFPlayerController::CreateMinimapIndicators()
+{
+	if (!IsLocalController())
+	{
+		return;
+	}
+	if (MiniMapWidgetClass && !MinimapWidgetInstance)
+	{
+		MinimapWidgetInstance = CreateWidget<USFMinimapWidget>(this, MiniMapWidgetClass);
+		
+		if (MinimapWidgetInstance)
+		{
+			MinimapWidgetInstance->AddToViewport(30);
+		}
+	}
+	
+}
+
 void ASFPlayerController::OnDamageMessageReceived(FGameplayTag Channel, const FSFDamageMessageInfo& Payload)
 {
 	// 유효성 체크 -> 타겟 확인
@@ -364,6 +385,13 @@ void ASFPlayerController::EndPlay(const EEndPlayReason::Type EndPlayReason)
 		}
 	}
 	TeammateWidgetMap.Empty();
+
+	// 4. 미니맵 위젯 정리
+	if (MinimapWidgetInstance)
+	{
+		MinimapWidgetInstance->RemoveFromParent(); 
+		MinimapWidgetInstance = nullptr;          
+	}
 	
 	Super::EndPlay(EndPlayReason);
 }

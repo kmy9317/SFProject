@@ -11,6 +11,7 @@
 struct FSFPermanentUpgradeData;
 class USFBossHUDWidget;
 class UStagePrintWidget;
+class USFMinimapWidget;
 class USFQuickbarComponent;
 class USFItemManagerComponent;
 class USFInventoryManagerComponent;
@@ -99,6 +100,9 @@ protected:
 	
 	// 팀원 위젯 생성 함수
 	void CreateTeammateIndicators();
+
+	// 미니맵 위젯 생성 함수
+	void CreateMinimapIndicators();
 	
 	// 몬스터 데미지 텍스트 메세지 함수 (서버 실행)
 	void OnDamageMessageReceived(FGameplayTag Channel, const FSFDamageMessageInfo& Payload);
@@ -138,6 +142,12 @@ protected:
 	
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "SF_Data")
 	UDataTable* StageDataTable;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "UI|InGame")
+	TSubclassOf<USFMinimapWidget> MiniMapWidgetClass;
+
+	UPROPERTY() 
+	TObjectPtr<USFMinimapWidget> MinimapWidgetInstance;
 	
 private:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "SF|Components", meta = (AllowPrivateAccess = "true"))
