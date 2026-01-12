@@ -1,13 +1,27 @@
 ﻿#include "SFMinimapWidget.h"
 #include "SFMiniMapIcon.h"
 #include "Components/CanvasPanel.h"
+#include "Components/CanvasPanelSlot.h"
 #include "System/SFMinimapSubsystem.h"
 
-void USFMinimapWidget::NativeConstruct()
+void USFMinimapWidget::NativeOnInitialized()
 {
-    Super::NativeConstruct();
+    Super::NativeOnInitialized();
+
+    if (IsDesignTime())
+    {
+        return;
+    }
 
     UWorld* World = GetWorld();
+    if (!World)
+    {
+        if (APlayerController* PC = GetOwningPlayer())
+        {
+            World = PC->GetWorld();
+        }
+    }
+
     if (World)
     {
         MiniMapSubsystem = World->GetSubsystem<USFMinimapSubsystem>();
@@ -15,6 +29,13 @@ void USFMinimapWidget::NativeConstruct()
         {
             MiniMapSubsystem->OnTargetRegistered.AddDynamic(this, &USFMinimapWidget::OnTargetRegistered);
             MiniMapSubsystem->OnTargetUnregistered.AddDynamic(this, &USFMinimapWidget::OnTargetUnregistered);
+            
+            const TArray<TScriptInterface<ISFMiniMapTrackable>>& ExistingTargets = MiniMapSubsystem->GetAllTargets();
+            
+            for (const auto& Target : ExistingTargets)
+            {
+                OnTargetRegistered(Target);
+            }
         }
     }
 }
@@ -45,7 +66,18 @@ void USFMinimapWidget::OnTargetRegistered(TScriptInterface<ISFMiniMapTrackable> 
     if (NewIcon)
     {
         NewIcon->SetTarget(Target);
-        MiniMapCanvas->AddChild(NewIcon);
+        
+        UPanelSlot* PanelSlot = MiniMapCanvas->AddChild(NewIcon);
+        
+        if (UCanvasPanelSlot* CanvasSlot = Cast<UCanvasPanelSlot>(PanelSlot))
+        {
+            CanvasSlot->SetAnchors(FAnchors(0.5f));
+            CanvasSlot->SetAlignment(FVector2D(0.5f, 0.5f));
+            CanvasSlot->SetAutoSize(true);
+            CanvasSlot->SetPosition(FVector2D::ZeroVector);
+            CanvasSlot->SetZOrder(10);
+        }
+
         TargetIcons.Add(Target.GetObject(), NewIcon);
     }
 }
@@ -72,10 +104,8 @@ void USFMinimapWidget::UpdateIconPositions()
     APawn* PlayerPawn = PC->GetPawn();
     if (!PlayerPawn) return;
 
-    // 1. 내 위치 (미니맵의 중심)
     FVector PlayerLoc = PlayerPawn->GetActorLocation();
     
-    // PlayerPawn->GetActorRotation() 대신 카메라 매니저
     FRotator ViewRot = FRotator::ZeroRotator;
     if (PC->PlayerCameraManager)
     {
@@ -83,7 +113,6 @@ void USFMinimapWidget::UpdateIconPositions()
     }
     else
     {
-        // 예외적으로 카메라 매니저가 없을 때만 폰 회전 사용
         ViewRot = PlayerPawn->GetActorRotation();
     }
     
@@ -95,22 +124,16 @@ void USFMinimapWidget::UpdateIconPositions()
         if (!IsValid(TargetObj) || !IsValid(IconWidget)) continue;
         
         FVector TargetLoc = ISFMiniMapTrackable::Execute_GetMiniMapWorldPosition(TargetObj);
-        
         FVector RelativeLoc = TargetLoc - PlayerLoc;
-        
         FVector UnrotatedLoc = RelativeLoc.RotateAngleAxis(-ViewRot.Yaw, FVector::UpVector);
         
         FVector2D FinalPos;
-        
         FinalPos.X = UnrotatedLoc.Y / MiniMapScale; 
-        
         FinalPos.Y = -UnrotatedLoc.X / MiniMapScale;
         
         if (FinalPos.Size() > MapRadius)
         {
             FinalPos = FinalPos.GetSafeNormal() * MapRadius;
-            
-            
             IconWidget->SetRenderOpacity(0.5f);
         }
         else
