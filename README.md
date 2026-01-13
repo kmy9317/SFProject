@@ -53,16 +53,5 @@
 
 ### 2) PlayFab (영구 데이터 관리)
 - **GameInstanceSubsystem**을 활용해 게임 생명주기와 동기화된 데이터 관리.
-- **JSON 직렬화**: 유저 데이터 구조체를 JSON으로 변환하여 PlayFab UserData에 저장/로드.
-- **네트워크 보장**: 멀티플레이 환경에서 서버 권한 반영을 위해 `PlayerState` 준비 시점을 기다리는 **재시도 타이머 로직** 적용.
-
+- **JSON 직렬화**: 유저 데이터 구조체를 JSON으로 변환하여 PlayFab UserData에 저장동
 ---
-
-## 🏃 캐릭터 및 로코모션 (Locomotion)
-
-### Advanced Locomotion System
-**"네트워크 환경을 고려한 예측형 이동 시스템"**
-
-* **Predictiv동
----
-
