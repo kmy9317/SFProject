@@ -103,10 +103,8 @@
 ### 1) 몬스터 아키텍처
 * **통합 프레임워크**: `ASFCharacterBase`를 상속받는 일반 몬스터와 보스의 공통 전투 로직 구축.
 * **Data-Driven 설계**: `USFEnemyData` 에셋을 통해 BT, 상태 머신, 몽타주, 스탯을 코드 수정 없이 관리.
-* **Wave System**: DataTable 기반 웨이브 관리 및 `Preload Subsystem`을 통한 비동기 에셋 로딩으로 스폰 시 히치(Hitch) 방지.
-
 ### 2) 지능형 행동 제어
-* **Hybrid AI**: `AIPerception` 기반 타겟팅 + `USFEnemyCombatComponent`를 통한 거리/각도 기반 최적 어빌리티 선택(`SelectAbility`).
+* **Hybrid AI**: `AIPerception`, Threat 등 몬스터별로 각기 다른 타겟팅 시스템구현  + `USFEnemyCombatComponent`를 통한 거리/각도 기반 최적 어빌리티 선택(`SelectAbility`).
 * **Dragon Movement**: `Grounded`부터 `Diving`, `Hovering`까지 포함된 비행 상태 머신 구현.
 * **GAS 기반 공격**: 모든 패턴을 `GameplayAbility`로 구현하고 `CalcAIScore`를 통해 AI가 최적의 패턴을 선택하도록 설계.
 
