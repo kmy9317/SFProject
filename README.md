@@ -19,12 +19,16 @@
 ---
 
 ## 📽 프로젝트 소개 & 시연
-* **장르**: 3인칭 로그라이크 멀티플레이
-* **주요 특징**: 고성능 멀티플레이 동기화, 보스전 패턴 AI, GAS 기반 전투 시스템
 
-| Demo Video | Ending Cinematic | Presentation |
+* **장르**: 3인칭 로그라이크 멀티플레이  
+* **주요 특징**: 고성능 멀티플레이 동기화, 보스전 패턴 AI, GAS 기반 전투 시스템  
+
+| Demo Video | Cinematic | Presentation |
 | :---: | :---: | :---: |
-| [![Demo](https://img.youtube.com/vi/mScI6zura8E/0.jpg)](https://youtu.be/mScI6zura8E) | [![Ending](https://img.youtube.com/vi/Rgv1000JS2A/0.jpg)](https://youtu.be/Rgv1000JS2A) | [![PPT]()](https://www.canva.com/design/DAG9z8Sl1V4/CFxDLYju_2sQO6aJiEy08w/edit) |
+| [![Demo](https://github.com/user-attachments/assets/29ce31fd-15bc-476f-9364-9f841f99bae0)](https://www.youtube.com/watch?v=5vq2L-Wd2ok&t=302s) | [![Ending](https://github.com/user-attachments/assets/29ce31fd-15bc-476f-9364-9f841f99bae0)](https://www.youtube.com/watch?v=zWCPcy0zPuE&t=6s) | [![PPT](https://github.com/user-attachments/assets/29ce31fd-15bc-476f-9364-9f841f99bae0)](https://www.canva.com/design/DAG9z8Sl1V4/CFxDLYju_2sQO6aJiEy08w/edit) |
+
+|
+
 
 ---
 
