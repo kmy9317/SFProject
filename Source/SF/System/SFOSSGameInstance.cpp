@@ -19,6 +19,7 @@ void USFOSSGameInstance::Init()
 	Super::Init();
 
 	//OS 유효성 확인
+	// OSS는 엔진 레벨에서 관리, 
 	OnlineSubsystem = IOnlineSubsystem::Get();
 	if (!OnlineSubsystem)
 	{
@@ -64,33 +65,25 @@ void USFOSSGameInstance::CreateGameSession(const FString& RoomName, bool bProtec
 		return;
 	}
 
-	//기존 세션이 존재하면 삭제 후 생성
+	// 세션 설정 준비
+	PrepareSessionSettings(RoomName, bProtected, MaxPlayers);
+
+	// 기존 세션 존재 시 삭제 후 생성
 	if (SessionInterface->GetNamedSession(GAME_SESSION_NAME))
 	{
 		bWantsCreateAfterDestroy = true;
-
-		PendingCreateSettings = MakeShared<FOnlineSessionSettings>();
-		PendingCreateSettings->bIsLANMatch = false;
-		PendingCreateSettings->bIsDedicated = false;
-		PendingCreateSettings->NumPublicConnections = MaxPlayers;
-		PendingCreateSettings->bShouldAdvertise = true;
-		PendingCreateSettings->bAllowJoinInProgress = true;
-		PendingCreateSettings->bAllowJoinViaPresence = true;
-		PendingCreateSettings->bUsesPresence = true;
-		PendingCreateSettings->bUseLobbiesIfAvailable = true;
-		PendingCreateSettings->BuildUniqueId = 1;
-
-		PendingCreateSettings->Set(TEXT("PASSWORD"), SessionPassword, EOnlineDataAdvertisementType::ViaOnlineServiceAndPing);
-		PendingCreateSettings->Set(TEXT("ROOM_NAME"), RoomName, EOnlineDataAdvertisementType::ViaOnlineServiceAndPing);
-		PendingCreateSettings->Set(TEXT("PROTECTED"), bProtected, EOnlineDataAdvertisementType::ViaOnlineServiceAndPing);
-
 		SessionInterface->AddOnDestroySessionCompleteDelegate_Handle(
 			FOnDestroySessionCompleteDelegate::CreateUObject(this, &USFOSSGameInstance::OnDestroySessionComplete));
 		SessionInterface->DestroySession(GAME_SESSION_NAME);
 		return;
 	}
 
-	//없을 경우 바로 생성
+	//실제 생성 호출
+	InternalCreateSession();
+}
+
+void USFOSSGameInstance::PrepareSessionSettings(const FString& RoomName, bool bProtected, int32 MaxPlayers)
+{
 	PendingCreateSettings = MakeShared<FOnlineSessionSettings>();
 	PendingCreateSettings->bIsLANMatch = false;
 	PendingCreateSettings->bIsDedicated = false;
@@ -105,9 +98,6 @@ void USFOSSGameInstance::CreateGameSession(const FString& RoomName, bool bProtec
 	PendingCreateSettings->Set(TEXT("PASSWORD"), SessionPassword, EOnlineDataAdvertisementType::ViaOnlineServiceAndPing);
 	PendingCreateSettings->Set(TEXT("ROOM_NAME"), RoomName, EOnlineDataAdvertisementType::ViaOnlineServiceAndPing);
 	PendingCreateSettings->Set(TEXT("PROTECTED"), bProtected, EOnlineDataAdvertisementType::ViaOnlineServiceAndPing);
-
-	//실제 생성 호출
-	InternalCreateSession();
 }
 
 //실질적으로 세션이 생성되는 위치
@@ -135,6 +125,8 @@ void USFOSSGameInstance::OnCreateSessionComplete(FName SessionName, bool bWasSuc
 	{
 		UE_LOG(LogTemp, Warning, TEXT("[CreateSessionComplete] Session created successfully: %s"), *SessionName.ToString());
 		CurrentSessionName = SessionName.ToString();
+
+		// UI에 성공 알림
 		OnCreateSessionComplete_Sig.Broadcast(true, TEXT("Session created"));
 
 		//Listen 서버로 레벨 오픈
@@ -233,6 +225,8 @@ void USFOSSGameInstance::FindSessions(bool bIncludePasswordProtected)
 	SessionSearch = MakeShareable(new FOnlineSessionSearch());
 	SessionSearch->bIsLanQuery = false;
 	SessionSearch->MaxSearchResults = 999999;
+
+	// Presence 기반 검색 (Steam Lobby)
 	SessionSearch->QuerySettings.Set(SEARCH_PRESENCE, true, EOnlineComparisonOp::Equals);
 	
 	SessionInterface->AddOnFindSessionsCompleteDelegate_Handle(
@@ -321,16 +315,16 @@ void USFOSSGameInstance::OnJoinSessionComplete(FName SessionName, EOnJoinSession
 		return;
 	}
 
-	//Join 성공 시 실행
+	//Join 성공 시 실행 (여기서 성공했다는 건 "예약 성공"이라는 뜻)
 	if (Result == EOnJoinSessionCompleteResult::Success)
 	{
 		FString ConnectString;
-		//접속 주소 얻기
+		// 서버 접속 주소 획득 ("그래서 거기로 가려면 주소가 뭔데?"라고 물어보는 과정 아직 연결 x)
 		if (SessionInterface->GetResolvedConnectString(SessionName, ConnectString))
 		{
 			FString FinalConnectString = ConnectString;
 
-			//입력된 비밀번호가 존재하면 ConnectString에 추가
+			// 비밀번호가 있으면 URL 파라미터로 추가
 			if (!LastInputPassword.IsEmpty())
 			{
 				FinalConnectString += FString::Printf(TEXT("?Password=%s"), *LastInputPassword);
@@ -341,6 +335,8 @@ void USFOSSGameInstance::OnJoinSessionComplete(FName SessionName, EOnJoinSession
 			if (PC)
 			{
 				UE_LOG(LogTemp, Log, TEXT("ClientTravel to %s"), *ConnectString);
+
+				// 이 함수가 실행되어야 비로소 "연결 시도"가 시작
 				PC->ClientTravel(FinalConnectString, TRAVEL_Absolute);
 				OnJoinSessionComplete_Sig.Broadcast(true, TEXT("Joined session"));
 			}

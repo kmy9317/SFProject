@@ -44,7 +44,7 @@ void ASFLobbyGameState::RemovePlayerSelection(const APlayerState* LeavingPlayer)
 
 	int32 RemovedIndex = PlayerSelectionArray.IndexOfByPredicate([&](const FSFPlayerSelectionInfo& Selection)
 	{
-		// TODO : Editor에서는 PlayerName으로 Player를 찾는데(중복 될 수 있음)실제 패키징시 UniqueID로 찾음
+		// Editor에서는 PlayerName으로 Player를 찾는데(중복 될 수 있음)실제 패키징시 UniqueID로 찾음
 		return Selection.IsForPlayer(LeavingPlayer);
 	});
 

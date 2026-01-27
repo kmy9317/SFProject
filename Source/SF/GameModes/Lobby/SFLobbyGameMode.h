@@ -57,7 +57,8 @@ private:
 private:
 	UPROPERTY()
 	TObjectPtr<ASFLobbyGameState> LobbyGameState;
-	
+
+	/** 접속한 PC 목록 관리 */
 	UPROPERTY()
 	TArray<TObjectPtr<APlayerController>> PCs;
 	

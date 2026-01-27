@@ -39,9 +39,11 @@ private:
 	void OnRep_PlayerSelectionArray();
 
 public:
+	// 선택 정보 변경시 브로드캐스트 (서버/클라이언트 모두)
 	FOnPlayerSelectionUpdated OnPlayerSelectionUpdated;
 
 private:
+	// 모든 플레이어의 선택 정보
 	UPROPERTY(ReplicatedUsing = OnRep_PlayerSelectionArray)
 	TArray<FSFPlayerSelectionInfo> PlayerSelectionArray;
 };

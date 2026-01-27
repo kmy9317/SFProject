@@ -33,6 +33,7 @@ void ASFLobbyGameMode::BeginPlay()
 
 void ASFLobbyGameMode::PostLogin(APlayerController* NewPlayer)
 {
+	// Host(listen server)의 경우 BeginPlay 보다 먼저 호출
 	Super::PostLogin(NewPlayer);
 
 	if (!NewPlayer)
@@ -42,8 +43,8 @@ void ASFLobbyGameMode::PostLogin(APlayerController* NewPlayer)
 
 	// PCs 배열에 추가
 	PCs.AddUnique(NewPlayer);
-	WaitForPlayerSlotsAndUpdate();
 
+	WaitForPlayerSlotsAndUpdate();
 	UpdateStartButtonState();
 }
 
@@ -59,8 +60,8 @@ void ASFLobbyGameMode::HandleSeamlessTravelPlayer(AController*& Controller)
 
 	// PostLogin과 동일한 로직
 	PCs.AddUnique(PC);
-	WaitForPlayerSlotsAndUpdate();
 	
+	WaitForPlayerSlotsAndUpdate();
 	UpdateStartButtonState();
 }
 
@@ -208,7 +209,6 @@ void ASFLobbyGameMode::AddConnectedPlayer(APlayerController* PC)
 		{
 			// 현재 Slot이 관리중인 HeroDisplay 업데이트
 			Slot->AddPlayer(PC);
-
 			
 			if (ASFLobbyPlayerState* LobbyPS = PC->GetPlayerState<ASFLobbyPlayerState>())
 			{
@@ -244,7 +244,7 @@ void ASFLobbyGameMode::RemoveDisconnectedPlayers()
 		
 		APlayerController* ValidPC = Slot->GetCurrentPC();
 
-		// Logout 함수에서 Pcs 배열 목록에서 PC 제거 했으니 PCs 배열에 없는 경우 PlayerSelection 및 Slot에서 제거
+		// Logout 함수의 Pcs 배열 목록에서 PC 제거 했으니 PCs 배열에 없는 경우 PlayerSelection 및 Slot에서 제거
 		if (!PCs.Contains(ValidPC))
 		{
 			if (APlayerState* PS = ValidPC->GetPlayerState<APlayerState>())

@@ -114,9 +114,11 @@ public:
 	}
 	
 private:
+	// 슬롯 번호(1P ~ 4P)
 	UPROPERTY(BlueprintReadOnly, meta = (AllowPrivateAccess = "true"))
 	uint8 Slot;
 
+	// 플레이어 식별용
 	UPROPERTY(BlueprintReadOnly, meta = (AllowPrivateAccess = "true"))
 	FUniqueNetIdRepl PlayerUniqueId;
 

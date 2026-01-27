@@ -89,9 +89,9 @@ public:
 	//========================================================================================
 	
 	//=====================================UI 델리게이트========================================
-	FOnSessionsUpdated OnSessionsUpdated;
-	FOnCreateSessionComplete_Sig OnCreateSessionComplete_Sig;
-	FOnJoinSessionComplete_Sig OnJoinSessionComplete_Sig;
+	FOnSessionsUpdated OnSessionsUpdated; // 세션 목록 갱신시 
+	FOnCreateSessionComplete_Sig OnCreateSessionComplete_Sig; // 세션 생성 완료 시 
+	FOnJoinSessionComplete_Sig OnJoinSessionComplete_Sig; // 세션 참가 완료 시
 	//========================================================================================
 	
 	//=========================================Get()==========================================
@@ -110,32 +110,34 @@ public:
 	}
 	const FString& GetSessionPassword() const { return SessionPassword; }
 	bool IsSessionPasswordProtected() const { return bIsSessionPasswordProtected; }
-	//========================================================================================
 
-	//======================================기타 등등===========================================
-	
 protected:
-	IOnlineSubsystem* OnlineSubsystem = nullptr;
-	TSharedPtr<FOnlineSessionSearch> SessionSearch;
-	IOnlineSessionPtr SessionInterface;
 
-	bool bIsLoggedIn = false;
-	FString PlayerName;
-	FString CurrentSessionName;
+	// ========== OSS 관련 ==========
+	IOnlineSubsystem* OnlineSubsystem = nullptr; // Steam or NULL 세션
+	IOnlineSessionPtr SessionInterface; // 세션 인터페이스(세션 관리 기능 담당)
+	TSharedPtr<FOnlineSessionSearch> SessionSearch; // 검색 결과 저장
+	
+	// ========== 상태 변수 ==========
+	bool bIsLoggedIn = false; // 로그인 상태 
+	FString PlayerName; // 플레이어 이름
+	FString CurrentSessionName; // 검색된 세션 목록
 
 	TArray<FSessionInfo> AvailableSessions;
 	bool bShowPasswordProtected = true;
 	
 	bool bWantsCreateAfterDestroy = false;
 	TSharedPtr<FOnlineSessionSettings> PendingCreateSettings;
-	
+
+	void PrepareSessionSettings(const FString& RoomName, bool bProtected, int32 MaxPlayers);
 	void InternalCreateSession();
 	void ClearSessionSearch();
 
 private:
-	FString SessionPassword;
-	bool bIsSessionPasswordProtected = false;
 
-	FString LastInputPassword;
-	//========================================================================================
+	// ========== 비밀번호 관련 ==========
+	FString SessionPassword;                     // 세션 비밀번호
+	bool bIsSessionPasswordProtected;            // 비밀번호 보호 여부
+	FString LastInputPassword;                   // 참가 시 입력한 비밀번호
+
 };
