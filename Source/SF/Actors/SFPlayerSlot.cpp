@@ -3,7 +3,8 @@
 #include "Character/Hero/SFHeroDefinition.h"
 #include "Actors/SFHeroDisplay.h"
 #include "SFLogChannels.h"
-#include "Player/SFPlayerState.h"
+#include "GameModes/Lobby/SFLobbyGameMode.h"
+#include "Player/Lobby/SFLobbyPlayerState.h"
 
 ASFPlayerSlot::ASFPlayerSlot()
 {
@@ -30,6 +31,12 @@ void ASFPlayerSlot::BeginPlay()
 	{
 		// HeroDisplay 미리 스폰
 		SpawnHeroDisplay();
+		
+		// PlayerSlot 등록 요청
+		if (ASFLobbyGameMode* LobbyGM = GetWorld()->GetAuthGameMode<ASFLobbyGameMode>())
+		{
+			LobbyGM->RegisterPlayerSlot(this);
+		}
 	}
 }
 
@@ -86,9 +93,9 @@ void ASFPlayerSlot::AddPlayer(APlayerController* InPC)
 		return;
 	}
 
-	if (ASFPlayerState* SFPlayerState = CachedPC->GetPlayerState<ASFPlayerState>())
+	if (ASFLobbyPlayerState* LobbyPS = CachedPC->GetPlayerState<ASFLobbyPlayerState>())
 	{
-		USFHeroDefinition* HeroDef  = SFPlayerState->GetPlayerSelection().GetHeroDefinition();
+		USFHeroDefinition* HeroDef  = LobbyPS->GetPlayerSelection().GetHeroDefinition();
 		UpdateHeroDisplay(HeroDef);
 	}
 }
@@ -127,14 +134,16 @@ void ASFPlayerSlot::UpdatePlayerDisplay(USFHeroDefinition* HeroDef, const FSFPla
 
 void ASFPlayerSlot::UpdateHeroDisplay(USFHeroDefinition* HeroDefinition)
 {
-	if (!HeroDisplay || !HeroDefinition)
+	if (HeroDisplay)
 	{
-		return;
+		HeroDisplay->SetActorHiddenInGame(false);
 	}
-
-	HeroDisplay->UpdateHeroDefination(HeroDefinition);
-	HeroDisplay->SetActorTransform(Arrow->GetComponentTransform());
-	HeroDisplay->SetActorHiddenInGame(false);
+	
+	if (HeroDefinition)
+	{
+		HeroDisplay->UpdateHeroDefination(HeroDefinition);
+		HeroDisplay->SetActorTransform(Arrow->GetComponentTransform());
+	}
 }
 
 
