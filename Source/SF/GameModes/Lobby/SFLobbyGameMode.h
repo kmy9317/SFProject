@@ -2,6 +2,7 @@
 
 #include "CoreMinimal.h"
 #include "GameFramework/GameModeBase.h"
+#include "Player/SFPlayerInfoTypes.h"
 #include "SFLobbyGameMode.generated.h"
 
 class ASFLobbyGameState;
@@ -31,7 +32,7 @@ public:
 	
 	void RegisterPlayerSlot(ASFPlayerSlot* NewSlot);
 	
-	void OnPlayerReadyChanged(APlayerController* PC);
+	void OnPlayerInfoChanged(APlayerController* PC);
 	void UpdateHeroDisplayForPlayer(APlayerController* PC);
 
 private:
@@ -42,10 +43,7 @@ private:
 	void AssignSlotsToNewPlayers();
 
 	void RefreshSlotVisuals();
-
-	/** PC가 이미 어떤 슬롯에 추가되어 있는지 확인 */
-	bool IsPCAlreadyAdded(APlayerController* PC) const;
-
+	
 	/** 빈 슬롯 찾아서 PC 추가 */
 	void AddPlayerToSlot(APlayerController* PC, ASFPlayerSlot* Slot);
 
@@ -54,6 +52,11 @@ private:
 
 	/** 현재 플레이어 상태에 따른 Start 버튼 업데이트 */
 	void UpdateStartButtonState();
+
+	ASFPlayerSlot* FindSlotByID(uint8 SlotID) const;
+	const FSFPlayerSelectionInfo* FindSelectionForPC(APlayerController* PC) const;
+	APlayerController* FindPCForSelection(const FSFPlayerSelectionInfo& Selection) const;
+	FSFPlayerInfo CreateDisplayInfoFromGameState(APlayerController* PC) const;
 
 protected:
 	// 플레이 최대 인원수

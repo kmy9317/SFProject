@@ -26,6 +26,7 @@ void ASFLobbyPlayerState::BeginPlay()
 	if (LobbyGameState)
 	{
 		LobbyGameState->OnPlayerSelectionUpdated.AddUObject(this, &ThisClass::PlayerSelectionUpdated);
+		PlayerSelectionUpdated(LobbyGameState->GetPlayerSelections());
 	}
 }
 
@@ -68,7 +69,7 @@ void ASFLobbyPlayerState::Server_SetReady_Implementation(bool bInReady)
 	// GameMode에 알림 (HeroDisplay 업데이트용) TODO ; 리스너가 3개 이상 필요하면 GameState 델리게이트 패턴 고려
 	if (ASFLobbyGameMode* LobbyGM = GetWorld()->GetAuthGameMode<ASFLobbyGameMode>())
 	{
-		LobbyGM->OnPlayerReadyChanged(GetPlayerController());
+		LobbyGM->OnPlayerInfoChanged(GetPlayerController());
 	}
 }
 
@@ -97,23 +98,13 @@ void ASFLobbyPlayerState::Server_SetSelectedHeroDefinition_Implementation(USFHer
 	// 내부적으로 HeroDisplay 업데이트 호출 TODO : 리스너가 3개 이상 필요하면 GameState 델리게이트 패턴 고려
 	if (ASFLobbyGameMode* LobbyGM = GetWorld()->GetAuthGameMode<ASFLobbyGameMode>())
 	{
-		LobbyGM->OnPlayerReadyChanged(GetPlayerController());
+		LobbyGM->OnPlayerInfoChanged(GetPlayerController());
 	}
 }
 
 bool ASFLobbyPlayerState::Server_SetSelectedHeroDefinition_Validate(USFHeroDefinition* NewDefinition)
 {
 	return true;
-}
-
-FSFPlayerInfo ASFLobbyPlayerState::CreateDisplayInfo() const
-{
-	FSFPlayerInfo DisplayInfo;
-	DisplayInfo.PC = GetPlayerController();
-	DisplayInfo.PS = const_cast<APlayerState*>(static_cast<const APlayerState*>(this));
-	DisplayInfo.PlayerName = PlayerSelection.GetPlayerNickname();
-	DisplayInfo.bReady = PlayerSelection.IsReady();
-	return DisplayInfo;
 }
 
 void ASFLobbyPlayerState::PlayerSelectionUpdated(const TArray<FSFPlayerSelectionInfo>& NewPlayerSelections)

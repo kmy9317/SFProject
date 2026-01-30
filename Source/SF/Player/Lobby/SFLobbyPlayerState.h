@@ -36,9 +36,6 @@ public:
 	bool IsReady() const { return PlayerSelection.IsReady(); }
 	const FSFPlayerSelectionInfo& GetPlayerSelection() const { return PlayerSelection; }
 
-	// HeroDisplay용 정보 생성
-	FSFPlayerInfo CreateDisplayInfo() const;
-
 private:
 	// GameState 델리게이트 콜백
 	void PlayerSelectionUpdated(const TArray<FSFPlayerSelectionInfo>& NewPlayerSelections);

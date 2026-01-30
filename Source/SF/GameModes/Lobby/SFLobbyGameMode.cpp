@@ -111,29 +111,13 @@ void ASFLobbyGameMode::AssignSlotsToNewPlayers()
 	
 	for (APlayerController* PC : PCs)
 	{
-		if (!PC)
+		if (!PC || !PC->PlayerState)
 		{
 			continue;
-		}
-		ASFLobbyPlayerState* LobbyPS = PC->GetPlayerState<ASFLobbyPlayerState>();
-		if (!LobbyPS)
-		{
-			continue;
-		}
-		
-		// 이미 자리를 배정받았는지 GameState를 통해 확인
-		bool bAlreadyAssigned = false;
-		const TArray<FSFPlayerSelectionInfo>& Selections = LobbyGameState->GetPlayerSelections();
-		for (const FSFPlayerSelectionInfo& Info : Selections)
-		{
-			if (Info.IsForPlayer(LobbyPS)) // 이미 배정된 기록이 있음
-			{
-				bAlreadyAssigned = true;
-				break;
-			}
 		}
 
-		if (bAlreadyAssigned)
+		// 이미 자리를 배정받았는지 확인
+		if (FindSelectionForPC(PC))
 		{
 			continue;
 		}
@@ -152,7 +136,7 @@ void ASFLobbyGameMode::AssignSlotsToNewPlayers()
 
 		if (NewSlotID != 255)
 		{
-			LobbyGameState->AddPlayerSelection(LobbyPS, NewSlotID);
+			LobbyGameState->AddPlayerSelection(PC->PlayerState, NewSlotID);
 		}
 	}
 }
@@ -168,57 +152,18 @@ void ASFLobbyGameMode::RefreshSlotVisuals()
     
 	for (const FSFPlayerSelectionInfo& Selection : Selections)
 	{
-		uint8 TargetSlotID = Selection.GetPlayerSlot(); // 내 자리 번호
-        
-		// 로딩된 슬롯들 중에서 내 번호(TargetSlotID)를 가진 슬롯 찾기
-		ASFPlayerSlot* MySlot = nullptr;
-		for (ASFPlayerSlot* Slot : PlayerSlots)
-		{
-			if (Slot->GetSlotID() == TargetSlotID)
-			{
-				MySlot = Slot;
-				break;
-			}
-		}
-
-		// 슬롯을 찾았고, 그 슬롯에 아직 PC가 안 앉아있다면 착석
-		if (MySlot && !MySlot->GetCurrentPC())
-		{
-			APlayerController* TargetPC = nullptr;
-			for (APlayerController* PC : PCs)
-			{
-				if (PC && PC->PlayerState && Selection.IsForPlayer(PC->PlayerState))
-				{
-					TargetPC = PC;
-					break;
-				}
-			}
-            
-			if (TargetPC)
-			{
-				AddPlayerToSlot(TargetPC, MySlot);
-			}
-		}
-	}
-}
-
-bool ASFLobbyGameMode::IsPCAlreadyAdded(APlayerController* PC) const
-{
-	// === PlayerSlots를 순회하면서 해당 PC가 있는지 확인 ===
-	for (ASFPlayerSlot* Slot : PlayerSlots)
-	{
-		if (!Slot)
+		ASFPlayerSlot* Slot = FindSlotByID(Selection.GetPlayerSlot());
+		if (!Slot || Slot->GetCurrentPC())
 		{
 			continue;
 		}
-
-		if (Slot->GetCurrentPC() == PC)
+        
+		APlayerController* TargetPC = FindPCForSelection(Selection);
+		if (TargetPC)
 		{
-			return true;
+			AddPlayerToSlot(TargetPC, Slot);
 		}
 	}
-
-	return false;
 }
 
 void ASFLobbyGameMode::AddPlayerToSlot(APlayerController* PC, ASFPlayerSlot* Slot)
@@ -228,14 +173,14 @@ void ASFLobbyGameMode::AddPlayerToSlot(APlayerController* PC, ASFPlayerSlot* Slo
 		return;
 	}
 
-	// 현재 Slot이 관리중인 HeroDisplay 업데이트
+	// 현재 Slot에 PC 추가
 	Slot->AddPlayer(PC);
 	
-	if (ASFLobbyPlayerState* LobbyPS = PC->GetPlayerState<ASFLobbyPlayerState>())
+	const FSFPlayerSelectionInfo* Selection = FindSelectionForPC(PC);
+	if (Selection)
 	{
-		// PlayerInfo 초기화 TODO : PlayerInfo 정보를 PlayerSelectionInfo로 통합 고려
-		const FSFPlayerSelectionInfo& Selection = LobbyPS->GetPlayerSelection();
-		Slot->UpdatePlayerDisplay(Selection.GetHeroDefinition(), LobbyPS->CreateDisplayInfo());
+		// 슬롯의 HeroDisplay 업데이트
+		Slot->UpdatePlayerDisplay(Selection->GetHeroDefinition(), CreateDisplayInfoFromGameState(PC));
 	}
 }
 
@@ -253,22 +198,22 @@ void ASFLobbyGameMode::RemoveDisconnectedPlayers()
 			continue;
 		}
 		
-		APlayerController* ValidPC = Slot->GetCurrentPC();
-
-		// Logout 함수의 Pcs 배열 목록에서 PC 제거 했으니 PCs 배열에 없는 경우 PlayerSelection 및 Slot에서 제거
-		if (!PCs.Contains(ValidPC))
+		APlayerController* SlotPC = Slot->GetCurrentPC();
+		if (PCs.Contains(SlotPC))
 		{
-			if (APlayerState* PS = ValidPC->GetPlayerState<APlayerState>())
-			{
-				LobbyGameState->RemovePlayerSelection(PS);  
-			}
-			// Slot에서 PC 제거
-			Slot->RemovePlayer(ValidPC);
+			continue;
 		}
+
+		// 로그아웃한 플레이어 정리
+		if (APlayerState* PS = SlotPC->GetPlayerState<APlayerState>())
+		{
+			LobbyGameState->RemovePlayerSelection(PS);  
+		}
+		Slot->RemovePlayer(SlotPC);
 	}
 }
 
-void ASFLobbyGameMode::OnPlayerReadyChanged(APlayerController* PC)
+void ASFLobbyGameMode::OnPlayerInfoChanged(APlayerController* PC)
 {
 	if (!PC)
 	{
@@ -281,8 +226,7 @@ void ASFLobbyGameMode::OnPlayerReadyChanged(APlayerController* PC)
 
 void ASFLobbyGameMode::UpdateHeroDisplayForPlayer(APlayerController* PC)
 {
-	ASFLobbyPlayerState* LobbyPS = PC->GetPlayerState<ASFLobbyPlayerState>();
-	if (!LobbyPS)
+	if (!PC || !LobbyGameState)
 	{
 		return;
 	}
@@ -294,8 +238,11 @@ void ASFLobbyGameMode::UpdateHeroDisplayForPlayer(APlayerController* PC)
 			continue;
 		}
 		
-		const FSFPlayerSelectionInfo& Selection = LobbyPS->GetPlayerSelection();
-		Slot->UpdatePlayerDisplay(Selection.GetHeroDefinition(), LobbyPS->CreateDisplayInfo());
+		const FSFPlayerSelectionInfo* Selection = FindSelectionForPC(PC);
+		if (Selection)
+		{
+			Slot->UpdatePlayerDisplay(Selection->GetHeroDefinition(), CreateDisplayInfoFromGameState(PC));
+		}
 		break;
 	}
 }
@@ -319,4 +266,65 @@ void ASFLobbyGameMode::UpdateStartButtonState()
 			}
 		}
 	}
+}
+
+ASFPlayerSlot* ASFLobbyGameMode::FindSlotByID(uint8 SlotID) const
+{
+	for (ASFPlayerSlot* Slot : PlayerSlots)
+	{
+		if (Slot && Slot->GetSlotID() == SlotID)
+		{
+			return Slot;
+		}
+	}
+	return nullptr;
+}
+
+const FSFPlayerSelectionInfo* ASFLobbyGameMode::FindSelectionForPC(APlayerController* PC) const
+{
+	if (!PC || !PC->PlayerState || !LobbyGameState)
+	{
+		return nullptr;
+	}
+    
+	APlayerState* PS = PC->PlayerState;
+	const TArray<FSFPlayerSelectionInfo>& Selections = LobbyGameState->GetPlayerSelections();
+    
+	return Selections.FindByPredicate([PS](const FSFPlayerSelectionInfo& Info)
+	{
+		return Info.IsForPlayer(PS);
+	});
+}
+
+APlayerController* ASFLobbyGameMode::FindPCForSelection(const FSFPlayerSelectionInfo& Selection) const
+{
+	for (APlayerController* PC : PCs)
+	{
+		if (PC && PC->PlayerState && Selection.IsForPlayer(PC->PlayerState))
+		{
+			return PC;
+		}
+	}
+	return nullptr;
+}
+
+FSFPlayerInfo ASFLobbyGameMode::CreateDisplayInfoFromGameState(APlayerController* PC) const
+{
+	FSFPlayerInfo DisplayInfo;
+    
+	if (!PC)
+	{
+		return DisplayInfo;
+	}
+    
+	const FSFPlayerSelectionInfo* Selection = FindSelectionForPC(PC);
+	if (Selection)
+	{
+		DisplayInfo.PC = PC;
+		DisplayInfo.PS = PC->PlayerState;
+		DisplayInfo.PlayerName = Selection->GetPlayerNickname();
+		DisplayInfo.bReady = Selection->IsReady();
+	}
+    
+	return DisplayInfo;
 }
