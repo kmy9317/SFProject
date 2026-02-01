@@ -8,12 +8,12 @@
 #include "Player/SFPlayerInfoTypes.h"
 #include "Player/Lobby/SFLobbyPlayerController.h"
 #include "Player/Lobby/SFLobbyPlayerState.h"
+#include "System/SFOSSGameInstance.h"
 #include "UI/Lobby/SFLobbyWidget.h"
 
 ASFLobbyGameMode::ASFLobbyGameMode()
 {
 	bUseSeamlessTravel = true;
-	bSlotsInit = false;
 }
 
 void ASFLobbyGameMode::InitGameState()
@@ -26,13 +26,36 @@ void ASFLobbyGameMode::InitGameState()
 void ASFLobbyGameMode::BeginPlay()
 {
 	Super::BeginPlay();
+}
+
+void ASFLobbyGameMode::PreLogin(const FString& Options, const FString& Address, const FUniqueNetIdRepl& UniqueId, FString& ErrorMessage)
+{
+	// 비밀번호 검증
+	USFOSSGameInstance* OSSGI = GetGameInstance<USFOSSGameInstance>();
+	if (OSSGI)
+	{
+		FString InputPassword = UGameplayStatics::ParseOption(Options, TEXT("Password"));
+        
+		if (!OSSGI->ValidateSessionPassword(InputPassword, ErrorMessage))
+		{
+			UE_LOG(LogSF, Warning, TEXT("[LobbyGameMode] PreLogin rejected: %s from %s"), *ErrorMessage, *Address);
+			return;
+		}
+	}
+
+	// 최대 인원 체크
+	if (PCs.Num() >= MaxPlayerCount)
+	{
+		ErrorMessage = TEXT("ServerFull");
+		return;
+	}
 	
-	// PlayerSlots 초기화
-	SetupPlayerSlots();
+	Super::PreLogin(Options, Address, UniqueId, ErrorMessage);
 }
 
 void ASFLobbyGameMode::PostLogin(APlayerController* NewPlayer)
 {
+	// Host(listen server)의 경우 BeginPlay 보다 먼저 호출
 	Super::PostLogin(NewPlayer);
 
 	if (!NewPlayer)
@@ -42,8 +65,8 @@ void ASFLobbyGameMode::PostLogin(APlayerController* NewPlayer)
 
 	// PCs 배열에 추가
 	PCs.AddUnique(NewPlayer);
-	WaitForPlayerSlotsAndUpdate();
 
+	UpdatePlayerSlots();
 	UpdateStartButtonState();
 }
 
@@ -59,8 +82,8 @@ void ASFLobbyGameMode::HandleSeamlessTravelPlayer(AController*& Controller)
 
 	// PostLogin과 동일한 로직
 	PCs.AddUnique(PC);
-	WaitForPlayerSlotsAndUpdate();
-	
+
+	UpdatePlayerSlots();
 	UpdateStartButtonState();
 }
 
@@ -72,159 +95,120 @@ void ASFLobbyGameMode::Logout(AController* Exiting)
 	{
 		// PCs 배열에서 제거
 		PCs.Remove(ExitingPC);
-		WaitForPlayerSlotsAndUpdate();
+		UpdatePlayerSlots();
 	}
-
 	UpdateStartButtonState();
 }
 
-void ASFLobbyGameMode::SetupPlayerSlots()
+void ASFLobbyGameMode::RegisterPlayerSlot(ASFPlayerSlot* NewSlot)
 {
-	if (bSlotsInit)
+	if (!NewSlot || PlayerSlots.Contains(NewSlot))
 	{
 		return;
 	}
+	
+	PlayerSlots.Add(NewSlot);
 
-	UWorld* World = GetWorld();
-	if (!World)
-	{
-		return;
-	}
-
-	// === 1. 레벨의 모든 PlayerSlot 찾기 ===
-	TArray<AActor*> FoundActors;
-	UGameplayStatics::GetAllActorsOfClass(World, ASFPlayerSlot::StaticClass(), FoundActors);
-
-	if (FoundActors.Num() == 0)
-	{
-		UE_LOG(LogSF, Warning, TEXT("[LobbyGameMode] No PlayerSlots found in level!"));
-		return;
-	}
-
-	// === 2. ASFPlayerSlot으로 캐스팅 ===
-	TArray<ASFPlayerSlot*> UnsortedSlots;
-	for (AActor* Actor : FoundActors)
-	{
-		if (ASFPlayerSlot* Slot = Cast<ASFPlayerSlot>(Actor))
-		{
-			UnsortedSlots.Add(Slot);
-		}
-	}
-
-	// === 3. SlotID 기준으로 오름차순 정렬 ===
-	UnsortedSlots.Sort([](const ASFPlayerSlot& A, const ASFPlayerSlot& B)
+	PlayerSlots.Sort([](const ASFPlayerSlot& A, const ASFPlayerSlot& B)
 	{
 		return A.GetSlotID() < B.GetSlotID();
 	});
-
-	// === 4. PlayerSlots 배열에 저장 ===
-	PlayerSlots = UnsortedSlots;
-
-	bSlotsInit = true;
-}
-
-void ASFLobbyGameMode::WaitForPlayerSlotsAndUpdate()
-{
-	if (bSlotsInit)
-	{
-		UpdatePlayerSlots();
-	}
-	else
-	{
-		UWorld* World = GetWorld();
-		if (!World)
-		{
-			return;
-		}
-
-		// 기존 타이머 클리어
-		World->GetTimerManager().ClearTimer(WaitForSlotsTimerHandle);
-
-		// 0.05초 후 다시 WaitForPlayerSlotsAndUpdate 호출
-		World->GetTimerManager().SetTimer(
-			WaitForSlotsTimerHandle,
-			this,
-			&ASFLobbyGameMode::WaitForPlayerSlotsAndUpdate,
-			0.05f,
-			false // 반복 X (재귀적으로 호출)
-		);
-	}
+	
+	// 슬롯이 추가될 때마다 즉시 업데이트 시도
+	UpdatePlayerSlots();
 }
 
 void ASFLobbyGameMode::UpdatePlayerSlots()
 {
-	for (APlayerController* PC : PCs)
-	{
-		if (!PC)
-		{
-			continue;
-		}
+	// 1. 아직 자리가 없는(GameState에 등록 안 된) 플레이어들에게 빈 자리 번호표 배정
+	AssignSlotsToNewPlayers();
 
-		// PC가 이미 Slot에 추가되어 있는지 확인 
-		bool bPCAlreadyAdded = IsPCAlreadyAdded(PC);
-
-		// PCAlreadyAdded가 false면 빈 슬롯에 추가 
-		if (!bPCAlreadyAdded)
-		{
-			AddConnectedPlayer(PC);
-		}
-	}
-
-	// 로그아웃한 플레이어를 PlayerSlot에서 제거 
+	// 2. 배정받은 번호표에 맞는 슬롯 찾아서 앉히기 
+	RefreshSlotVisuals();
+    
+	// 3. 나간 사람 정리
 	RemoveDisconnectedPlayers();
 }
 
-bool ASFLobbyGameMode::IsPCAlreadyAdded(APlayerController* PC) const
+void ASFLobbyGameMode::AssignSlotsToNewPlayers()
 {
-	// === PlayerSlots를 순회하면서 해당 PC가 있는지 확인 ===
-	for (ASFPlayerSlot* Slot : PlayerSlots)
+	if (!LobbyGameState)
 	{
-		if (!Slot)
+		return;
+	}
+	
+	for (APlayerController* PC : PCs)
+	{
+		if (!PC || !PC->PlayerState)
 		{
 			continue;
 		}
 
-		if (Slot->GetCurrentPC() == PC)
+		// 이미 자리를 배정받았는지 확인
+		if (FindSelectionForPC(PC))
 		{
-			return true;
+			continue;
+		}
+  
+		// 사용 가능한 모든 SlotID 수집 (로딩된 슬롯들 기준)
+		uint8 NewSlotID = 255;
+		for (uint8 i = 0; i < MaxPlayerCount; i++) 
+		{
+			// GameState에서 i번 ID가 쓰고 있는지 확인
+			if (!LobbyGameState->IsSlotOccupied(i))
+			{
+				NewSlotID = i;
+				break;
+			}
+		}
+
+		if (NewSlotID != 255)
+		{
+			LobbyGameState->AddPlayerSelection(PC->PlayerState, NewSlotID);
 		}
 	}
-
-	return false;
 }
 
-void ASFLobbyGameMode::AddConnectedPlayer(APlayerController* PC)
+void ASFLobbyGameMode::RefreshSlotVisuals()
 {
-	// PlayerSlots를 순회하면서 빈 슬롯 찾기
-	for (ASFPlayerSlot* Slot : PlayerSlots)
+	if (!LobbyGameState)
 	{
-		if (!Slot)
+		return;
+	}
+	// 모든 플레이어를 순회하며 자기 자리를 찾아가게 함
+	const TArray<FSFPlayerSelectionInfo>& Selections = LobbyGameState->GetPlayerSelections();
+    
+	for (const FSFPlayerSelectionInfo& Selection : Selections)
+	{
+		ASFPlayerSlot* Slot = FindSlotByID(Selection.GetPlayerSlot());
+		if (!Slot || Slot->GetCurrentPC())
 		{
 			continue;
 		}
-
-		// 빈 슬롯 찾기(낮은 SlotID가 높은 SlotID보다 먼저 채워짐)
-		if (!Slot->GetCurrentPC())
+        
+		APlayerController* TargetPC = FindPCForSelection(Selection);
+		if (TargetPC)
 		{
-			// 현재 Slot이 관리중인 HeroDisplay 업데이트
-			Slot->AddPlayer(PC);
-
-			
-			if (ASFLobbyPlayerState* LobbyPS = PC->GetPlayerState<ASFLobbyPlayerState>())
-			{
-				uint8 SlotID = Slot->GetSlotID();
-				// GameState의 PlayerSelectionArray 업데이트
-				if (LobbyGameState)
-				{
-					LobbyGameState->AddPlayerSelection(LobbyPS, SlotID);
-				}
-				// PlayerInfo 초기화 TODO : PlayerInfo 정보를 PlayerSelectionInfo로 통합 고려
-				const FSFPlayerSelectionInfo& Selection = LobbyPS->GetPlayerSelection();
-				Slot->UpdatePlayerDisplay(Selection.GetHeroDefinition(), LobbyPS->CreateDisplayInfo());
-			}
-			
-			break;
+			AddPlayerToSlot(TargetPC, Slot);
 		}
+	}
+}
+
+void ASFLobbyGameMode::AddPlayerToSlot(APlayerController* PC, ASFPlayerSlot* Slot)
+{
+	if (!Slot || !PC)
+	{
+		return;
+	}
+
+	// 현재 Slot에 PC 추가
+	Slot->AddPlayer(PC);
+	
+	const FSFPlayerSelectionInfo* Selection = FindSelectionForPC(PC);
+	if (Selection)
+	{
+		// 슬롯의 HeroDisplay 업데이트
+		Slot->UpdatePlayerDisplay(Selection->GetHeroDefinition(), CreateDisplayInfoFromGameState(PC));
 	}
 }
 
@@ -242,22 +226,22 @@ void ASFLobbyGameMode::RemoveDisconnectedPlayers()
 			continue;
 		}
 		
-		APlayerController* ValidPC = Slot->GetCurrentPC();
-
-		// Logout 함수에서 Pcs 배열 목록에서 PC 제거 했으니 PCs 배열에 없는 경우 PlayerSelection 및 Slot에서 제거
-		if (!PCs.Contains(ValidPC))
+		APlayerController* SlotPC = Slot->GetCurrentPC();
+		if (PCs.Contains(SlotPC))
 		{
-			if (APlayerState* PS = ValidPC->GetPlayerState<APlayerState>())
-			{
-				LobbyGameState->RemovePlayerSelection(PS);  
-			}
-			// Slot에서 PC 제거
-			Slot->RemovePlayer(ValidPC);
+			continue;
 		}
+
+		// 로그아웃한 플레이어 정리
+		if (APlayerState* PS = SlotPC->GetPlayerState<APlayerState>())
+		{
+			LobbyGameState->RemovePlayerSelection(PS);  
+		}
+		Slot->RemovePlayer(SlotPC);
 	}
 }
 
-void ASFLobbyGameMode::OnPlayerReadyChanged(APlayerController* PC)
+void ASFLobbyGameMode::OnPlayerInfoChanged(APlayerController* PC)
 {
 	if (!PC)
 	{
@@ -270,8 +254,7 @@ void ASFLobbyGameMode::OnPlayerReadyChanged(APlayerController* PC)
 
 void ASFLobbyGameMode::UpdateHeroDisplayForPlayer(APlayerController* PC)
 {
-	ASFLobbyPlayerState* LobbyPS = PC->GetPlayerState<ASFLobbyPlayerState>();
-	if (!LobbyPS)
+	if (!PC || !LobbyGameState)
 	{
 		return;
 	}
@@ -283,8 +266,11 @@ void ASFLobbyGameMode::UpdateHeroDisplayForPlayer(APlayerController* PC)
 			continue;
 		}
 		
-		const FSFPlayerSelectionInfo& Selection = LobbyPS->GetPlayerSelection();
-		Slot->UpdatePlayerDisplay(Selection.GetHeroDefinition(), LobbyPS->CreateDisplayInfo());
+		const FSFPlayerSelectionInfo* Selection = FindSelectionForPC(PC);
+		if (Selection)
+		{
+			Slot->UpdatePlayerDisplay(Selection->GetHeroDefinition(), CreateDisplayInfoFromGameState(PC));
+		}
 		break;
 	}
 }
@@ -308,4 +294,65 @@ void ASFLobbyGameMode::UpdateStartButtonState()
 			}
 		}
 	}
+}
+
+ASFPlayerSlot* ASFLobbyGameMode::FindSlotByID(uint8 SlotID) const
+{
+	for (ASFPlayerSlot* Slot : PlayerSlots)
+	{
+		if (Slot && Slot->GetSlotID() == SlotID)
+		{
+			return Slot;
+		}
+	}
+	return nullptr;
+}
+
+const FSFPlayerSelectionInfo* ASFLobbyGameMode::FindSelectionForPC(APlayerController* PC) const
+{
+	if (!PC || !PC->PlayerState || !LobbyGameState)
+	{
+		return nullptr;
+	}
+    
+	APlayerState* PS = PC->PlayerState;
+	const TArray<FSFPlayerSelectionInfo>& Selections = LobbyGameState->GetPlayerSelections();
+    
+	return Selections.FindByPredicate([PS](const FSFPlayerSelectionInfo& Info)
+	{
+		return Info.IsForPlayer(PS);
+	});
+}
+
+APlayerController* ASFLobbyGameMode::FindPCForSelection(const FSFPlayerSelectionInfo& Selection) const
+{
+	for (APlayerController* PC : PCs)
+	{
+		if (PC && PC->PlayerState && Selection.IsForPlayer(PC->PlayerState))
+		{
+			return PC;
+		}
+	}
+	return nullptr;
+}
+
+FSFPlayerInfo ASFLobbyGameMode::CreateDisplayInfoFromGameState(APlayerController* PC) const
+{
+	FSFPlayerInfo DisplayInfo;
+    
+	if (!PC)
+	{
+		return DisplayInfo;
+	}
+    
+	const FSFPlayerSelectionInfo* Selection = FindSelectionForPC(PC);
+	if (Selection)
+	{
+		DisplayInfo.PC = PC;
+		DisplayInfo.PS = PC->PlayerState;
+		DisplayInfo.PlayerName = Selection->GetPlayerNickname();
+		DisplayInfo.bReady = Selection->IsReady();
+	}
+    
+	return DisplayInfo;
 }

@@ -16,6 +16,7 @@ public:
 	ASFLobbyPlayerController();
 	virtual void SetupInputComponent() override;
 
+	// 매치 시작 요청 (Host만 호출 가능)
 	UFUNCTION(Server, Reliable, WithValidation)
 	void Server_RequestStartMatch();
 

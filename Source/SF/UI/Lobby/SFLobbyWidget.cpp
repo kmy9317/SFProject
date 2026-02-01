@@ -74,7 +74,7 @@ void USFLobbyWidget::ConfigureGameState()
 
 void USFLobbyWidget::UpdatePlayerSelectionDisplay(const TArray<FSFPlayerSelectionInfo>& PlayerSelections)
 {
-	// 선택 된 영웅 검색
+	// 1. 선택 된 영웅 검색
 	USFHeroDefinition* MySelectedHeroDef = nullptr;
 	const FSFPlayerSelectionInfo* MySelection = FindMySelection(PlayerSelections);
 
@@ -83,7 +83,7 @@ void USFLobbyWidget::UpdatePlayerSelectionDisplay(const TArray<FSFPlayerSelectio
 		MySelectedHeroDef = MySelection->GetHeroDefinition();
 	}
 	
-	// 화면에 보이는 모든 위젯을 순회하며 '내 영웅'인지 확인
+	// 2. 화면에 보이는 모든 영웅 엔트리 위젯을 순회하며 '내 영웅'인지 확인
 	if (HeroSelectionTileView)
 	{
 		for (UUserWidget* HeroEntryAsWidget : HeroSelectionTileView->GetDisplayedEntryWidgets())

@@ -21,20 +21,23 @@ public:
 	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
 	virtual void BeginPlay() override;
 	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
+
+	// 인게임으로 데이터 전달
 	virtual void CopyProperties(APlayerState* PlayerState) override;
 
+	// 영웅 선택 요청
 	UFUNCTION(Server, Reliable, WithValidation)
 	void Server_SetSelectedHeroDefinition(USFHeroDefinition* NewDefinition);
-	
+
+	// Ready 상태 변경 요청
 	UFUNCTION(Server, Reliable, BlueprintCallable)
 	void Server_SetReady(bool bInReady);
 
 	bool IsReady() const { return PlayerSelection.IsReady(); }
 	const FSFPlayerSelectionInfo& GetPlayerSelection() const { return PlayerSelection; }
 
-	FSFPlayerInfo CreateDisplayInfo() const;
-
 private:
+	// GameState 델리게이트 콜백
 	void PlayerSelectionUpdated(const TArray<FSFPlayerSelectionInfo>& NewPlayerSelections);
 
 

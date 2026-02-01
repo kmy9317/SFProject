@@ -36,6 +36,7 @@ void USFCreateRoomWidget::NativeConstruct()
         GameInstance->OnCreateSessionComplete_Sig.AddUObject(this, &USFCreateRoomWidget::OnCreateSessionComplete);
     }
 
+    // 비밀방 체크박스 연동
     if (SecretRoomCheckBox)
     {
         SecretRoomCheckBox->OnCheckStateChanged.AddDynamic(this, &USFCreateRoomWidget::OnSecretRoomCheckboxChanged);
@@ -83,11 +84,13 @@ void USFCreateRoomWidget::OnCreateButtonClicked()
         return;
     }
 
+    // 입력값 수집
     FString RoomName = RoomNameInput->GetText().ToString();
     FString Password = PasswordInput ? PasswordInput->GetText().ToString() : TEXT("");
     int32 MaxPlayers = CurrentMaxPlayerCount;
     bool bProtected = !Password.IsEmpty();
 
+    // 유효성 검사
     if (RoomName.IsEmpty())
     {
         if (ErrorMessageText)
@@ -97,6 +100,7 @@ void USFCreateRoomWidget::OnCreateButtonClicked()
         return;
     }
 
+    // 비밀번호 저장 (접속시 PreLogin에서 검증)
     if (GameInstance)
     {
         GameInstance->SetSessionPassword(Password);
@@ -143,12 +147,6 @@ void USFCreateRoomWidget::OnCreateSessionComplete(bool bWasSuccessful, const FSt
     if (bWasSuccessful)
     {
         UE_LOG(LogTemp, Warning, TEXT("Session created success: %s"), *Message);
-
-        if (GameInstance)
-        {
-            GameInstance->LoadWaitingLevel_AsHost();
-        }
-
         RemoveFromParent();
     }
     else
