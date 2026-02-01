@@ -84,8 +84,12 @@ void USFOSSGameInstance::CreateGameSession(const FString& RoomName, bool bProtec
 
 void USFOSSGameInstance::PrepareSessionSettings(const FString& RoomName, bool bProtected, int32 MaxPlayers)
 {
+	
+	FString SubsystemName = OnlineSubsystem ? OnlineSubsystem->GetSubsystemName().ToString() : TEXT("");
+	bool bIsLAN = (SubsystemName.Compare(TEXT("NULL"), ESearchCase::IgnoreCase) == 0);
+	
 	PendingCreateSettings = MakeShared<FOnlineSessionSettings>();
-	PendingCreateSettings->bIsLANMatch = false;
+	PendingCreateSettings->bIsLANMatch = bIsLAN;
 	PendingCreateSettings->bIsDedicated = false;
 	PendingCreateSettings->NumPublicConnections = MaxPlayers;
 	PendingCreateSettings->bShouldAdvertise = true;
@@ -94,6 +98,8 @@ void USFOSSGameInstance::PrepareSessionSettings(const FString& RoomName, bool bP
 	PendingCreateSettings->bUsesPresence = true;
 	PendingCreateSettings->bUseLobbiesIfAvailable = true;
 	PendingCreateSettings->BuildUniqueId = 1;
+
+	bIsSessionPasswordProtected = bProtected;
 
 	PendingCreateSettings->Set(TEXT("PASSWORD"), SessionPassword, EOnlineDataAdvertisementType::ViaOnlineServiceAndPing);
 	PendingCreateSettings->Set(TEXT("ROOM_NAME"), RoomName, EOnlineDataAdvertisementType::ViaOnlineServiceAndPing);
@@ -221,13 +227,19 @@ void USFOSSGameInstance::FindSessions(bool bIncludePasswordProtected)
 
 	//비밀 방 표시 여부
 	bShowPasswordProtected = bIncludePasswordProtected;
+
+	FString SubsystemName = OnlineSubsystem ? OnlineSubsystem->GetSubsystemName().ToString() : TEXT("");
+	bool bIsLAN = (SubsystemName.Compare(TEXT("NULL"), ESearchCase::IgnoreCase) == 0);
 	
 	SessionSearch = MakeShareable(new FOnlineSessionSearch());
-	SessionSearch->bIsLanQuery = false;
+	SessionSearch->bIsLanQuery = bIsLAN;
 	SessionSearch->MaxSearchResults = 999999;
 
 	// Presence 기반 검색 (Steam Lobby)
-	SessionSearch->QuerySettings.Set(SEARCH_PRESENCE, true, EOnlineComparisonOp::Equals);
+	if (!bIsLAN)
+	{
+		SessionSearch->QuerySettings.Set(SEARCH_PRESENCE, true, EOnlineComparisonOp::Equals);
+	}
 	
 	SessionInterface->AddOnFindSessionsCompleteDelegate_Handle(
 		FOnFindSessionsCompleteDelegate::CreateUObject(this, &USFOSSGameInstance::OnFindSessionsComplete));
@@ -398,5 +410,30 @@ void USFOSSGameInstance::ClearSessionSearch()
 {
 	AvailableSessions.Empty();
 	SessionSearch.Reset();
+}
+
+bool USFOSSGameInstance::ValidateSessionPassword(const FString& InputPassword, FString& OutErrorMessage) const
+{
+	// 비밀번호 보호 안 됨 → 검증 성공
+	if (!bIsSessionPasswordProtected)
+	{
+		return true;
+	}
+
+	// 비밀번호 누락
+	if (InputPassword.IsEmpty())
+	{
+		OutErrorMessage = TEXT("MissingPassword");
+		return false;
+	}
+
+	// 비밀번호 불일치
+	if (!InputPassword.Equals(SessionPassword))
+	{
+		OutErrorMessage = TEXT("InvalidPassword");
+		return false;
+	}
+
+	return true;
 }
 //=================================================================================

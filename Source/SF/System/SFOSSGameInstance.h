@@ -109,7 +109,11 @@ public:
 		bIsSessionPasswordProtected = !InPassword.IsEmpty();
 	}
 	const FString& GetSessionPassword() const { return SessionPassword; }
-	bool IsSessionPasswordProtected() const { return bIsSessionPasswordProtected; }
+
+	bool IsCurrentSessionProtected() const { return bIsSessionPasswordProtected; }
+
+	// PreLogin에서 사용할 비밀번호 검증
+	bool ValidateSessionPassword(const FString& InputPassword, FString& OutErrorMessage) const;
 
 protected:
 

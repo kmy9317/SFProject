@@ -1,11 +1,14 @@
 #include "SFLobbyGameMode.h"
 
 #include "SFLobbyGameState.h"
+#include "SFLogChannels.h"
 #include "Actors/SFPlayerSlot.h"
 #include "GameFramework/PlayerState.h"
+#include "Kismet/GameplayStatics.h"
 #include "Player/SFPlayerInfoTypes.h"
 #include "Player/Lobby/SFLobbyPlayerController.h"
 #include "Player/Lobby/SFLobbyPlayerState.h"
+#include "System/SFOSSGameInstance.h"
 #include "UI/Lobby/SFLobbyWidget.h"
 
 ASFLobbyGameMode::ASFLobbyGameMode()
@@ -23,6 +26,31 @@ void ASFLobbyGameMode::InitGameState()
 void ASFLobbyGameMode::BeginPlay()
 {
 	Super::BeginPlay();
+}
+
+void ASFLobbyGameMode::PreLogin(const FString& Options, const FString& Address, const FUniqueNetIdRepl& UniqueId, FString& ErrorMessage)
+{
+	// 비밀번호 검증
+	USFOSSGameInstance* OSSGI = GetGameInstance<USFOSSGameInstance>();
+	if (OSSGI)
+	{
+		FString InputPassword = UGameplayStatics::ParseOption(Options, TEXT("Password"));
+        
+		if (!OSSGI->ValidateSessionPassword(InputPassword, ErrorMessage))
+		{
+			UE_LOG(LogSF, Warning, TEXT("[LobbyGameMode] PreLogin rejected: %s from %s"), *ErrorMessage, *Address);
+			return;
+		}
+	}
+
+	// 최대 인원 체크
+	if (PCs.Num() >= MaxPlayerCount)
+	{
+		ErrorMessage = TEXT("ServerFull");
+		return;
+	}
+	
+	Super::PreLogin(Options, Address, UniqueId, ErrorMessage);
 }
 
 void ASFLobbyGameMode::PostLogin(APlayerController* NewPlayer)
