@@ -173,7 +173,7 @@ void USFHeroComponent::OnActorInitStateChanged(const FActorInitStateChangedParam
 	{
 		if (Params.FeatureState == SFGameplayTags::InitState_DataInitialized)
 		{
-			// LCPawnExtensionComponent의 DataInitialized 상태 변화 관찰 후, LCHeroComponent도 DataInitialized 상태로 변경
+			// SFPawnExtensionComponent의 DataInitialized 상태 변화 관찰 후, SFHeroComponent도 DataInitialized 상태로 변경
 			// - CanChangeInitState 확인
 			CheckDefaultInitialization();
 		}
@@ -259,20 +259,20 @@ void USFHeroComponent::InitializePlayerInput(UInputComponent* PlayerInputCompone
 					}
 				}
 				
-				USFInputComponent* LCIC = Cast<USFInputComponent>(PlayerInputComponent);
-				if (ensureMsgf(LCIC, TEXT("Unexpected Input Component class! The Gameplay Abilities will not be bound to their inputs. Change the input component to USFInputComponent or a subclass of it.")))
+				USFInputComponent* SFIC = Cast<USFInputComponent>(PlayerInputComponent);
+				if (ensureMsgf(SFIC, TEXT("Unexpected Input Component class! The Gameplay Abilities will not be bound to their inputs. Change the input component to USFInputComponent or a subclass of it.")))
 				{
 					TArray<uint32> BindHandles;
-					LCIC->BindAbilityActions(InputConfig, this,&ThisClass::Input_AbilityInputTagStarted, &ThisClass::Input_AbilityInputTagPressed, &ThisClass::Input_AbilityInputTagReleased, /*out*/ BindHandles);
+					SFIC->BindAbilityActions(InputConfig, this,&ThisClass::Input_AbilityInputTagStarted, &ThisClass::Input_AbilityInputTagPressed, &ThisClass::Input_AbilityInputTagReleased, /*out*/ BindHandles);
 
-					LCIC->BindNativeAction(InputConfig, SFGameplayTags::InputTag_Move, ETriggerEvent::Triggered, this, &ThisClass::Input_Move, /*bLogIfNotFound=*/ false);
-					LCIC->BindNativeAction(InputConfig, SFGameplayTags::InputTag_Move, ETriggerEvent::Completed, this, &ThisClass::Input_MoveCompleted, /*bLogIfNotFound=*/ false);
-					LCIC->BindNativeAction(InputConfig, SFGameplayTags::InputTag_Look_Mouse, ETriggerEvent::Triggered, this, &ThisClass::Input_LookMouse, /*bLogIfNotFound=*/ false);
-					LCIC->BindNativeAction(InputConfig, SFGameplayTags::InputTag_Crouch, ETriggerEvent::Triggered, this, &ThisClass::Input_Crouch, /*bLogIfNotFound=*/ false);
-					LCIC->BindNativeAction(InputConfig, SFGameplayTags::InputTag_UseQuickbar_1, ETriggerEvent::Started, this, &ThisClass::Input_UseQuickbar_1, false);
-					LCIC->BindNativeAction(InputConfig, SFGameplayTags::InputTag_UseQuickbar_2, ETriggerEvent::Started, this, &ThisClass::Input_UseQuickbar_2, false);
-					LCIC->BindNativeAction(InputConfig, SFGameplayTags::InputTag_UseQuickbar_3, ETriggerEvent::Started, this, &ThisClass::Input_UseQuickbar_3, false);
-					LCIC->BindNativeAction(InputConfig, SFGameplayTags::InputTag_UseQuickbar_4, ETriggerEvent::Started, this, &ThisClass::Input_UseQuickbar_4, false);
+					SFIC->BindNativeAction(InputConfig, SFGameplayTags::InputTag_Move, ETriggerEvent::Triggered, this, &ThisClass::Input_Move, /*bLogIfNotFound=*/ false);
+					SFIC->BindNativeAction(InputConfig, SFGameplayTags::InputTag_Move, ETriggerEvent::Completed, this, &ThisClass::Input_MoveCompleted, /*bLogIfNotFound=*/ false);
+					SFIC->BindNativeAction(InputConfig, SFGameplayTags::InputTag_Look_Mouse, ETriggerEvent::Triggered, this, &ThisClass::Input_LookMouse, /*bLogIfNotFound=*/ false);
+					SFIC->BindNativeAction(InputConfig, SFGameplayTags::InputTag_Crouch, ETriggerEvent::Triggered, this, &ThisClass::Input_Crouch, /*bLogIfNotFound=*/ false);
+					SFIC->BindNativeAction(InputConfig, SFGameplayTags::InputTag_UseQuickbar_1, ETriggerEvent::Started, this, &ThisClass::Input_UseQuickbar_1, false);
+					SFIC->BindNativeAction(InputConfig, SFGameplayTags::InputTag_UseQuickbar_2, ETriggerEvent::Started, this, &ThisClass::Input_UseQuickbar_2, false);
+					SFIC->BindNativeAction(InputConfig, SFGameplayTags::InputTag_UseQuickbar_3, ETriggerEvent::Started, this, &ThisClass::Input_UseQuickbar_3, false);
+					SFIC->BindNativeAction(InputConfig, SFGameplayTags::InputTag_UseQuickbar_4, ETriggerEvent::Started, this, &ThisClass::Input_UseQuickbar_4, false);
 				}
 			}
 		}

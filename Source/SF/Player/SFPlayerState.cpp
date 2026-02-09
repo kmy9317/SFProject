@@ -163,8 +163,6 @@ void ASFPlayerState::CopyProperties(APlayerState* PlayerState)
 	
 	// TODO : 테스트용 삭제 예정
 	NewPlayerState->Gold = Gold;
-
-	// TODO: Lobby로 진입시에 넘겨줄 데이터 지정
 }
 
 void ASFPlayerState::OnDeactivated()
@@ -255,21 +253,17 @@ void ASFPlayerState::StartLoadingPawnData()
         
 		if (!PawnDataPath.IsNull())
 		{
-			UE_LOG(LogSF, Log, TEXT("Starting async load of PawnData for player %s"), *GetPlayerName());
-
-			TWeakObjectPtr<ASFPlayerState> WeakThis(this);
-            
-			// 비동기 로드 시작
-			FStreamableDelegate OnLoaded = FStreamableDelegate::CreateLambda([WeakThis, PawnDataPath]()
-			{
-				if (ASFPlayerState* StrongThis = WeakThis.Get())
+			FStreamableDelegate OnLoaded = FStreamableDelegate::CreateWeakLambda(this,
+				[this, PawnDataPath]()
 				{
-					if (USFPawnData* LoadedPawnData = PawnDataPath.Get())
+					USFPawnData* LoadedPawnData = PawnDataPath.Get();
+					if (!LoadedPawnData)
 					{
-						StrongThis->OnPawnDataLoadComplete(LoadedPawnData);
+						UE_LOG(LogSF, Error, TEXT("Failed to load PawnData for %s"), *GetPlayerName());
 					}
-				}
-			});
+					OnPawnDataLoadComplete(LoadedPawnData);
+				});
+
 			PawnDataHandle = USFAssetManager::Get().LoadPawnDataAsync(PawnDataPath, OnLoaded);
 		}
 		else
@@ -322,7 +316,7 @@ void ASFPlayerState::OnPawnDataLoadComplete(const USFPawnData* LoadedPawnData)
 	TryApplyPermanentUpgrade();
 	
 	// 델리게이트 브로드캐스트 - GameMode가 처리
-	OnPawnDataLoaded.Broadcast(LoadedPawnData);
+	OnPawnDataLoaded.Broadcast(GetSFPlayerController(), LoadedPawnData);
 }
 
 void ASFPlayerState::SetPawnData(const USFPawnData* InPawnData)
@@ -551,7 +545,7 @@ void ASFPlayerState::OnRep_PawnData()
 	{
 		bPawnDataLoaded = true;
 
-		OnPawnDataLoaded.Broadcast(PawnData);
+		OnPawnDataLoaded.Broadcast(GetSFPlayerController(),PawnData);
 	}
 }
 
@@ -612,7 +606,7 @@ void ASFPlayerState::TryApplyPermanentUpgrade()
 	UE_LOG(LogTemp, Warning, TEXT("[PermanentUpgrade] TryApply ENTER | this=%p PlayerId=%d Name=%s AppliedThisGame=%d"),
 	this, GetPlayerId(), *GetPlayerName(), bPermanentUpgradeAppliedThisGame ? 1 : 0);
 
-	//이미 이번 게임에서 적용됐다면 무조건 스킵
+	// 이미 이번 게임에서 적용됐다면 무조건 스킵
 	if (bPermanentUpgradeAppliedThisGame)
 	{
 		return;

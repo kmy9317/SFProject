@@ -64,7 +64,7 @@ bool USFSharedUIComponent::CanChangeInitState(UGameFrameworkComponentManager* Ma
 		return true;
 	}
 
-	// [Spawned -> DataAvailable]: PlayerState + CombatInfo 복제 완료 확인
+	// [Spawned -> DataAvailable]: PlayerState 확인
 	if (CurrentState == SFGameplayTags::InitState_Spawned && DesiredState == SFGameplayTags::InitState_DataAvailable)
 	{
 		ASFPlayerState* PS = PC->GetPlayerState<ASFPlayerState>();

@@ -80,9 +80,6 @@ protected:
 	TSubclassOf<USFGameplayAbility> ResurrectionAbilityClass;
 
 private:
-	/** PawnData 로드 대기 중인 플레이어들*/
-	TSet<TWeakObjectPtr<APlayerController>> PendingPlayers;
-
 	/**PIE 테스트용 CharacterDefinition*/
 	UPROPERTY(EditDefaultsOnly, Category = "SF|Test", meta = (EditCondition = "bUsePIETestMode"))
 	TObjectPtr<USFHeroDefinition> PIETestHeroDefinition;
