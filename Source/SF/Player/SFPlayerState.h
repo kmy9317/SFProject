@@ -25,7 +25,7 @@ class USFPlayerCombatStateComponent;
 class USFPlayerStatsComponent;
 
 // PawnData 로드 완료 델리게이트
-DECLARE_MULTICAST_DELEGATE_OneParam(FOnPawnDataLoaded, const USFPawnData*);
+DECLARE_MULTICAST_DELEGATE_TwoParams(FOnPawnDataLoaded, APlayerController*, const USFPawnData*);
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnPlayerInfoChangedDelegate, const FSFPlayerSelectionInfo&, NewPlayerSelectionInfo);
 DECLARE_DYNAMIC_MULTICAST_DELEGATE(FOnSkillUpgradeCompleted);
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FOnPlayerGoldChanged, int32, NewGold, int32, OldGold);

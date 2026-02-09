@@ -295,7 +295,7 @@ void USFPawnExtensionComponent::OnActorInitStateChanged(const FActorInitStateCha
 {
 	if (Params.FeatureName != NAME_ActorFeatureName)
 	{
-		// LCPawnExtensionComponent는 다른 Feature Component들의 상태가 DataAvailable를 관찰하여, Sync를 맞추는 구간이 있다 (CanChangeInitState)
+		// SFPawnExtensionComponent는 다른 Feature Component들의 상태가 DataAvailable인지 관찰하여, Sync를 맞추는 구간이 있다 (CanChangeInitState)
 		// - 이를 가능케하기 위해, OnActorInitStateChanged에서는 DataAvailable에 대해 지속적으로 CheckDefaultInitialization을 호출하여, 상태를 확인한다
 		if (Params.FeatureState == SFGameplayTags::InitState_DataAvailable)
 		{

@@ -34,7 +34,6 @@ void ASFGameMode::InitGame(const FString& MapName, const FString& Options, FStri
 void ASFGameMode::InitGameState()
 {
 	Super::InitGameState();
-	// TODO : SFGameState 캐싱
 
 	// EnemyManager 델리게이트 바인딩
 	if (ASFGameState* SFGameState = GetGameState<ASFGameState>())
@@ -69,7 +68,7 @@ void ASFGameMode::StartPlay()
 		});
 	}
 
-	if (!bPermanentUpgradeFlowStarted) // ← 네 프로젝트의 1-1 판별 로직
+	if (!bPermanentUpgradeFlowStarted) // 프로젝트의 1-1 판별 로직
 	{
 		UE_LOG(LogTemp, Warning, TEXT("[PermanentUpgrade] Game START stage"));
 
@@ -142,13 +141,7 @@ void ASFGameMode::HandleStartingNewPlayer_Implementation(APlayerController* NewP
 		}
 		// 로드 중이면 OnPlayerPawnDataLoaded에서 처리
 	}
-
-	//서버만
-	if (!HasAuthority())
-	{
-		return;
-	}
-
+	
 	// 클라이언트 여부에 따라 분기 처리
 	if (NewPlayer->IsLocalController())
 	{
@@ -343,28 +336,12 @@ void ASFGameMode::SetupPlayerPawnDataLoading(APlayerController* PC)
 	{
 		return;
 	}
-    
-	UE_LOG(LogSF, Log, TEXT("Setting up PawnData loading for %s"), *SFPS->GetPlayerName());
-    
+	
 	// 로드 완료 콜백 등록
 	if (!SFPS->IsPawnDataLoaded())
 	{
-		PendingPlayers.Add(PC);
-        
-		TWeakObjectPtr<APlayerController> WeakPC = PC;
-		TWeakObjectPtr<ASFGameMode> WeakThis = this;
-        
-		SFPS->OnPawnDataLoaded.AddLambda([WeakThis, WeakPC](const USFPawnData* PawnData)
-		{
-			if (ASFGameMode* GameMode = WeakThis.Get())
-			{
-				if (APlayerController* ValidPC = WeakPC.Get())
-				{
-					GameMode->OnPlayerPawnDataLoaded(ValidPC, PawnData);
-				}
-			}
-		});
-        
+		SFPS->OnPawnDataLoaded.AddUObject(this, &ASFGameMode::OnPlayerPawnDataLoaded);
+
 		// 비동기 로드 시작
 		SFPS->StartLoadingPawnData();
 	}
@@ -384,11 +361,7 @@ void ASFGameMode::OnPlayerPawnDataLoaded(APlayerController* PC, const USFPawnDat
 	{
 		return;
 	}
-    
-	UE_LOG(LogSF, Log, TEXT("PawnData loaded for player, attempting restart"));
-    
-	PendingPlayers.Remove(PC);
-    
+  
 	// 로드 완료된 플레이어 개별 스폰
 	if (!PC->GetPawn() && PlayerCanRestart(PC))
 	{
