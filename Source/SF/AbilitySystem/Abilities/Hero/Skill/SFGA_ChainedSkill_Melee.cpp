@@ -59,6 +59,41 @@ float USFGA_ChainedSkill_Melee::GetCompleteCooldownDuration() const
 	return CompleteCooldownDuration.GetValueAtLevel(GetAbilityLevel());
 }
 
+float USFGA_ChainedSkill_Melee::GetCalculatedManaCost(UAbilitySystemComponent* ASC, int32 InLevel) const
+{
+	if (!ASC)
+	{
+		ASC = GetAbilitySystemComponentFromActorInfo();
+	}
+    
+	if (!ASC)
+	{
+		return 0.f;
+	}
+
+	// 현재 체인 인덱스 계산
+	// 주의: CDO 상태일 수 있으므로 GetChainASC()나 GetCurrentChain()을 바로 쓰지 않고, 인자로 받은 ASC를 기준으로 직접 계산
+	int32 CurrentChain = 0;
+	if (ComboStateEffectClass)
+	{
+		// UI에서 호출될 때, 캐릭터에게 해당 콤보 상태(GE)가 몇 개 있는지 확인
+		CurrentChain = ASC->GetGameplayEffectCount(ComboStateEffectClass, nullptr);
+	}
+
+	// 현재 체인에 해당하는 Cost GE 가져오기
+	const UGameplayEffect* ChainCostGE = GetChainCostEffect(CurrentChain);
+
+	int32 AbilityLevel = 1;
+	if (InLevel >= 0) AbilityLevel = InLevel;
+	else if (IsInstantiated()) AbilityLevel = GetAbilityLevel();
+	else if (const FGameplayAbilitySpec* Spec = ASC->FindAbilitySpecFromClass(GetClass()))
+	{
+		AbilityLevel = Spec->Level;
+	}
+
+	return CalculateManaCostFromGameplayEffect(ChainCostGE, ASC, AbilityLevel);
+}
+
 bool USFGA_ChainedSkill_Melee::CheckCost(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, FGameplayTagContainer* OptionalRelevantTags) const
 {
 	UAbilitySystemComponent* ASC = ActorInfo ? ActorInfo->AbilitySystemComponent.Get() : nullptr;

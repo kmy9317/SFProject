@@ -125,7 +125,7 @@ public:
 
 	// 계산된 마나 코스트 반환
 	UFUNCTION(BlueprintCallable, Category = "SF|Cost")
-	float GetCalculatedManaCost(UAbilitySystemComponent* ASC = nullptr) const;
+	virtual float GetCalculatedManaCost(UAbilitySystemComponent* ASC = nullptr, int32 InLevel = -1) const;
 
 	bool ShouldPersistOnTravel() const { return bShouldPersistOnTravel; }
 	
@@ -137,18 +137,12 @@ protected:
 	// 스킬이 발동될 때 실행되는 함수 (언리얼 BP상의 Event ActivateAbility와 동일)
 	virtual void ActivateAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, const FGameplayEventData* TriggerEventData) override;
 	
-	virtual bool CommitAbility(
-	const FGameplayAbilitySpecHandle Handle,
-	const FGameplayAbilityActorInfo* ActorInfo,
-	const FGameplayAbilityActivationInfo ActivationInfo,
-	FGameplayTagContainer* OptionalRelevantTags
-) override;
+	virtual bool CommitAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, FGameplayTagContainer* OptionalRelevantTags) override;
 	
-	bool CommitAbility(
-		const FGameplayAbilitySpecHandle Handle,
-		const FGameplayAbilityActorInfo* ActorInfo,
-		const FGameplayAbilityActivationInfo ActivationInfo
-	);
+	bool CommitAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo);
+	
+	float CalculateManaCostFromGameplayEffect(const UGameplayEffect* CostGE, UAbilitySystemComponent* ASC, int32 AbilityLevel) const;
+	
 protected:
 	
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "SF|AbilityActivation")

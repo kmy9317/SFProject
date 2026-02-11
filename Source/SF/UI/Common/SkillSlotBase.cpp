@@ -320,7 +320,7 @@ void USkillSlotBase::RefreshManaCost()
 	}
 
 	// (실제 마나 소모량 계산)
-	float CurrentManaCost = SFAbility->GetCalculatedManaCost(ASC);
+	float CurrentManaCost = SFAbility->GetCalculatedManaCost(ASC, Spec->Level);
 
 	// 6. 값 변화 체크 -> 값이 같으면 UI 갱신 안 함)
 	if (FMath::IsNearlyEqual(CachedManaCost, CurrentManaCost))
