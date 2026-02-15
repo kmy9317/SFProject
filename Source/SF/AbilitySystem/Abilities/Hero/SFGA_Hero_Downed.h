@@ -64,6 +64,9 @@ private:
 	UPROPERTY()
 	TWeakObjectPtr<ASFHero> CachedDownedHero;
 
+	//Downed 이벤트 수신 시 원본 Payload 캐싱 (공격자 컨텍스트 보존)
+	FGameplayEventData CachedTriggerPayload;
+
 	UPROPERTY()
 	TWeakObjectPtr<USFPlayerCombatStateComponent> CachedCombatStateComponent;
 

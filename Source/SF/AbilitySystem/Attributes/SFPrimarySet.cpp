@@ -67,12 +67,6 @@ void USFPrimarySet::PostGameplayEffectExecute(const FGameplayEffectModCallbackDa
         {
             return;
         }
-
-        if (SFASC->HasMatchingGameplayTag(SFGameplayTags::Character_State_Invulnerable))
-        {
-            SetDamage(0.0f); // 데미지 무효화
-            return;
-        }
         
         const float DamageDone = GetDamage();
         SetDamage(0.0f);
@@ -94,7 +88,12 @@ void USFPrimarySet::PostGameplayEffectExecute(const FGameplayEffectModCallbackDa
         if (SFASC->HasMatchingGameplayTag(SFGameplayTags::Character_State_Parrying))
         {
             USFAbilitySystemLibrary::SendParryEventFromSpec(SFASC, DamageDone, Data.EffectSpec);
-            return;
+            if (SFASC->HasMatchingGameplayTag(SFGameplayTags::GameplayEvent_Parry))
+            {
+                // 패링 성공 → 데미지 차단
+                return; 
+            }
+            // 패링 실패 (후방 공격 등) → 아래 데미지 로직으로 진행
         }
         
         // Apply damage
@@ -120,36 +119,14 @@ void USFPrimarySet::PostGameplayEffectExecute(const FGameplayEffectModCallbackDa
         {
             USFAbilitySystemLibrary::SendHitReactionEventFromSpec(SFASC, DamageDone, Data.EffectSpec);
         }
-        else 
+        else
         {
             if (AActor* OwnerActor = GetOwningActor())
             {
                 if (OwnerActor->HasAuthority())
                 {
-                    //1회 부활 기능(색욕 30레벨) 로직
-                    const FGameplayTag LastStandAvailableTag =
-                    FGameplayTag::RequestGameplayTag(TEXT("Ability.Skill.Passive.LastStand"));
-                    const FGameplayTag LastStandUsedTag =
-                    FGameplayTag::RequestGameplayTag(TEXT("Ability.Skill.Passive.LastStand.Use"));
-                    if (SFASC->HasMatchingGameplayTag(LastStandAvailableTag) &&
-                        !SFASC->HasMatchingGameplayTag(LastStandUsedTag))
-                    {
-                        FGameplayEventData EventData;
-                        EventData.EventTag = SFGameplayTags::GameplayEvent_PlayerAbility_LastStand;
-
-                        SFASC->HandleGameplayEvent(
-                        EventData.EventTag,
-                        &EventData
-                        );
-
-                        return;
-                    }
-                    
-                    //사망 이벤트
-                    if (!SFASC->HasMatchingGameplayTag(SFGameplayTags::Character_State_Dead))
-                    {
-                        HandleZeroHealth(SFASC, Data);
-                    }
+                    // DeathHandler 어빌리티에서 상황에 따라 적절한 어빌리티 부여
+                    USFAbilitySystemLibrary::SendZeroHealthEventFromSpec(SFASC, DamageDone, Data.EffectSpec);
                 }
             }
         }
@@ -199,11 +176,6 @@ void USFPrimarySet::PostAttributeChange(const FGameplayAttribute& Attribute, flo
             }
         }
     }
-}
-
-void USFPrimarySet::HandleZeroHealth(USFAbilitySystemComponent* SFASC, const FGameplayEffectModCallbackData& Data)
-{
-    USFAbilitySystemLibrary::SendDeathEventFromSpec(SFASC, Data.EffectSpec);
 }
 
 void USFPrimarySet::ClampAttribute(const FGameplayAttribute& Attribute, float& NewValue) const

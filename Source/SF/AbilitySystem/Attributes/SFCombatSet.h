@@ -36,6 +36,7 @@ public:
 	ATTRIBUTE_ACCESSORS(ThisClass, AttackSpeed);
 	ATTRIBUTE_ACCESSORS(ThisClass, CriticalDamage);
 	ATTRIBUTE_ACCESSORS(ThisClass, CriticalChance);
+	ATTRIBUTE_ACCESSORS(USFCombatSet, IncomingDamageMultiplier)
 
 protected:
 	UFUNCTION()
@@ -68,4 +69,7 @@ public:
 
 	UPROPERTY(BlueprintReadOnly, ReplicatedUsing=OnRep_CriticalChance, meta=(AllowPrivateAccess="true"))
 	FGameplayAttributeData CriticalChance;
+
+	UPROPERTY(BlueprintReadOnly, meta=(AllowPrivateAccess="true"))
+	FGameplayAttributeData IncomingDamageMultiplier;
 };

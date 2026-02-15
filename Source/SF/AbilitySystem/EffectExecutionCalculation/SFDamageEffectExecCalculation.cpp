@@ -19,14 +19,16 @@ struct SFDamageStatics
     DECLARE_ATTRIBUTE_CAPTUREDEF(Defense);
     DECLARE_ATTRIBUTE_CAPTUREDEF(CriticalDamage);
     DECLARE_ATTRIBUTE_CAPTUREDEF(CriticalChance);
+    DECLARE_ATTRIBUTE_CAPTUREDEF(IncomingDamageMultiplier);
 
     SFDamageStatics()
     {
         DEFINE_ATTRIBUTE_CAPTUREDEF(USFPrimarySet, Damage, Source, true)
-        DEFINE_ATTRIBUTE_CAPTUREDEF(USFCombatSet, AttackPower, Source, true)
+        DEFINE_ATTRIBUTE_CAPTUREDEF(USFCombatSet,  AttackPower, Source, true)
         DEFINE_ATTRIBUTE_CAPTUREDEF(USFCombatSet, Defense, Target, false)
         DEFINE_ATTRIBUTE_CAPTUREDEF(USFCombatSet, CriticalDamage, Source, true)
         DEFINE_ATTRIBUTE_CAPTUREDEF(USFCombatSet, CriticalChance, Source, true)
+        DEFINE_ATTRIBUTE_CAPTUREDEF(USFCombatSet, IncomingDamageMultiplier, Target, false);
     }
 };
 
@@ -44,6 +46,7 @@ USFDamageEffectExecCalculation::USFDamageEffectExecCalculation()
     RelevantAttributesToCapture.Add(DamageStatics.DefenseDef);
     RelevantAttributesToCapture.Add(DamageStatics.CriticalDamageDef);
     RelevantAttributesToCapture.Add(DamageStatics.CriticalChanceDef);
+    RelevantAttributesToCapture.Add(DamageStatics.IncomingDamageMultiplierDef);
 }
 
 void USFDamageEffectExecCalculation::Execute_Implementation(
@@ -66,6 +69,8 @@ void USFDamageEffectExecCalculation::Execute_Implementation(
     FinalDamage = ApplyCritical(ExecutionParams, Spec, FinalDamage);
   
     FinalDamage = ApplyDefense(ExecutionParams, FinalDamage);
+
+    FinalDamage = ApplyIncomingDamageMultiplier(ExecutionParams, FinalDamage);
     
     OutputFinalDamage(FinalDamage, OutExecutionOutput);
 }
@@ -153,9 +158,25 @@ float USFDamageEffectExecCalculation::ApplyDefense(
     return InDamage * (1.0f - DefenseReduction);
 }
 
-void USFDamageEffectExecCalculation::OutputFinalDamage(
-    float FinalDamage,
-    FGameplayEffectCustomExecutionOutput& OutExecutionOutput) const
+float USFDamageEffectExecCalculation::ApplyIncomingDamageMultiplier(const FGameplayEffectCustomExecutionParameters& ExecutionParams, float InDamage) const
+{
+    const FGameplayEffectSpec& Spec = ExecutionParams.GetOwningSpec();
+
+    FAggregatorEvaluateParameters EvalParams;
+    EvalParams.SourceTags = Spec.CapturedSourceTags.GetAggregatedTags();
+    EvalParams.TargetTags = Spec.CapturedTargetTags.GetAggregatedTags();
+
+    float IncomingDamageMultiplier = 1.0f;
+    ExecutionParams.AttemptCalculateCapturedAttributeMagnitude(
+        GetDamageStatics().IncomingDamageMultiplierDef,
+        EvalParams,
+        IncomingDamageMultiplier);
+    IncomingDamageMultiplier = FMath::Max(IncomingDamageMultiplier, 0.0f);
+
+    return InDamage * IncomingDamageMultiplier;
+}
+
+void USFDamageEffectExecCalculation::OutputFinalDamage(float FinalDamage, FGameplayEffectCustomExecutionOutput& OutExecutionOutput) const
 {
     if (FinalDamage > 0.0f)
     {

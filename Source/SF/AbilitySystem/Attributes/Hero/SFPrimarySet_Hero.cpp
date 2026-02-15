@@ -135,18 +135,6 @@ void USFPrimarySet_Hero::PostAttributeChange(const FGameplayAttribute& Attribute
 	}
 }
 
-void USFPrimarySet_Hero::HandleZeroHealth(USFAbilitySystemComponent* SFASC, const FGameplayEffectModCallbackData& Data)
-{
-	if (CanEnterDownedState())
-	{
-		USFAbilitySystemLibrary::SendDownedEventFromSpec(SFASC, Data.EffectSpec);
-	}
-	else
-	{
-		Super::HandleZeroHealth(SFASC, Data);
-	}
-}
-
 void USFPrimarySet_Hero::ClampAttribute(const FGameplayAttribute& Attribute, float& NewValue) const
 {
 	Super::ClampAttribute(Attribute, NewValue);
@@ -223,15 +211,4 @@ void USFPrimarySet_Hero::OnRep_StaminaRegen(const FGameplayAttributeData& OldVal
 void USFPrimarySet_Hero::OnRep_ManaReduction(const FGameplayAttributeData& OldValue)
 {
 	GAMEPLAYATTRIBUTE_REPNOTIFY(ThisClass, ManaReduction, OldValue);
-}
-
-bool USFPrimarySet_Hero::CanEnterDownedState() const
-{
-	USFPlayerCombatStateComponent* CombatState = USFPlayerCombatStateComponent::FindPlayerCombatStateComponent(GetOwningActor());
-	if (!CombatState)
-	{
-		return false;
-	}
-
-	return CombatState->GetRemainingDownCount() > 0;
 }
