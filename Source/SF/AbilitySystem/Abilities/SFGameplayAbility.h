@@ -118,10 +118,10 @@ public:
 	void ExecuteMontageGameplayCue(const FSFMontagePlayData& MontageData);
 
 	UFUNCTION(BlueprintCallable, Category = "SF|Ability|Input")
-	void RestorePlayerInput();
+	void RestorePlayerInput(bool bRestoreLookInput = false);
 
 	UFUNCTION(BlueprintCallable, Category = "SF|Ability|Input")
-	void DisablePlayerInput();
+	void DisablePlayerInput(bool bDisableLookInput = false);
 
 	// 계산된 마나 코스트 반환
 	UFUNCTION(BlueprintCallable, Category = "SF|Cost")

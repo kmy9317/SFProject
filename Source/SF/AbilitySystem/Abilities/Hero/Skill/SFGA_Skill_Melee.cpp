@@ -273,75 +273,6 @@ void USFGA_Skill_Melee::CleanupWindupWarpTask()
 	CurrentWindupIndex = 0;
 }
 
-void USFGA_Skill_Melee::OnWarpTargetCommitted(FVector InCommittedDirection, FVector InCommittedLocation)
-{
-	CurrentWindupIndex++;
-	
-	// 로컬 예측: 즉시 상태 저장
-	CommittedDirection = InCommittedDirection;
-	CommittedLocation = InCommittedLocation;
-
-	if (!IsLocallyControlled())
-	{
-		return;
-	}
-
-	if (HasAuthority(&CurrentActivationInfo))
-	{
-		return;
-	}
-
-	// 클라이언트: 서버로 데이터 전송
-	USFAbilitySystemComponent* ASC = GetSFAbilitySystemComponentFromActorInfo();
-	if (!ASC)
-	{
-		return;
-	}
-
-	FScopedPredictionWindow ScopedPrediction(ASC);
-	FSFGameplayAbilityTargetData_WarpDirection* WarpData = new FSFGameplayAbilityTargetData_WarpDirection();
-	WarpData->WindupIndex = CurrentWindupIndex;
-	WarpData->WarpLocation = InCommittedLocation;
-	WarpData->WarpRotation = InCommittedDirection.Rotation();
-	FGameplayAbilityTargetDataHandle DataHandle(WarpData);
-
-	// 서버로 전송
-	ASC->ServerSetReplicatedTargetData(CurrentSpecHandle,CurrentActivationInfo.GetActivationPredictionKey(), DataHandle, FGameplayTag(), ASC->ScopedPredictionKey);
-}
-
-void USFGA_Skill_Melee::OnServerWarpDirectionReceived(const FGameplayAbilityTargetDataHandle& DataHandle, FGameplayTag ActivationTag)
-{
-	USFAbilitySystemComponent* ASC = GetSFAbilitySystemComponentFromActorInfo();
-	if (!ASC)
-	{
-		return;
-	}
-
-	// TargetData 소비
-	ASC->ConsumeClientReplicatedTargetData(CurrentSpecHandle, CurrentActivationInfo.GetActivationPredictionKey());
-
-	// 데이터 추출
-	const FSFGameplayAbilityTargetData_WarpDirection* WarpData = static_cast<const FSFGameplayAbilityTargetData_WarpDirection*>(DataHandle.Get(0));
-	if (!WarpData)
-	{;
-		return;
-	}
-
-	// 검증
-	// if (!ValidateWarpDirection(WarpData->WarpLocation, WarpData->WarpRotation, WarpData->WindupIndex))
-	// {
-	// 	return;
-	// }
-
-	// 서버에서 Motion Warping 적용
-	ApplyWarpTarget(WarpData->WarpLocation, WarpData->WarpRotation);
-
-	// 상태 업데이트
-	CommittedDirection = WarpData->WarpRotation.Vector();
-	CommittedLocation = WarpData->WarpLocation;
-	CurrentWindupIndex = WarpData->WindupIndex;
-}
-
 bool USFGA_Skill_Melee::ValidateWarpDirection(const FVector& ClientLocation, const FRotator& ClientRotation, int32 WindupIndex) const
 {
 	// 1. WindupIndex 검증
@@ -379,23 +310,6 @@ bool USFGA_Skill_Melee::ValidateWarpDirection(const FVector& ClientLocation, con
 	}
 	
 	return true;
-}
-
-void USFGA_Skill_Melee::ApplyWarpTarget(const FVector& Location, const FRotator& Rotation)
-{
-	ASFCharacterBase* Character = GetSFCharacterFromActorInfo();
-	if (!Character)
-	{
-		return;
-	}
-
-	UMotionWarpingComponent* MotionWarpingComp = Character->GetMotionWarpingComponent();
-	if (!MotionWarpingComp)
-	{
-		return;
-	}
-
-	MotionWarpingComp->AddOrUpdateWarpTargetFromLocationAndRotation(ActiveWarpTargetName, Location, Rotation);
 }
 
 float USFGA_Skill_Melee::GetScaledBaseDamage() const
@@ -462,7 +376,7 @@ void USFGA_Skill_Melee::UpdateWarpTargetImmediately()
     UMotionWarpingComponent* MotionWarpingComp = Character->GetComponentByClass<UMotionWarpingComponent>();
     if (!MotionWarpingComp) return;
 
-    // 1. 최적의 회전값 계산 (락온 > 입력)
+    // 1. 최적의 회전값 계산 (락온 > 입력
     FRotator TargetRotation = GetBestWarpRotation();
     TargetRotation.Pitch = 0.f;
     TargetRotation.Roll = 0.f;

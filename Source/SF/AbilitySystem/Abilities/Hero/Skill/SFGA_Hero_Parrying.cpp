@@ -5,26 +5,14 @@
 #include "AbilitySystem/GameplayEvent/SFGameplayEventTags.h"
 #include "AbilitySystem/GameplayCues/SFGameplayCueTags.h"
 #include "Abilities/Tasks/AbilityTask_WaitGameplayEvent.h"
-#include "Abilities/Tasks/AbilityTask_PlayMontageAndWait.h"
 
-//=====================================================================
-// Constructor
-//=====================================================================
 USFGA_Hero_Parrying::USFGA_Hero_Parrying(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 {
 	InstancingPolicy = EGameplayAbilityInstancingPolicy::InstancedPerActor;
 }
 
-
-//=====================================================================
-// ActivateAbility
-//=====================================================================
-void USFGA_Hero_Parrying::ActivateAbility(
-	const FGameplayAbilitySpecHandle Handle,
-	const FGameplayAbilityActorInfo* ActorInfo,
-	const FGameplayAbilityActivationInfo ActivationInfo,
-	const FGameplayEventData* TriggerEventData)
+void USFGA_Hero_Parrying::ActivateAbility(const FGameplayAbilitySpecHandle Handle,const FGameplayAbilityActorInfo* ActorInfo,const FGameplayAbilityActivationInfo ActivationInfo,const FGameplayEventData* TriggerEventData)
 {
 	Super::ActivateAbility(Handle, ActorInfo, ActivationInfo, TriggerEventData);
 
@@ -37,112 +25,54 @@ void USFGA_Hero_Parrying::ActivateAbility(
 	}
 }
 
-
-//=====================================================================
 void USFGA_Hero_Parrying::OnParryEventReceived(FGameplayEventData Payload)
 {
+	AActor* InstigatorActor = nullptr;
+	if (!ValidateParryDirection(Payload, InstigatorActor))
+	{
+		return;
+	}
+	
 	AActor* OwnerActor = GetAvatarActorFromActorInfo();
-	if (!OwnerActor)
+	UAbilitySystemComponent* OwnerASC = GetAbilitySystemComponentFromActorInfo();
+	if (!OwnerActor || !OwnerASC)
 	{
-		UE_LOG(LogTemp, Error, TEXT("[Parry] OwnerActor NULL"));
 		return;
 	}
 
-	// 1) 공격자 찾기
-	AActor* InstigatorActor = Payload.ContextHandle.GetOriginalInstigator();
-	if (!InstigatorActor)
+	// 패링 성공 태그
+	OwnerASC->AddLooseGameplayTag(ParryEventTag);
+
+	// 공격자에게 Parried 이벤트 전달
+	if (UAbilitySystemComponent* InstigatorASC = UAbilitySystemGlobals::GetAbilitySystemComponentFromActor(InstigatorActor))
 	{
-		UE_LOG(LogTemp, Error, TEXT("[Parry] Failed GetOriginalInstigator"));
-		InstigatorActor = const_cast<AActor*>(Payload.Instigator.Get());
+		FGameplayEventData EventData;
+		EventData.EventTag = SFGameplayTags::GameplayEvent_Parried;
+		EventData.Instigator = OwnerActor;
+		EventData.Target = InstigatorActor;
+		EventData.ContextHandle = Payload.ContextHandle;
+		InstigatorASC->HandleGameplayEvent(SFGameplayTags::GameplayEvent_Parried, &EventData);
 	}
 
-	if (!InstigatorActor)
+	if (!Payload.ContextHandle.IsValid())
 	{
-		UE_LOG(LogTemp, Error, TEXT("[Parry] Instigator NULL - Cannot calculate angle"));
-		return;
+		UE_LOG(LogTemp, Error, TEXT("[Parry] ContextHandle INVALID"));
+	}
+	else if (const FHitResult* HR = Payload.ContextHandle.GetHitResult())
+	{
+		UE_LOG(LogTemp, Warning, TEXT("[Parry] HitResult OK | Impact=%s | Bone=%s"), *HR->ImpactPoint.ToString(), *HR->BoneName.ToString());
+	}
+	else
+	{
+		UE_LOG(LogTemp, Error, TEXT("[Parry] ContextHandle VALID but HitResult NULL"));
 	}
 
-	//방향 계산
-	FVector OwnerLocation = OwnerActor->GetActorLocation();
-	FVector InstigatorLocation = InstigatorActor->GetActorLocation();
-	FVector DirToInstigator = (InstigatorLocation - OwnerLocation).GetSafeNormal();
+	ApplyComboState(this, ExecutingChainIndex + 1);
 
-	FVector OwnerForward = OwnerActor->GetActorForwardVector().GetSafeNormal();
-
-	//각도 계산
-	float Dot = FVector::DotProduct(OwnerForward, DirToInstigator);
-	float AngleDeg = FMath::RadiansToDegrees(FMath::Acos(Dot));
-
-	//전방 180° 에서 공격이 들어왔는지 판단
-	bool bInFront = (AngleDeg <= 90.0f);
-
-	UE_LOG(LogTemp, Warning, TEXT("[Parry] Angle=%.2f | Dot=%.2f | InFront(180deg)=%d"),
-		AngleDeg, Dot, bInFront);
-
-	//후방 공격 → 패링 실패
-	if (!bInFront)
+	// 패링 GC 실행
+	if (!bParryGCExecuted)
 	{
-		UE_LOG(LogTemp, Error, TEXT("[Parry] FAILED - Attack from BEHIND"));
-		return;
-	}
-
-	//패링 성공 로그
-	UE_LOG(LogTemp, Error, TEXT("[Parry] SUCCESS - Attack from FRONT (180 deg)"));
-
-	//패링 이벤트 전달 및 GC로 패링 이펙트 처리
-	if (HasAuthority(&CurrentActivationInfo))
-	{
-		UAbilitySystemComponent* OwnerASC = GetAbilitySystemComponentFromActorInfo();
-		if (!OwnerASC) return;
-
-		//패링 성공 태그
-		OwnerASC->AddLooseGameplayTag(ParryEventTag);
-
-		//공격자에게 Parried 이벤트 전달
-		if (UAbilitySystemComponent* InstigatorASC =
-			UAbilitySystemGlobals::GetAbilitySystemComponentFromActor(InstigatorActor))
-		{
-			FGameplayEventData EventData;
-			EventData.EventTag      = SFGameplayTags::GameplayEvent_Parried;
-			EventData.Instigator    = OwnerActor;
-			EventData.Target        = InstigatorActor;
-			EventData.ContextHandle = Payload.ContextHandle;
-
-			InstigatorASC->HandleGameplayEvent(
-				SFGameplayTags::GameplayEvent_Parried,
-				&EventData
-			);
-		}
-
-		if (!Payload.ContextHandle.IsValid())
-		{
-			UE_LOG(LogTemp, Error,
-				TEXT("[Parry] ContextHandle INVALID"));
-		}
-		else if (const FHitResult* HR = Payload.ContextHandle.GetHitResult())
-		{
-			UE_LOG(LogTemp, Warning,
-				TEXT("[Parry] HitResult OK | Impact=%s | Bone=%s"),
-				*HR->ImpactPoint.ToString(),
-				*HR->BoneName.ToString());
-		}
-		else
-		{
-			UE_LOG(LogTemp, Error,
-				TEXT("[Parry] ContextHandle VALID but HitResult NULL"));
-		}
-
-		ApplyComboState(this, ExecutingChainIndex + 1);
-		
-		// 이미 패링 GC 실행됐으면 무시
-		if (bParryGCExecuted)
-		{
-			UE_LOG(LogTemp, Warning, TEXT("[Parry] GC already executed - Skip"));
-			return;
-		}
-		
-		//패링 GameplayCue 실행
-		FVector FXLocation = OwnerLocation;
+		FVector FXLocation = OwnerActor->GetActorLocation();
 		if (Payload.ContextHandle.IsValid())
 		{
 			if (const FHitResult* Hit = Payload.ContextHandle.GetHitResult())
@@ -151,6 +81,8 @@ void USFGA_Hero_Parrying::OnParryEventReceived(FGameplayEventData Payload)
 			}
 		}
 
+		FVector DirToInstigator = (InstigatorActor->GetActorLocation() - OwnerActor->GetActorLocation()).GetSafeNormal();
+
 		FGameplayCueParameters CueParams;
 		CueParams.Location     = FXLocation;
 		CueParams.Instigator   = OwnerActor;
@@ -158,15 +90,60 @@ void USFGA_Hero_Parrying::OnParryEventReceived(FGameplayEventData Payload)
 		CueParams.SourceObject = this;
 		CueParams.OriginalTag  = ParryEventTag;
 		CueParams.Normal       = DirToInstigator;
+		OwnerASC->ExecuteGameplayCue(SFGameplayTags::GameplayCue_Event_Parry, CueParams);
 
-		OwnerASC->ExecuteGameplayCue(
-			SFGameplayTags::GameplayCue_Event_Parry,
-			CueParams
-			);
-		
-		//GC 실행 완료 표시
 		bParryGCExecuted = true;
 	}
+
+	// 자식 클래스 확장 포인트
+	OnParrySuccess(Payload, InstigatorActor);
+}
+
+bool USFGA_Hero_Parrying::ValidateParryDirection(const FGameplayEventData& Payload, AActor*& OutInstigator) const
+{
+	AActor* OwnerActor = GetAvatarActorFromActorInfo();
+	if (!OwnerActor)
+	{
+		UE_LOG(LogTemp, Error, TEXT("[Parry] OwnerActor NULL"));
+		return false;
+	}
+
+	OutInstigator = Payload.ContextHandle.GetOriginalInstigator();
+	if (!OutInstigator)
+	{
+		UE_LOG(LogTemp, Error, TEXT("[Parry] Failed GetOriginalInstigator"));
+		OutInstigator = const_cast<AActor*>(Payload.Instigator.Get());
+	}
+
+	if (!OutInstigator)
+	{
+		UE_LOG(LogTemp, Error, TEXT("[Parry] Instigator NULL - Cannot calculate angle"));
+		return false;
+	}
+
+	FVector OwnerLocation = OwnerActor->GetActorLocation();
+	FVector InstigatorLocation = OutInstigator->GetActorLocation();
+	FVector DirToInstigator = (InstigatorLocation - OwnerLocation).GetSafeNormal();
+	FVector OwnerForward = OwnerActor->GetActorForwardVector().GetSafeNormal();
+
+	float Dot = FVector::DotProduct(OwnerForward, DirToInstigator);
+	float AngleDeg = FMath::RadiansToDegrees(FMath::Acos(Dot));
+	bool bInFront = (AngleDeg <= 90.0f);
+
+	UE_LOG(LogTemp, Warning, TEXT("[Parry] Angle=%.2f | Dot=%.2f | InFront(180deg)=%d"), AngleDeg, Dot, bInFront);
+
+	if (!bInFront)
+	{
+		UE_LOG(LogTemp, Error, TEXT("[Parry] FAILED - Attack from BEHIND"));
+		return false;
+	}
+
+	return true;
+}
+
+void USFGA_Hero_Parrying::OnParrySuccess(const FGameplayEventData& Payload, AActor* InstigatorActor)
+{
+	// Base는 빈 구현 - 자식 클래스에서 override하여 추가 로직 수행
 }
 
 void USFGA_Hero_Parrying::OnChainMontageCompleted()
@@ -219,19 +196,8 @@ void USFGA_Hero_Parrying::OnChainMontageInterrupted()
 
 	Super::OnChainMontageInterrupted();
 }
-//=====================================================================
 
-
-
-//=====================================================================
-// EndAbility
-//=====================================================================
-void USFGA_Hero_Parrying::EndAbility(
-	const FGameplayAbilitySpecHandle Handle,
-	const FGameplayAbilityActorInfo* ActorInfo,
-	const FGameplayAbilityActivationInfo ActivationInfo,
-	bool bReplicateEndAbility,
-	bool bWasCancelled)
+void USFGA_Hero_Parrying::EndAbility(const FGameplayAbilitySpecHandle Handle,const FGameplayAbilityActorInfo* ActorInfo,const FGameplayAbilityActivationInfo ActivationInfo,bool bReplicateEndAbility,bool bWasCancelled)
 {
 	bParryGCExecuted = false;
 	

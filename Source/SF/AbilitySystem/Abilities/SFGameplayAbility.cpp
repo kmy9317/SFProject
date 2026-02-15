@@ -431,15 +431,20 @@ void USFGameplayAbility::ExecuteMontageGameplayCue(const FSFMontagePlayData& Mon
 	ASC->ExecuteGameplayCue(SFGameplayTags::GameplayCue_Animation_PlayMontage ,CueParams);
 }
 
-void USFGameplayAbility::RestorePlayerInput()
+void USFGameplayAbility::RestorePlayerInput(bool bRestoreLookInput)
 {
 	if (ASFPlayerController* PC = GetSFPlayerControllerFromActorInfo())
 	{
 		PC->SetIgnoreMoveInput(false);
+
+		if (bRestoreLookInput)
+		{
+			PC->SetIgnoreLookInput(false);
+		}
 	}
 }
 
-void USFGameplayAbility::DisablePlayerInput()
+void USFGameplayAbility::DisablePlayerInput(bool bDisableLookInput)
 {
 	if (ASFHero* Hero = Cast<ASFHero>(GetAvatarActorFromActorInfo()))
 	{
@@ -452,6 +457,10 @@ void USFGameplayAbility::DisablePlayerInput()
 	if (ASFPlayerController* PC = GetSFPlayerControllerFromActorInfo())
 	{
 		PC->SetIgnoreMoveInput(true);
+		if (bDisableLookInput)
+		{
+			PC->SetIgnoreLookInput(true);
+		}
 	}
 
 	// ASC 입력 버퍼 클리어

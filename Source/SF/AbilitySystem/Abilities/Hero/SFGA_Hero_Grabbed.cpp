@@ -49,7 +49,7 @@ void USFGA_Hero_Grabbed::ActivateAbility(const FGameplayAbilitySpecHandle Handle
         ASC->CancelActiveAbilities(nullptr, nullptr, this);
     }
 
-    DisablePlayerInput();
+    DisablePlayerInput(true);
     PlayGrabbedMontage();
 
     // 해제 이벤트 대기
@@ -58,55 +58,6 @@ void USFGA_Hero_Grabbed::ActivateAbility(const FGameplayAbilitySpecHandle Handle
     {
         ReleaseWaitTask->EventReceived.AddDynamic(this, &USFGA_Hero_Grabbed::OnReleaseEventReceived);
         ReleaseWaitTask->ReadyForActivation();
-    }
-}
-
-void USFGA_Hero_Grabbed::DisablePlayerInput()
-{
-    ASFCharacterBase* Character = GetSFCharacterFromActorInfo();
-    if (!Character)
-    {
-        return;
-    }
-
-    if (UCharacterMovementComponent* MovementComp = Character->GetCharacterMovement())
-    {
-        MovementComp->StopMovementImmediately();
-        MovementComp->DisableMovement();
-    }
-
-    if (ASFPlayerController* PC = GetSFPlayerControllerFromActorInfo())
-    {
-        PC->SetIgnoreMoveInput(true);
-        PC->SetIgnoreLookInput(true);
-    }
-
-    if (IsLocallyControlled())
-    {
-        if (USFAbilitySystemComponent* ASC = GetSFAbilitySystemComponentFromActorInfo())
-        {
-            ASC->ClearAbilityInput();
-        }
-    }
-}
-
-void USFGA_Hero_Grabbed::RestorePlayerInput()
-{
-    ASFCharacterBase* Character = GetSFCharacterFromActorInfo();
-    if (!Character)
-    {
-        return;
-    }
-
-    if (UCharacterMovementComponent* MovementComp = Character->GetCharacterMovement())
-    {
-        MovementComp->SetMovementMode(MOVE_Falling);
-    }
-
-    if (ASFPlayerController* PC = GetSFPlayerControllerFromActorInfo())
-    {
-        PC->SetIgnoreMoveInput(false);
-        PC->SetIgnoreLookInput(false);
     }
 }
 
@@ -133,6 +84,20 @@ void USFGA_Hero_Grabbed::PlayGrabbedMontage()
     }
 }
 
+void USFGA_Hero_Grabbed::HandleGrabRelease()
+{
+    RestorePlayerInput(true); 
+    
+    ASFCharacterBase* Character = GetSFCharacterFromActorInfo();
+    if (Character)
+    {
+        if (UCharacterMovementComponent* MovementComp = Character->GetCharacterMovement())
+        {
+            MovementComp->SetMovementMode(MOVE_Falling);
+        }
+    }
+}
+
 void USFGA_Hero_Grabbed::OnReleaseEventReceived(FGameplayEventData Payload)
 {
     EndAbility(CurrentSpecHandle, CurrentActorInfo, CurrentActivationInfo, true, false);
@@ -150,7 +115,7 @@ void USFGA_Hero_Grabbed::OnMontageCancelled()
 
 void USFGA_Hero_Grabbed::EndAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, bool bReplicateEndAbility, bool bWasCancelled)
 {
-    RestorePlayerInput();
+    HandleGrabRelease();
     GrabberActor.Reset();
     Super::EndAbility(Handle, ActorInfo, ActivationInfo, bReplicateEndAbility, bWasCancelled);
 }

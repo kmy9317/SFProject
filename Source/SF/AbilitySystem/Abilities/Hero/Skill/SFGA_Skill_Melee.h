@@ -52,10 +52,6 @@ protected:
 	UFUNCTION(BlueprintCallable, Category = "SF|Ability|Warp")
 	void CleanupWindupWarpTask();
 	
-	// Warp Target Commit 콜백
-	UFUNCTION()
-	virtual void OnWarpTargetCommitted(FVector InCommittedDirection, FVector InCommittedLocation);
-
 	// 현재 확정된 방향/위치 Getter
 	UFUNCTION(BlueprintPure, Category = "SF|Ability|Warp")
 	FVector GetCommittedDirection() const { return CommittedDirection; }
@@ -64,16 +60,10 @@ protected:
 	FVector GetCommittedLocation() const { return CommittedLocation; }
 
 	// ========== Windup Warp Network Sync ==========
-
-	// 서버에서 TargetData 수신 
-	void OnServerWarpDirectionReceived(const FGameplayAbilityTargetDataHandle& DataHandle, FGameplayTag ActivationTag);
-
+	
 	// 서버에서 방향 검증 
 	bool ValidateWarpDirection(const FVector& ClientLocation, const FRotator& ClientRotation, int32 WindupIndex) const;
-
-	// Motion Warping 적용 
-	void ApplyWarpTarget(const FVector& Location, const FRotator& Rotation);
-
+	
 	UFUNCTION(BlueprintCallable, Category = "SF|Damage")
 	float GetScaledBaseDamage() const;
 	

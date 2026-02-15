@@ -13,10 +13,13 @@ class SF_API USFGA_Hero_Parrying_C : public USFGA_Hero_Parrying
 
 protected:
 	//=======================Parry=======================
-	virtual void OnParryEventReceived(FGameplayEventData Payload) override;
-	//===================================================
+	virtual void OnParrySuccess(const FGameplayEventData& Payload, AActor* InstigatorActor) override;
 
-	//==================Replace Ability==================
+private:
+	void ReplaceAbilityOnServer();
+
+protected:
+	
 	//바꿀 GA
 	UPROPERTY(EditDefaultsOnly, Category="SF|Parry|Replace")
 	TSubclassOf<USFGameplayAbility> ReplacementAbilityClass;
@@ -24,8 +27,4 @@ protected:
 	//교체할 슬롯(InputTag)
 	UPROPERTY(EditDefaultsOnly, Category="SF|Parry|Replace")
 	FGameplayTag ReplacementInputTag;
-	//===================================================
-	
-private:
-	void ReplaceAbilityOnServer();
 };
