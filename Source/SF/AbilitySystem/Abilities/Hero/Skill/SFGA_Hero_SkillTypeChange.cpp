@@ -127,7 +127,8 @@ void USFGA_Hero_SkillTypeChange::RestoreCustomPersistentData(const FInstancedStr
 		ElementSkillOverrides = Data->ElementOverrides;
 		SharedSlotLevels = Data->SharedSlotLevels;
 		bHasRestoredData = true;
-        
+
+		// TODO : 삭제 예정
 		if (bHasActivatedOnce)
 		{
 			USFAbilitySystemComponent* SFASC = Cast<USFAbilitySystemComponent>(GetActorInfo().AbilitySystemComponent.Get());
@@ -152,7 +153,7 @@ void USFGA_Hero_SkillTypeChange::OnRemoveAbility(const FGameplayAbilityActorInfo
 {
 	// 이 관리자 스킬이 제거되면, 부여했던 하위 스킬들도 모두 회수
 	USFAbilitySystemComponent* SFASC = Cast<USFAbilitySystemComponent>(ActorInfo->AbilitySystemComponent.Get());
-	if (SFASC) // IsValid 체크 필요 (SFAbilitySet.h 참고)
+	if (SFASC)
 	{
 		ActiveGrantedHandles.TakeFromAbilitySystem(SFASC);
 	}
@@ -246,8 +247,10 @@ void USFGA_Hero_SkillTypeChange::GiveAbilitySetWithOverrides(const USFAbilitySet
 	// 1. Attribute Sets 부여
     for (const FSFAbilitySet_AttributeSet& SetToGrant : AbilitySet->GetGrantedAttributes())
     {
-        if (!IsValid(SetToGrant.AttributeSet)) continue;
-
+	    if (!IsValid(SetToGrant.AttributeSet))
+	    {
+	    	continue;
+		}
         UAttributeSet* NewSet = NewObject<UAttributeSet>(SFASC->GetOwner(), SetToGrant.AttributeSet);
         SFASC->AddAttributeSetSubobject(NewSet);
         ActiveGrantedHandles.AddAttributeSet(NewSet);
@@ -256,8 +259,10 @@ void USFGA_Hero_SkillTypeChange::GiveAbilitySetWithOverrides(const USFAbilitySet
     // 2. Gameplay Abilities 부여
     for (const FSFAbilitySet_GameplayAbility& AbilityToGrant : AbilitySet->GetGrantedGameplayAbilities())
     {
-        if (!IsValid(AbilityToGrant.Ability)) continue;
-
+        if (!IsValid(AbilityToGrant.Ability))
+        {
+	        continue;
+        }
         TSubclassOf<USFGameplayAbility> AbilityClass = AbilityToGrant.Ability;
         FGameplayTag InputTag = AbilityToGrant.InputTag;
         int32 AbilityLevel = AbilityToGrant.AbilityLevel;  // 기본값
@@ -278,8 +283,10 @@ void USFGA_Hero_SkillTypeChange::GiveAbilitySetWithOverrides(const USFAbilitySet
             AbilityLevel = SharedSlotLevels[InputTag];
         }
 
-        if (!IsValid(AbilityClass)) continue;
-
+        if (!IsValid(AbilityClass))
+        {
+	        continue;
+        }
         USFGameplayAbility* AbilityCDO = AbilityClass->GetDefaultObject<USFGameplayAbility>();
         FGameplayAbilitySpec AbilitySpec(AbilityCDO, AbilityLevel);
         AbilitySpec.SourceObject = SourceObject;

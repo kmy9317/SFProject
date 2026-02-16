@@ -78,7 +78,7 @@ protected:
 
 protected:
 	/** * 순환할 어빌리티 세트 목록 (0: Fire, 1: Ice, 2: Lightning)
-	 * 주의: 여기에 공격 스킬들이 포함된 DA를 넣어야 합니다. (자기 자신 제외)
+	 * 여기에 공격 스킬들이 포함된 DA들 관리.
 	 */
 	UPROPERTY(EditDefaultsOnly, Category = "SF|Sorcerer")
 	TArray<TObjectPtr<USFAbilitySet>> AbilitySets;
@@ -86,7 +86,6 @@ protected:
 	/**
 	 * AbilitySets의 인덱스와 매칭되는 속성 태그
 	 * 예: [0]=Element.Fire, [1]=Element.Ice, [2]=Element.Lightning
-	 * 토큰 GA가 "Fire를 바꿔줘"라고 할 때 매칭하기 위해 필요합니다.
 	 */
 	UPROPERTY(EditDefaultsOnly, Category = "SF|Sorcerer")
 	TArray<FGameplayTag> ElementTags;

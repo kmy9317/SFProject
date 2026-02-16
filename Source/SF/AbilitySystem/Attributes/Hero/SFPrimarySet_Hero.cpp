@@ -40,19 +40,19 @@ bool USFPrimarySet_Hero::PreGameplayEffectExecute(FGameplayEffectModCallbackData
 		return true;
 	}
 
-	// Dead 또는 Downed 상태 체크
 	const bool bIsDeadOrDowned = SFASC->HasMatchingGameplayTag(SFGameplayTags::Character_State_Dead) ||
 								  SFASC->HasMatchingGameplayTag(SFGameplayTags::Character_State_Downed);
 
 	// Damage 차단 (Downed 상태)
 	if (Data.EvaluatedData.Attribute == GetDamageAttribute())
 	{
-		if (SFASC->HasMatchingGameplayTag(SFGameplayTags::Character_State_Downed))
+		if (bIsDeadOrDowned)
 		{
 			return false;
 		}
 	}
 
+	// 힐링 차단
 	if (Data.EvaluatedData.Attribute == GetHealthAttribute())
 	{
 		if (Data.EvaluatedData.Magnitude > 0.f && bIsDeadOrDowned)
