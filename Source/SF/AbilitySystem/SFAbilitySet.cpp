@@ -61,6 +61,11 @@ void FSFAbilitySet_GrantedHandles::TakeFromAbilitySystem(USFAbilitySystemCompone
 	GrantedAttributeSets.Reset();
 }
 
+void FSFAbilitySet_GrantedHandles::RemoveAbilitySpecHandle(const FGameplayAbilitySpecHandle& Handle)
+{
+	AbilitySpecHandles.Remove(Handle);
+}
+
 USFAbilitySet::USFAbilitySet(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 {

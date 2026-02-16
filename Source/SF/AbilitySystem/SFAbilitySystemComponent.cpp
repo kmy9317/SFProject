@@ -5,6 +5,7 @@
 
 #include "SFLogChannels.h"
 #include "Abilities/SFGameplayAbility.h"
+#include "Abilities/Hero/Skill/SFHeroSkillTags.h"
 #include "Animation/Enemy/SFEnemyAnimInstance.h"
 #include "Animation/Hero/SFHeroAnimInstance.h"
 #include "Attributes/SFPrimarySet.h"
@@ -445,6 +446,11 @@ void USFAbilitySystemComponent::SaveAbilitiesToData(FSFSavedAbilitySystemData& O
 			}
 		}
 
+		if (Spec.GetDynamicSpecSourceTags().HasTag(SFGameplayTags::Ability_Skill_NonPersistent))
+		{
+			continue;
+		}
+		
 		FSFSavedAbility SavedAbility;
 		SavedAbility.AbilityClass = Spec.Ability->GetClass();
 		SavedAbility.AbilityLevel = Spec.Level;

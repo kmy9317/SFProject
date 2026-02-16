@@ -86,6 +86,8 @@ public:
 
 	void TakeFromAbilitySystem(USFAbilitySystemComponent* SFASC);
 
+	void RemoveAbilitySpecHandle(const FGameplayAbilitySpecHandle& Handle);
+
 protected:
 
 	// 부여된 Ability Spec Handles

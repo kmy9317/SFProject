@@ -8,7 +8,8 @@
 
 /**
  * 스킬 강화용 토큰 어빌리티
- * 획득 시(OnAvatarSet) 관리자 GA에게 스킬 교체를 요청합니다.
+ * 부여 즉시 관리자 GA에 오버라이드를 등록하고 자기 자신을 제거
+ * SkillTypeChange의 CustomPersistentData에 내부의 강화 어빌리티는 저장됨
  */
 UCLASS()
 class SF_API USFGA_Upgrade_Skill_Token : public USFGameplayAbility
@@ -18,7 +19,7 @@ class SF_API USFGA_Upgrade_Skill_Token : public USFGameplayAbility
 public:
 	USFGA_Upgrade_Skill_Token();
 
-	virtual void OnAvatarSet(const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilitySpec& Spec) override;
+	virtual void OnGiveAbility(const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilitySpec& Spec) override;
 
 protected:
 	// 교체할 대상 속성 태그 (예: Element.Fire)

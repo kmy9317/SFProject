@@ -37,6 +37,8 @@ struct FSFSkillTypeChangeData
 
 /**
  * Sorcerer 전용: 속성(Fire, Ice, Lightning)을 순환하며 스킬 셋을 교체 및 관리하는 어빌리티
+ * CustomPersistentData를 통해 오버라이드 정보와 공유 레벨 스냅샷
+ * OnAvatarSet에서 복원된 데이터를 기반으로 어빌리티 세트를 재부여
  */
 UCLASS()
 class SF_API USFGA_Hero_SkillTypeChange : public USFGameplayAbility
@@ -67,14 +69,16 @@ protected:
 	// 내부 로직: 다음 속성으로 순환
 	void CycleToNextAbilitySet();
 
+	// 현재 인덱스 기준으로 어빌리티 세트 부여
+	void ApplyCurrentAbilitySet(USFAbilitySystemComponent* SFASC);
+
 	// 내부 로직: 오버라이드를 적용하여 AbilitySet 부여 (SFAbilitySet::GiveToAbilitySystem 대체)
 	void GiveAbilitySetWithOverrides(const USFAbilitySet* AbilitySet, FGameplayTag CurrentElementTag);
 
 	// 현재 활성화된 슬롯들의 레벨을 ElementSkillOverrides에 캐싱
 	void SyncCurrentSlotLevels();
-    
-	// 특정 InputTag의 현재 레벨 조회
-	int32 GetCurrentSlotLevel(FGameplayTag InputTag) const;
+
+	void SwapManagedAbility(USFAbilitySystemComponent* SFASC, FGameplayTag InputTag, TSubclassOf<USFGameplayAbility> NewAbilityClass);
 
 protected:
 	/** * 순환할 어빌리티 세트 목록 (0: Fire, 1: Ice, 2: Lightning)

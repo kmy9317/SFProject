@@ -7,11 +7,12 @@ USFGA_Upgrade_Skill_Token::USFGA_Upgrade_Skill_Token()
 	// 패시브처럼 동작하며, 인스턴싱되어야 저장/로드가 가능
 	InstancingPolicy = EGameplayAbilityInstancingPolicy::InstancedPerActor;
 	NetExecutionPolicy = EGameplayAbilityNetExecutionPolicy::ServerOnly;
+	bShouldPersistOnTravel = false;
 }
 
-void USFGA_Upgrade_Skill_Token::OnAvatarSet(const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilitySpec& Spec)
+void USFGA_Upgrade_Skill_Token::OnGiveAbility(const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilitySpec& Spec)
 {
-	Super::OnAvatarSet(ActorInfo, Spec);
+	Super::OnGiveAbility(ActorInfo, Spec);
 
 	// 서버에서만 실행
 	if (!ActorInfo->IsNetAuthority())
@@ -25,20 +26,19 @@ void USFGA_Upgrade_Skill_Token::OnAvatarSet(const FGameplayAbilityActorInfo* Act
 		return;
 	}
 
-	// 관리자 GA (SFGA_Hero_SkillTypeChange) 찾기
-	USFGA_Hero_SkillTypeChange* ManagerGA = nullptr;
+	// 관리자 GA 찾기 → 오버라이드 등록
 	for (const FGameplayAbilitySpec& AbilitySpec : SFASC->GetActivatableAbilities())
 	{
 		if (AbilitySpec.Ability && AbilitySpec.Ability->IsA(USFGA_Hero_SkillTypeChange::StaticClass()))
 		{
-			ManagerGA = Cast<USFGA_Hero_SkillTypeChange>(AbilitySpec.GetPrimaryInstance());
+			if (USFGA_Hero_SkillTypeChange* ManagerGA = Cast<USFGA_Hero_SkillTypeChange>(AbilitySpec.GetPrimaryInstance()))
+			{
+				ManagerGA->RegisterSkillOverride(TargetElementTag, TargetInputTag, NewAbilityClass);
+			}
 			break;
 		}
 	}
 
-	// 관리자에게 스킬 교체 요청
-	if (ManagerGA)
-	{
-		ManagerGA->RegisterSkillOverride(TargetElementTag, TargetInputTag, NewAbilityClass);
-	}
+	// 역할 완료 → ASC에서 자기 자신 제거
+	SFASC->ClearAbility(Spec.Handle);
 }

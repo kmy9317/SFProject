@@ -15,4 +15,7 @@ namespace SFGameplayTags
 	SF_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(Ability_Skill_Passive_CooldownReset);
 	SF_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(Ability_Skill_Passive_LastStand);
 	SF_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(Ability_Skill_Passive_LastStand_Use);
+
+	// Skill Type Manage Tags
+	SF_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(Ability_Skill_NonPersistent);
 }
