@@ -6,11 +6,7 @@
 #include "Engine/OverlapResult.h"
 #include "GameFramework/Character.h"
 #include "GameFramework/CharacterMovementComponent.h"
-
-// [중요] GroundAOE 로직 이식을 위한 필수 헤더
-#include "System/SFAssetManager.h"
-#include "System/Data/SFGameData.h"
-#include "Character/SFCharacterBase.h"
+#include "Libraries/SFCombatLibrary.h"
 
 USFGA_AreaOverTimeSkill::USFGA_AreaOverTimeSkill()
 {
@@ -35,28 +31,6 @@ void USFGA_AreaOverTimeSkill::ActivateAbility(const FGameplayAbilitySpecHandle H
 	PlaySkillAnimation();
 }
 
-void USFGA_AreaOverTimeSkill::EndAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, bool bReplicateEndAbility, bool bWasCancelled)
-{
-	if (UWorld* World = GetWorld())
-	{
-		World->GetTimerManager().ClearTimer(LoopTimerHandle);
-		World->GetTimerManager().ClearTimer(DurationTimerHandle);
-	}
-
-	if (LoopingGameplayCueTag.IsValid())
-	{
-		UAbilitySystemComponent* ASC = GetAbilitySystemComponentFromActorInfo();
-		if (ASC)
-		{
-			ASC->RemoveGameplayCue(LoopingGameplayCueTag);
-		}
-	}
-
-	ClearAllFrozenTargets();
-
-	Super::EndAbility(Handle, ActorInfo, ActivationInfo, bReplicateEndAbility, bWasCancelled);
-}
-
 void USFGA_AreaOverTimeSkill::PlaySkillAnimation()
 {
 	if (!SkillMontage)
@@ -65,10 +39,7 @@ void USFGA_AreaOverTimeSkill::PlaySkillAnimation()
 		return;
 	}
 
-	MontageTask = UAbilityTask_PlayMontageAndWait::CreatePlayMontageAndWaitProxy(
-		this, NAME_None, SkillMontage, 1.0f, NAME_None, false, 1.0f
-	);
-
+	MontageTask = UAbilityTask_PlayMontageAndWait::CreatePlayMontageAndWaitProxy(this, NAME_None, SkillMontage, 1.0f, NAME_None, false, 1.0f);
 	if (MontageTask)
 	{
 		MontageTask->OnCompleted.AddDynamic(this, &ThisClass::OnMontageCompleted);
@@ -119,24 +90,11 @@ void USFGA_AreaOverTimeSkill::StartAttackLoop()
 			ASC->AddGameplayCue(LoopingGameplayCueTag, CueParams);
 		}
 	}
-
+	
 	PerformAreaTick();
-
-	GetWorld()->GetTimerManager().SetTimer(
-		LoopTimerHandle,
-		this,
-		&ThisClass::PerformAreaTick,
-		DamageInterval,
-		true
-	);
-
-	GetWorld()->GetTimerManager().SetTimer(
-		DurationTimerHandle,
-		this,
-		&ThisClass::OnDurationExpired,
-		AttackDuration,
-		false
-	);
+	
+	GetWorld()->GetTimerManager().SetTimer(LoopTimerHandle,this,&ThisClass::PerformAreaTick,DamageInterval,true);
+	GetWorld()->GetTimerManager().SetTimer(DurationTimerHandle,this,&ThisClass::OnDurationExpired,AttackDuration,false);
 }
 
 void USFGA_AreaOverTimeSkill::OnDurationExpired()
@@ -146,105 +104,86 @@ void USFGA_AreaOverTimeSkill::OnDurationExpired()
 
 void USFGA_AreaOverTimeSkill::PerformAreaTick()
 {
-	// 권한 체크: 서버에서만 실행
-	if (!HasAuthority(&CurrentActivationInfo)) return;
-
+	if (!HasAuthority(&CurrentActivationInfo))
+	{
+		return;
+	}
+	
 	float DamageAmount = BaseDamage.GetValueAtLevel(GetAbilityLevel());
 	
 	// GroundAOE 로직 함수 호출
 	ApplyDamageToTargets(DamageAmount, Radius);
 }
 
-// [핵심 구현] ASFGroundAOE::ApplyDamageToTargets 로직을 Ability에 맞춰 이식
+// ASFGroundAOE::ApplyDamageToTargets 로직을 Ability에 맞춰 이식
 void USFGA_AreaOverTimeSkill::ApplyDamageToTargets(float DamageAmount, float EffectRadius)
 {
 	UAbilitySystemComponent* SourceASC = GetAbilitySystemComponentFromActorInfo();
-	if (!SourceASC) return;
-
-	AActor* AvatarActor = GetAvatarActorFromActorInfo(); // == SourceActor
-	if (!AvatarActor) return;
-
-	TArray<FOverlapResult> Overlaps;
-	FCollisionQueryParams QueryParams;
-	QueryParams.AddIgnoredActor(AvatarActor); // 시전자 무시
-
-	FCollisionObjectQueryParams ObjectParams;
-	ObjectParams.AddObjectTypesToQuery(ECC_Pawn);
-	ObjectParams.AddObjectTypesToQuery(ECC_WorldDynamic);
-
-	// 1. 충돌 감지 (ObjectType 사용)
-	bool bHit = GetWorld()->OverlapMultiByObjectType(
-		Overlaps,
-		AvatarActor->GetActorLocation(),
-		FQuat::Identity,
-		ObjectParams,
-		FCollisionShape::MakeSphere(EffectRadius),
-		QueryParams
-	);
-
-	if (!bHit) return;
-
-	// 2. GE 클래스 결정 (폴백 로직 포함)
-	TSubclassOf<UGameplayEffect> DamageGE = DamageGameplayEffectClass;
-	if (!DamageGE)
+	if (!SourceASC)
 	{
-		// 블루프린트에서 설정이 안되어있으면 데이터 에셋에서 가져옴
-		DamageGE = USFAssetManager::GetSubclassByPath(USFGameData::Get().DamageGameplayEffect_SetByCaller);
+		return;
 	}
 
-	if (!DamageGE) return;
-
-	TSet<AActor*> ProcessedActors;
-
-	for (const FOverlapResult& Overlap : Overlaps)
+	AActor* AvatarActor = GetAvatarActorFromActorInfo();
+	if (!AvatarActor)
 	{
-		AActor* TargetActor = Overlap.GetActor();
-		if (!TargetActor || ProcessedActors.Contains(TargetActor)) continue;
+		return;
+	}
 
-		ProcessedActors.Add(TargetActor);
+	// --- CombatLibrary로 데미지 적용 ---
+	FSFAreaDamageParams Params;
+	Params.SourceASC = SourceASC;
+	Params.SourceActor = AvatarActor;
+	Params.EffectCauser = AvatarActor;  // 시전자 자신이 EffectCauser
+	Params.Origin = AvatarActor->GetActorLocation();
+	Params.OverlapShape = FCollisionShape::MakeSphere(EffectRadius);
+	Params.DamageAmount = DamageAmount;
+	Params.DamageSetByCallerTag = DamageSetByCallerTag;
+	Params.DamageGEClass = DamageGameplayEffectClass;
+	Params.DebuffGEClass = DebuffGameplayEffectClass;
 
-		// 3. 아군 피격 방지 로직 (ASFCharacterBase 캐스팅)
-		if (ASFCharacterBase* SourceChar = Cast<ASFCharacterBase>(AvatarActor))
+	USFCombatLibrary::ApplyAreaDamage(Params);
+
+	// --- 빙결 처리 (3단계에서 GE 기반으로 전환 예정) ---
+	if (bEnableFreeze)
+	{
+		// 빙결 대상을 찾기 위해 별도 오버랩 수행
+		// TODO: 3단계에서 DebuffGEClass에 빙결 GE를 넣거나
+		//       별도 FreezeGEClass를 추가하여 CombatLibrary에서 함께 처리
+		TArray<FOverlapResult> Overlaps;
+		FCollisionQueryParams QueryParams;
+		QueryParams.AddIgnoredActor(AvatarActor);
+
+		FCollisionObjectQueryParams ObjectParams;
+		ObjectParams.AddObjectTypesToQuery(ECC_Pawn);
+		ObjectParams.AddObjectTypesToQuery(ECC_WorldDynamic);
+
+		bool bHit = GetWorld()->OverlapMultiByObjectType(
+			Overlaps,
+			AvatarActor->GetActorLocation(),
+			FQuat::Identity,
+			ObjectParams,
+			FCollisionShape::MakeSphere(EffectRadius),
+			QueryParams
+		);
+
+		if (bHit)
 		{
-			if (ASFCharacterBase* TargetChar = Cast<ASFCharacterBase>(TargetActor))
+			TSet<AActor*> ProcessedActors;
+			for (const FOverlapResult& Overlap : Overlaps)
 			{
-				if (SourceChar->GetTeamAttitudeTowards(*TargetChar) == ETeamAttitude::Friendly)
+				AActor* TargetActor = Overlap.GetActor();
+				if (!TargetActor || ProcessedActors.Contains(TargetActor))
 				{
-					continue; 
+					continue;
 				}
-			}
-		}
+				ProcessedActors.Add(TargetActor);
 
-		// 4. GE 적용
-		UAbilitySystemComponent* TargetASC = UAbilitySystemBlueprintLibrary::GetAbilitySystemComponent(TargetActor);
-		if (TargetASC)
-		{
-			FGameplayEffectContextHandle ContextHandle = SourceASC->MakeEffectContext();
-			ContextHandle.AddInstigator(AvatarActor, AvatarActor); // EffectCauser를 AvatarActor로 설정
-          
-			FGameplayEffectSpecHandle SpecHandle = SourceASC->MakeOutgoingSpec(DamageGE, 1.0f, ContextHandle);
-			if (SpecHandle.IsValid())
-			{
-				if (DamageSetByCallerTag.IsValid())
+				if (!USFCombatLibrary::ShouldDamageTarget(AvatarActor, TargetActor))
 				{
-					SpecHandle.Data->SetSetByCallerMagnitude(DamageSetByCallerTag, DamageAmount);
+					continue;
 				}
-				SourceASC->ApplyGameplayEffectSpecToTarget(*SpecHandle.Data.Get(), TargetASC);
-			}
 
-			// 디버프 적용
-			if (DebuffGameplayEffectClass)
-			{
-				FGameplayEffectSpecHandle DebuffSpec = SourceASC->MakeOutgoingSpec(DebuffGameplayEffectClass, 1.0f, ContextHandle);
-				if (DebuffSpec.IsValid())
-				{
-					SourceASC->ApplyGameplayEffectSpecToTarget(*DebuffSpec.Data.Get(), TargetASC);
-				}
-			}
-
-			// 빙결 처리 (추가 요구사항)
-			if (bEnableFreeze)
-			{
 				FreezeTarget(TargetActor);
 			}
 		}
@@ -253,13 +192,14 @@ void USFGA_AreaOverTimeSkill::ApplyDamageToTargets(float DamageAmount, float Eff
 
 void USFGA_AreaOverTimeSkill::FreezeTarget(AActor* TargetActor)
 {
-	if (!IsValid(TargetActor)) return;
-
+	if (!IsValid(TargetActor))
+	{
+		return;
+	}
+	
 	TWeakObjectPtr<AActor> WeakTarget(TargetActor);
 	FFrozenTargetData* ExistingData = FrozenTargetMap.Find(WeakTarget);
-
 	float FreezeDuration = DamageInterval + 0.2f;
-
 	if (ExistingData)
 	{
 		GetWorld()->GetTimerManager().ClearTimer(ExistingData->UnfreezeTimerHandle);
@@ -323,4 +263,26 @@ void USFGA_AreaOverTimeSkill::ClearAllFrozenTargets()
 	}
 
 	FrozenTargetMap.Empty();
+}
+
+void USFGA_AreaOverTimeSkill::EndAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, bool bReplicateEndAbility, bool bWasCancelled)
+{
+	if (UWorld* World = GetWorld())
+	{
+		World->GetTimerManager().ClearTimer(LoopTimerHandle);
+		World->GetTimerManager().ClearTimer(DurationTimerHandle);
+	}
+
+	if (LoopingGameplayCueTag.IsValid())
+	{
+		UAbilitySystemComponent* ASC = GetAbilitySystemComponentFromActorInfo();
+		if (ASC)
+		{
+			ASC->RemoveGameplayCue(LoopingGameplayCueTag);
+		}
+	}
+
+	ClearAllFrozenTargets();
+
+	Super::EndAbility(Handle, ActorInfo, ActivationInfo, bReplicateEndAbility, bWasCancelled);
 }

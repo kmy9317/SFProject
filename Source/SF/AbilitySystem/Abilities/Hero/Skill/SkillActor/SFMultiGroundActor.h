@@ -20,13 +20,7 @@ public:
 	ASFMultiGroundActor(const FObjectInitializer& ObjectInitializer);
 
 	// 번개 초기화 (부모의 InitAOE 대신 사용)
-	void InitLightning(
-		UAbilitySystemComponent* InSourceASC,
-		AActor* InSourceActor,
-		float InBaseDamage,
-		float InBoltRadius,      // 번개 두께
-		float InBoltHeight       // 번개 높이 (원기둥 구현용)
-	);
+	void InitLightning(UAbilitySystemComponent* InSourceASC,AActor* InSourceActor,float InBaseDamage,float InBoltRadius,float InBoltHeight);
 
 protected:
 	virtual void BeginPlay() override;

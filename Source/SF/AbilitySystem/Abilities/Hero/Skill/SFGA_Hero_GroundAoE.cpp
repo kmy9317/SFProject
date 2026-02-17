@@ -206,11 +206,7 @@ void USFGA_Hero_GroundAoE::OnConfirmInputPressed(float TimeWaited)
 	// 4. 공격 몽타주 재생
 	if (AttackMontage)
 	{
-		MontageTask = UAbilityTask_PlayMontageAndWait::CreatePlayMontageAndWaitProxy(
-			this,
-			NAME_None,
-			AttackMontage
-		);
+		MontageTask = UAbilityTask_PlayMontageAndWait::CreatePlayMontageAndWaitProxy(this,NAME_None,AttackMontage);
 
 		MontageTask->OnCompleted.AddDynamic(this, &USFGA_Hero_GroundAoE::OnAttackMontageCompleted);
 		MontageTask->OnInterrupted.AddDynamic(this, &USFGA_Hero_GroundAoE::OnAttackMontageCompleted);
@@ -228,13 +224,7 @@ void USFGA_Hero_GroundAoE::OnConfirmInputPressed(float TimeWaited)
 	// 5. 소환 이벤트 대기 (몽타주 노티파이)
 	if (SpawnEventTag.IsValid())
 	{
-		WaitEventTask = UAbilityTask_WaitGameplayEvent::WaitGameplayEvent(
-			this,
-			SpawnEventTag,
-			nullptr,
-			true,
-			true
-		);
+		WaitEventTask = UAbilityTask_WaitGameplayEvent::WaitGameplayEvent(this, SpawnEventTag,nullptr,true,true);
 		WaitEventTask->EventReceived.AddDynamic(this, &USFGA_Hero_GroundAoE::OnSpawnEventReceived);
 		WaitEventTask->ReadyForActivation();
 	}
@@ -258,15 +248,7 @@ void USFGA_Hero_GroundAoE::OnSpawnEventReceived(FGameplayEventData Payload)
 			if (AOEActor)
 			{
 				float FinalDamage = BaseDamage.GetValueAtLevel(GetAbilityLevel());
-				
-				AOEActor->InitAOE(
-					GetAbilitySystemComponentFromActorInfo(),
-					GetAvatarActorFromActorInfo(),
-					FinalDamage,
-					AOERadius,
-					Duration,
-					TickInterval
-				);
+				AOEActor->InitAOE(GetAbilitySystemComponentFromActorInfo(), GetAvatarActorFromActorInfo(),FinalDamage,AOERadius,Duration,TickInterval);
 			}
 		}
 	}
@@ -280,9 +262,6 @@ void USFGA_Hero_GroundAoE::OnAttackMontageCompleted()
 bool USFGA_Hero_GroundAoE::GetGroundLocationUnderCursor(FVector& OutLocation)
 {
 	APlayerController* PC = Cast<APlayerController>(GetControllerFromActorInfo());
-	
-	// [수정] PlayerCameraManager는 함수가 아니라 변수입니다.
-	// 그리고 null 체크를 추가하여 안전성을 높입니다.
 	if (!PC || !PC->PlayerCameraManager)
 	{
 		return false;
@@ -290,8 +269,6 @@ bool USFGA_Hero_GroundAoE::GetGroundLocationUnderCursor(FVector& OutLocation)
 
 	FVector CameraLoc;
 	FRotator CameraRot;
-	
-	// [수정] 괄호()를 없애고 멤버 변수(->PlayerCameraManager)로 접근합니다.
 	PC->PlayerCameraManager->GetCameraViewPoint(CameraLoc, CameraRot);
 
 	// 카메라 앞쪽으로 쏠 레이저의 길이
@@ -302,16 +279,11 @@ bool USFGA_Hero_GroundAoE::GetGroundLocationUnderCursor(FVector& OutLocation)
 	FHitResult Hit;
 	FCollisionQueryParams Params;
 	Params.AddIgnoredActor(GetAvatarActorFromActorInfo());
-	if (SpawnedReticle) Params.AddIgnoredActor(SpawnedReticle);
-
-	bool bHit = GetWorld()->LineTraceSingleByChannel(
-		Hit,
-		TraceStart,
-		TraceEnd,
-		ECC_Visibility,
-		Params
-	);
-
+	if (SpawnedReticle)
+	{
+		Params.AddIgnoredActor(SpawnedReticle);
+	}
+	bool bHit = GetWorld()->LineTraceSingleByChannel(Hit,TraceStart,TraceEnd,ECC_Visibility,Params);
 	if (bHit)
 	{
 		OutLocation = Hit.Location;

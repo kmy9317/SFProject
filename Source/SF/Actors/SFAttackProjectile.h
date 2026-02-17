@@ -34,24 +34,11 @@ protected:
 
 protected:
 	UFUNCTION()
-	void OnProjectileHit(
-		UPrimitiveComponent* HitComp,
-		AActor* OtherActor,
-		UPrimitiveComponent* OtherComp,
-		FVector NormalImpulse,
-		const FHitResult& Hit
-	);
+	void OnProjectileHit(UPrimitiveComponent* HitComp,AActor* OtherActor,UPrimitiveComponent* OtherComp,FVector NormalImpulse,const FHitResult& Hit);
 
-	// ✅ Pawn 판정은 Overlap에서 처리
+	//  Pawn 판정은 Overlap에서 처리
 	UFUNCTION()
-	void OnProjectileOverlap(
-		UPrimitiveComponent* OverlappedComponent,
-		AActor* OtherActor,
-		UPrimitiveComponent* OtherComp,
-		int32 OtherBodyIndex,
-		bool bFromSweep,
-		const FHitResult& SweepResult
-	);
+	void OnProjectileOverlap(UPrimitiveComponent* OverlappedComponent,AActor* OtherActor,UPrimitiveComponent* OtherComp,int32 OtherBodyIndex,bool bFromSweep,const FHitResult& SweepResult);
 
 	// 서버에서 데미지/GE 적용
 	void ApplyHitEffects_Server(AActor* TargetActor, const FHitResult& Hit);

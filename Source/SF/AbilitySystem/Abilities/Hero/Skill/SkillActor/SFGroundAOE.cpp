@@ -4,10 +4,7 @@
 #include "Components/SphereComponent.h"
 #include "NiagaraComponent.h"
 #include "Kismet/GameplayStatics.h"
-#include "System/SFAssetManager.h"
-#include "System/Data/SFGameData.h"
-#include "Character/SFCharacterBase.h"
-#include "Engine/OverlapResult.h"
+#include "Libraries/SFCombatLibrary.h"
 #include "Net/UnrealNetwork.h"
 
 ASFGroundAOE::ASFGroundAOE(const FObjectInitializer& ObjectInitializer)
@@ -37,15 +34,13 @@ void ASFGroundAOE::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLife
 	DOREPLIFETIME(ASFGroundAOE, AttackRadius);
 }
 
-// [변경] 인자가 유효할 때만 변수를 덮어씌움
+// 인자가 유효할 때만 변수를 덮어씌움
 void ASFGroundAOE::InitAOE(UAbilitySystemComponent* InSourceASC, AActor* InSourceActor, float InBaseDamage, float InRadius, float InDuration, float InTickInterval, float InExplosionRadius, float InExplosionDamageMultiplier, bool bOverrideExplodeOnEnd, bool bForceExplode)
 {
 	SourceASC = InSourceASC;
 	SourceActor = InSourceActor;
 	BaseDamage = InBaseDamage;
 	AttackRadius = InRadius;
-
-	UpdateAOESize();
 	
 	// === 폭발 설정 처리 ===
 	// 1. 폭발 반경: 인자가 유효(>0)하면 덮어쓰고, 아니면 에디터 설정값 유지
@@ -66,36 +61,15 @@ void ASFGroundAOE::InitAOE(UAbilitySystemComponent* InSourceASC, AActor* InSourc
 		bExplodeOnEnd = bForceExplode;
 	}
 
-	// 충돌체 크기는 기본 공격(Tick) 범위로 설정
-	AreaCollision->SetSphereRadius(AttackRadius);
+	UpdateAOESize();
 	
-	// 이펙트 스케일 (기본 범위 기준)
-	float Scale = AttackRadius / 100.f; 
-	FVector NewScale = FVector(Scale, Scale, 1.0f);
-
-	if (AreaEffect) AreaEffect->SetWorldScale3D(NewScale);
-	if (AreaEffectCascade) AreaEffectCascade->SetWorldScale3D(NewScale);
-
 	if (HasAuthority())
 	{
-		GetWorld()->GetTimerManager().SetTimer(
-			DurationTimerHandle,
-			this,
-			&ASFGroundAOE::OnDurationExpired,
-			InDuration,
-			false
-		);
+		GetWorld()->GetTimerManager().SetTimer(DurationTimerHandle,this, &ASFGroundAOE::OnDurationExpired,InDuration,false);
 
 		if (InTickInterval > 0.f)
 		{
-			GetWorld()->GetTimerManager().SetTimer(
-				TickTimerHandle,
-				this,
-				&ASFGroundAOE::OnDamageTick,
-				InTickInterval,
-				true, 
-				0.f   
-			);
+			GetWorld()->GetTimerManager().SetTimer(TickTimerHandle,this, &ASFGroundAOE::OnDamageTick, InTickInterval, true,  0.f);
 		}
 	}
 }
@@ -118,8 +92,14 @@ void ASFGroundAOE::UpdateAOESize()
 	float Scale = AttackRadius / 100.f; 
 	FVector NewScale = FVector(Scale, Scale, 1.0f);
 
-	if (AreaEffect) AreaEffect->SetWorldScale3D(NewScale);
-	if (AreaEffectCascade) AreaEffectCascade->SetWorldScale3D(NewScale);
+	if (AreaEffect)
+	{
+		AreaEffect->SetWorldScale3D(NewScale);
+	}
+	if (AreaEffectCascade)
+	{
+		AreaEffectCascade->SetWorldScale3D(NewScale);
+	}
 }
 
 void ASFGroundAOE::BeginPlay()
@@ -195,84 +175,24 @@ void ASFGroundAOE::OnDamageTick()
 
 void ASFGroundAOE::ApplyDamageToTargets(float DamageAmount, float EffectRadius)
 {
-	if (!SourceASC.IsValid()) return;
-
-	TArray<FOverlapResult> Overlaps;
-	FCollisionQueryParams QueryParams;
-	QueryParams.AddIgnoredActor(this);
-	if (AActor* Src = SourceActor.Get()) QueryParams.AddIgnoredActor(Src);
-
-	FCollisionObjectQueryParams ObjectParams;
-	ObjectParams.AddObjectTypesToQuery(ECC_Pawn);
-	ObjectParams.AddObjectTypesToQuery(ECC_WorldDynamic);
-
-	// 인자로 받은 EffectRadius 사용
-	bool bHit = GetWorld()->OverlapMultiByObjectType(
-		Overlaps,
-		GetActorLocation(),
-		FQuat::Identity,
-		ObjectParams,
-		FCollisionShape::MakeSphere(EffectRadius),
-		QueryParams
-	);
-
-	if (!bHit) return;
-
-	TSubclassOf<UGameplayEffect> DamageGE = DamageGameplayEffectClass;
-	if (!DamageGE)
+	if (!SourceASC.IsValid())
 	{
-		DamageGE = USFAssetManager::GetSubclassByPath(USFGameData::Get().DamageGameplayEffect_SetByCaller);
+		return;
 	}
 
-	if (!DamageGE) return;
+	FSFAreaDamageParams Params;
+	Params.SourceASC = SourceASC.Get();
+	Params.SourceActor = SourceActor.Get();
+	Params.EffectCauser = this;  // AOE 액터 자신이 EffectCauser
+	Params.Origin = GetActorLocation();
+	Params.OverlapShape = FCollisionShape::MakeSphere(EffectRadius);
+	Params.DamageAmount = DamageAmount;
+	Params.DamageSetByCallerTag = SetByCallerDamageTag;
+	Params.DamageGEClass = DamageGameplayEffectClass;
+	Params.DebuffGEClass = DebuffGameplayEffectClass;
+	Params.IgnoreActors = { this, SourceActor.Get() };
 
-	TSet<AActor*> ProcessedActors;
-
-	for (const FOverlapResult& Overlap : Overlaps)
-	{
-		AActor* TargetActor = Overlap.GetActor();
-		if (!TargetActor || ProcessedActors.Contains(TargetActor)) continue;
-
-		ProcessedActors.Add(TargetActor);
-
-		// 아군 피격 방지 로직
-		if (ASFCharacterBase* SourceChar = Cast<ASFCharacterBase>(SourceActor.Get()))
-		{
-			if (ASFCharacterBase* TargetChar = Cast<ASFCharacterBase>(TargetActor))
-			{
-				if (SourceChar->GetTeamAttitudeTowards(*TargetChar) == ETeamAttitude::Friendly)
-				{
-					continue; 
-				}
-			}
-		}
-
-		UAbilitySystemComponent* TargetASC = UAbilitySystemBlueprintLibrary::GetAbilitySystemComponent(TargetActor);
-		if (TargetASC)
-		{
-			FGameplayEffectContextHandle ContextHandle = SourceASC->MakeEffectContext();
-			ContextHandle.AddInstigator(SourceActor.Get(), this);
-			
-			FGameplayEffectSpecHandle SpecHandle = SourceASC->MakeOutgoingSpec(DamageGE, 1.0f, ContextHandle);
-			if (SpecHandle.IsValid())
-			{
-				if (SetByCallerDamageTag.IsValid())
-				{
-					SpecHandle.Data->SetSetByCallerMagnitude(SetByCallerDamageTag, DamageAmount);
-				}
-				SourceASC->ApplyGameplayEffectSpecToTarget(*SpecHandle.Data.Get(), TargetASC);
-			}
-
-			if (DebuffGameplayEffectClass)
-			{
-				FGameplayEffectSpecHandle DebuffSpec = SourceASC->MakeOutgoingSpec(DebuffGameplayEffectClass, 1.0f, ContextHandle);
-				if (DebuffSpec.IsValid())
-				{
-					SourceASC->ApplyGameplayEffectSpecToTarget(*DebuffSpec.Data.Get(), TargetASC);
-				}
-			}
-		}
-	}
+	USFCombatLibrary::ApplyAreaDamage(Params);
 }
 
 void ASFGroundAOE::ExecuteRemovalGameplayCue()

@@ -21,23 +21,13 @@ class UAbilityTask_WaitInputRelease;
 UCLASS()
 class SF_API USFGA_Hero_GroundAoE : public USFGA_Equipment_Base
 {
-GENERATED_BODY()
-
+	GENERATED_BODY()
+	
 public:
 	USFGA_Hero_GroundAoE(const FObjectInitializer& ObjectInitializer = FObjectInitializer::Get());
 
-	virtual void ActivateAbility(
-		const FGameplayAbilitySpecHandle Handle,
-		const FGameplayAbilityActorInfo* ActorInfo,
-		const FGameplayAbilityActivationInfo ActivationInfo,
-		const FGameplayEventData* TriggerEventData) override;
-
-	virtual void EndAbility(
-		const FGameplayAbilitySpecHandle Handle,
-		const FGameplayAbilityActorInfo* ActorInfo,
-		const FGameplayAbilityActivationInfo ActivationInfo,
-		bool bReplicateEndAbility,
-		bool bWasCancelled) override;
+	virtual void ActivateAbility(const FGameplayAbilitySpecHandle Handle,const FGameplayAbilityActorInfo* ActorInfo,const FGameplayAbilityActivationInfo ActivationInfo,const FGameplayEventData* TriggerEventData) override;
+	virtual void EndAbility(const FGameplayAbilitySpecHandle Handle,const FGameplayAbilityActorInfo* ActorInfo,const FGameplayAbilityActivationInfo ActivationInfo,bool bReplicateEndAbility,bool bWasCancelled) override;
 
 protected:
 	// === 1. 설정 변수들 ===
@@ -83,16 +73,15 @@ protected:
 	FGameplayTag SpawnEventTag;
 
 protected:
-	// === 2. 내부 로직 함수 ===
 
 	// 틱마다 실행 (WaitTick 대용, Reticle 위치 업데이트)
 	void TickReticle();
 
-	// [추가] 1단계: 키를 뗐을 때 호출 (준비 완료)
+	// 키를 뗐을 때 호출 (준비 완료)
 	UFUNCTION()
 	void OnKeyReleased(float TimeWaited);
 
-	// [변경] 2단계: 키를 다시 눌렀을 때 호출 (발사 확정)
+	//  키를 다시 눌렀을 때 호출 (발사 확정)
 	UFUNCTION()
 	void OnConfirmInputPressed(float TimeWaited);
 

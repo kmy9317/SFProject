@@ -218,13 +218,7 @@ FVector USFGA_Hero_ProjectileMultiSummon::GetAimSystemTargetLocation() const
 	return bHit ? HitResult.ImpactPoint : TraceEnd;
 }
 
-void USFGA_Hero_ProjectileMultiSummon::EndAbility(
-	const FGameplayAbilitySpecHandle Handle,
-	const FGameplayAbilityActorInfo* ActorInfo,
-	const FGameplayAbilityActivationInfo ActivationInfo,
-	bool bReplicateEndAbility,
-	bool bWasCancelled
-)
+void USFGA_Hero_ProjectileMultiSummon::EndAbility(const FGameplayAbilitySpecHandle Handle,const FGameplayAbilityActorInfo* ActorInfo,const FGameplayAbilityActivationInfo ActivationInfo,bool bReplicateEndAbility,bool bWasCancelled)
 {
 	if (UWorld* World = GetWorld())
 	{

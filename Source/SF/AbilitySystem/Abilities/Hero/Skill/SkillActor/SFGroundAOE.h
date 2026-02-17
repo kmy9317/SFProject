@@ -22,18 +22,7 @@ public:
 	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
 
 	// 초기화 함수
-	void InitAOE(
-		UAbilitySystemComponent* InSourceASC,
-		AActor* InSourceActor,
-		float InBaseDamage,
-		float InRadius,
-		float InDuration,
-		float InTickInterval,
-		float InExplosionRadius = -1.0f,          // -1이면 에디터 설정값 유지
-		float InExplosionDamageMultiplier = -1.0f, // -1이면 에디터 설정값 유지
-		bool bOverrideExplodeOnEnd = false,        // true면 아래 bForceExplode 사용 (옵션 처리 변경)
-		bool bForceExplode = false 
-	);
+	void InitAOE(UAbilitySystemComponent* InSourceASC,AActor* InSourceActor,float InBaseDamage,float InRadius,float InDuration,float InTickInterval,float InExplosionRadius = -1.0f, float InExplosionDamageMultiplier = -1.0f,bool bOverrideExplodeOnEnd = false, bool bForceExplode = false );
 
 protected:
 	virtual void BeginPlay() override;
@@ -108,6 +97,7 @@ protected:
 	TWeakObjectPtr<AActor> SourceActor;
 
 	float BaseDamage = 0.f;
+	
 	UPROPERTY(ReplicatedUsing = OnRep_AttackRadius)
 	float AttackRadius = 300.f;
 	

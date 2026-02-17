@@ -20,12 +20,7 @@ float USFGA_Hero_ProjectileLaunch::GetScaledBaseDamage() const
 	return BaseDamage.GetValueAtLevel(GetAbilityLevel());
 }
 
-void USFGA_Hero_ProjectileLaunch::ActivateAbility(
-	const FGameplayAbilitySpecHandle Handle,
-	const FGameplayAbilityActorInfo* ActorInfo,
-	const FGameplayAbilityActivationInfo ActivationInfo,
-	const FGameplayEventData* TriggerEventData
-)
+void USFGA_Hero_ProjectileLaunch::ActivateAbility(const FGameplayAbilitySpecHandle Handle,const FGameplayAbilityActorInfo* ActorInfo,const FGameplayAbilityActivationInfo ActivationInfo,const FGameplayEventData* TriggerEventData)
 {
 	Super::ActivateAbility(Handle, ActorInfo, ActivationInfo, TriggerEventData);
 
@@ -36,28 +31,14 @@ void USFGA_Hero_ProjectileLaunch::ActivateAbility(
 		return;
 	}
 
-	// 1. 노티파이(게임플레이 이벤트) 대기
-	WaitEventTask = UAbilityTask_WaitGameplayEvent::WaitGameplayEvent(
-		this,
-		ProjectileSpawnEventTag,
-		nullptr,
-		true,
-		true
-	);
-
+	WaitEventTask = UAbilityTask_WaitGameplayEvent::WaitGameplayEvent(this,ProjectileSpawnEventTag,nullptr,true,true);
 	if (WaitEventTask)
 	{
 		WaitEventTask->EventReceived.AddDynamic(this, &ThisClass::OnProjectileSpawnEventReceived);
 		WaitEventTask->ReadyForActivation();
 	}
 
-	// 2. 몽타주 재생
-	MontageTask = UAbilityTask_PlayMontageAndWait::CreatePlayMontageAndWaitProxy(
-		this,
-		NAME_None,
-		LaunchMontage,
-		LaunchMontagePlayRate
-	);
+	MontageTask = UAbilityTask_PlayMontageAndWait::CreatePlayMontageAndWaitProxy(this,NAME_None,LaunchMontage,LaunchMontagePlayRate);
 
 	if (MontageTask)
 	{
@@ -79,12 +60,10 @@ void USFGA_Hero_ProjectileLaunch::OnProjectileSpawnEventReceived(FGameplayEventD
 	{
 		return;
 	}
-	
-	// 만약 시전 도중 마나가 부족해졌거나 조건이 안 맞으면 발사 실패 처리합니다.
+
 	if (!CommitAbility(CurrentSpecHandle, CurrentActorInfo, CurrentActivationInfo))
 	{
-		// 코스트 지불 실패 시 (혹은 쿨타임 문제 등) 어빌리티 취소
-		K2_CancelAbility();
+		CancelAbility(CurrentSpecHandle, CurrentActorInfo, CurrentActivationInfo, true);
 		return;
 	}
 
@@ -169,7 +148,6 @@ bool USFGA_Hero_ProjectileLaunch::GetProjectileSpawnTransform(FTransform& OutSpa
 			}
 		}
 
-		// 무기엔 소켓이 없지만 위치는 무기 기준으로라도
 		OutSpawnTM = WeaponActor->GetActorTransform();
 		return true;
 	}
@@ -222,13 +200,7 @@ void USFGA_Hero_ProjectileLaunch::CancelAbility(const FGameplayAbilitySpecHandle
 	Super::CancelAbility(Handle, ActorInfo, ActivationInfo, bReplicateCancelAbility);
 }
 
-void USFGA_Hero_ProjectileLaunch::EndAbility(
-	const FGameplayAbilitySpecHandle Handle,
-	const FGameplayAbilityActorInfo* ActorInfo,
-	const FGameplayAbilityActivationInfo ActivationInfo,
-	bool bReplicateEndAbility,
-	bool bWasCancelled
-)
+void USFGA_Hero_ProjectileLaunch::EndAbility(const FGameplayAbilitySpecHandle Handle,const FGameplayAbilityActorInfo* ActorInfo,const FGameplayAbilityActivationInfo ActivationInfo,bool bReplicateEndAbility,bool bWasCancelled)
 {
 	if (WaitEventTask)
 	{

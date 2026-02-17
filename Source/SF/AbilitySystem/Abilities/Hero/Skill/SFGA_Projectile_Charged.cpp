@@ -136,8 +136,6 @@ void USFGA_Projectile_Charged::OnKeyReleased(float TimeHeld)
 
     // 서버로 결정된 Phase 전송
     FScopedPredictionWindow ScopedPrediction(GetAbilitySystemComponentFromActorInfo());
-	
-    // (HeartBreaker와 동일한 구조체 사용 가정)
 	FSFGameplayAbilityTargetData_ChargePhase* NewData = new FSFGameplayAbilityTargetData_ChargePhase();
 	NewData->PhaseIndex = CurrentPhaseIndex;
 	FGameplayAbilityTargetDataHandle DataHandle(NewData);
@@ -192,13 +190,7 @@ void USFGA_Projectile_Charged::PlayLaunchMontage()
     
     // 1. 발사 이벤트 대기 (부모 로직과 동일)
     // 중요: 부모의 ActivateAbility를 안 썼으므로 WaitEventTask를 여기서 수동 설정해야 함
-    WaitEventTask = UAbilityTask_WaitGameplayEvent::WaitGameplayEvent(
-		this,
-		ProjectileSpawnEventTag,
-		nullptr,
-		true,
-		true
-	);
+    WaitEventTask = UAbilityTask_WaitGameplayEvent::WaitGameplayEvent(this,ProjectileSpawnEventTag,nullptr,true,true);
     if (WaitEventTask)
 	{
 		WaitEventTask->EventReceived.AddDynamic(this, &ThisClass::OnProjectileSpawnEventReceived);
@@ -209,13 +201,7 @@ void USFGA_Projectile_Charged::PlayLaunchMontage()
     // LaunchMontage는 부모 클래스의 변수 사용
     if (LaunchMontage)
     {
-        MontageTask = UAbilityTask_PlayMontageAndWait::CreatePlayMontageAndWaitProxy(
-            this,
-            NAME_None,
-            LaunchMontage,
-            LaunchMontagePlayRate
-        );
-        
+        MontageTask = UAbilityTask_PlayMontageAndWait::CreatePlayMontageAndWaitProxy(this,NAME_None,LaunchMontage,LaunchMontagePlayRate);
         if (MontageTask)
         {
             MontageTask->OnCompleted.AddDynamic(this, &ThisClass::OnMontageCompleted);
