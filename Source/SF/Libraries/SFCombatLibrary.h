@@ -49,6 +49,8 @@ struct FSFAreaDamageParams
 	UPROPERTY()
 	TSubclassOf<UGameplayEffect> DebuffGEClass = nullptr;
 
+	TArray<TSubclassOf<UGameplayEffect>> AdditionalEffects;
+	
 	// 오버랩에서 무시할 액터 목록
 	UPROPERTY()
 	TArray<AActor*> IgnoreActors;

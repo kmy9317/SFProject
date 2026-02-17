@@ -98,6 +98,20 @@ void USFCombatLibrary::ApplyAreaDamage(const FSFAreaDamageParams& Params)
 				Params.SourceASC->ApplyGameplayEffectSpecToTarget(*DebuffSpec.Data.Get(), TargetASC);
 			}
 		}
+		
+		for (TSubclassOf<UGameplayEffect> AdditionalGE : Params.AdditionalEffects)
+		{
+			if (!AdditionalGE)
+			{
+				continue;
+			}
+
+			FGameplayEffectSpecHandle AdditionalSpec = Params.SourceASC->MakeOutgoingSpec(AdditionalGE, 1.0f, Context);
+			if (AdditionalSpec.IsValid())
+			{
+				Params.SourceASC->ApplyGameplayEffectSpecToTarget(*AdditionalSpec.Data.Get(), TargetASC);
+			}
+		}
 	}
 }
 

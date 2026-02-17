@@ -8,15 +8,6 @@
 class UAbilityTask_PlayMontageAndWait;
 class UAbilityTask_WaitGameplayEvent;
 
-// 빙결 데이터 관리 구조체
-struct FFrozenTargetData
-{
-	FTimerHandle UnfreezeTimerHandle;
-	float OriginalTimeDilation;
-	
-	FFrozenTargetData() : OriginalTimeDilation(1.0f) {}
-};
-
 /**
  * 범위 지속 데미지 및 빙결 스킬
  * 사용자 요청: ASFGroundAOE의 타격 로직을 그대로 이식
@@ -45,14 +36,7 @@ protected:
 	void PerformAreaTick();
 	void OnDurationExpired();
 
-	/** * [핵심] GroundAOE의 ApplyDamageToTargets 로직을 이식한 함수 
-	 */
-	void ApplyDamageToTargets(float DamageAmount, float EffectRadius);
-
-	// 빙결 관련 함수
-	void FreezeTarget(AActor* TargetActor);
-	void UnfreezeTarget(TWeakObjectPtr<AActor> TargetWeakPtr);
-	void ClearAllFrozenTargets();
+	void TryFinishAbility();
 
 protected:
 	// --- 설정 변수 ---
@@ -86,12 +70,16 @@ protected:
 	UPROPERTY(EditDefaultsOnly, Category = "SF|Skill|Combat")
 	TSubclassOf<UGameplayEffect> DebuffGameplayEffectClass; // 변수명 GroundAOE와 통일
 
-	UPROPERTY(EditDefaultsOnly, Category = "SF|Skill|Freeze")
-	bool bEnableFreeze = false;
-
+	UPROPERTY(EditDefaultsOnly, Category = "SF|Skill|CC", meta = (EditCondition = "bApplyConditionalCC"))
+	TSubclassOf<UGameplayEffect> ConditionalCCEffectClass;
+	
 	UPROPERTY(EditDefaultsOnly, Category = "SF|Skill|VFX")
 	FGameplayTag LoopingGameplayCueTag;
 
+protected:
+	UPROPERTY(EditDefaultsOnly, Category = "SF|Skill|CC")
+	bool bApplyConditionalCC = false;
+	
 private:
 	FTimerHandle LoopTimerHandle;
 	FTimerHandle DurationTimerHandle;
@@ -102,5 +90,6 @@ private:
 	UPROPERTY()
 	TObjectPtr<UAbilityTask_WaitGameplayEvent> WaitEventTask;
 
-	TMap<TWeakObjectPtr<AActor>, FFrozenTargetData> FrozenTargetMap;
+	bool bMontageFinished = false;
+	bool bDurationExpired = false;
 };
