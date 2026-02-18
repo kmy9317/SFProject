@@ -111,3 +111,45 @@ struct TStructOpsTypeTraits<FSFGameplayAbilityTargetData_WarpDirection> : public
 		WithNetSerializer = true
 	};
 };
+
+USTRUCT(BlueprintType)
+struct SF_API FSFGameplayAbilityTargetData_Location : public FGameplayAbilityTargetData
+{
+	GENERATED_BODY()
+
+public:
+	FSFGameplayAbilityTargetData_Location()
+	   : TargetLocation(FVector::ZeroVector)
+	{
+	}
+
+	FSFGameplayAbilityTargetData_Location(const FVector& InTargetLocation)
+	   : TargetLocation(InTargetLocation)
+	{
+	}
+
+	UPROPERTY()
+	FVector TargetLocation;
+
+	virtual UScriptStruct* GetScriptStruct() const override
+	{
+		return FSFGameplayAbilityTargetData_Location::StaticStruct();
+	}
+
+	bool NetSerialize(FArchive& Ar, UPackageMap* Map, bool& bOutSuccess)
+	{
+		TargetLocation.NetSerialize(Ar, Map, bOutSuccess);
+		bOutSuccess = true;
+		return true;
+	}
+};
+
+template<>
+struct TStructOpsTypeTraits<FSFGameplayAbilityTargetData_Location>
+	: public TStructOpsTypeTraitsBase2<FSFGameplayAbilityTargetData_Location>
+{
+	enum
+	{
+		WithNetSerializer = true
+	 };
+};

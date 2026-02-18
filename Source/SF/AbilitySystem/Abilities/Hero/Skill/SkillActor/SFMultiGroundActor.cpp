@@ -4,6 +4,7 @@
 #include "AbilitySystemBlueprintLibrary.h"
 #include "Libraries/SFCombatLibrary.h"
 #include "AbilitySystemComponent.h"
+#include "Net/UnrealNetwork.h"
 
 ASFMultiGroundActor::ASFMultiGroundActor(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
@@ -24,17 +25,22 @@ ASFMultiGroundActor::ASFMultiGroundActor(const FObjectInitializer& ObjectInitial
 	LightningCollision->SetCollisionProfileName(TEXT("OverlapAllDynamic")); 
 }
 
-void ASFMultiGroundActor::InitLightning(UAbilitySystemComponent* InSourceASC, AActor* InSourceActor, float InBaseDamage, float InBoltRadius, float InBoltHeight)
+void ASFMultiGroundActor::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
+{
+	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
+	DOREPLIFETIME(ThisClass, LightningScale);
+}
+
+void ASFMultiGroundActor::InitLightning(UAbilitySystemComponent* InSourceASC, AActor* InSourceActor, float InBaseDamage, float InBoltRadius, float InBoltHeight, float InScale )
 {
 	// 기본 데이터 저장
 	SourceASC = InSourceASC;
 	SourceActor = InSourceActor;
 	BaseDamage = InBaseDamage;
-	
-	//  AttackRadius는 더 이상 판정에 직접 쓰이지 않지만, 참조용으로 저장할 수 있음
-	// 실제 판정은 컴포넌트 크기를 따름.
-	AttackRadius = InBoltRadius; 
+	AttackRadius = InBoltRadius;
+	LightningScale = InScale;
 
+	SetActorScale3D(FVector(LightningScale));
 	if (HasAuthority())
 	{
 		// 실제 데미지 판정 실행 (아래 오버라이드된 함수가 호출됨)
@@ -48,11 +54,6 @@ void ASFMultiGroundActor::InitLightning(UAbilitySystemComponent* InSourceASC, AA
 void ASFMultiGroundActor::BeginPlay()
 {
 	Super::BeginPlay();
-}
-
-void ASFMultiGroundActor::OnDamageTick_Implementation()
-{
-	// 부모 틱 로직 무시
 }
 
 void ASFMultiGroundActor::ApplyDamageToTargets(float DamageAmount, float EffectRadius)
@@ -85,4 +86,14 @@ void ASFMultiGroundActor::ApplyDamageToTargets(float DamageAmount, float EffectR
 	Params.IgnoreActors = { this, SourceActor.Get() };
 
 	USFCombatLibrary::ApplyAreaDamage(Params);
+}
+
+void ASFMultiGroundActor::UpdateAOESize()
+{
+	
+}
+
+void ASFMultiGroundActor::OnRep_LightningScale()
+{
+	SetActorScale3D(FVector(LightningScale));
 }

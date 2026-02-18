@@ -42,7 +42,6 @@ void ASFGroundAOE::InitAOE(UAbilitySystemComponent* InSourceASC, AActor* InSourc
 	BaseDamage = InBaseDamage;
 	AttackRadius = InRadius;
 	
-	// === 폭발 설정 처리 ===
 	// 1. 폭발 반경: 인자가 유효(>0)하면 덮어쓰고, 아니면 에디터 설정값 유지
 	if (InExplosionRadius > 0.f)
 	{

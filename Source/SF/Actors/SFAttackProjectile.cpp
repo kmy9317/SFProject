@@ -330,8 +330,11 @@ void ASFAttackProjectile::Multicast_PlayImpactFX_Implementation(const FVector& L
 
 void ASFAttackProjectile::ProcessExplosion_Server(const FVector& Location)
 {
-	if (!SourceASC.IsValid()) return;
-
+	if (!SourceASC.IsValid())
+	{
+		return;
+	}
+	
     // 1. Cue 실행
     if (ExplosionCueTag.IsValid())
     {
@@ -345,9 +348,14 @@ void ASFAttackProjectile::ProcessExplosion_Server(const FVector& Location)
 
     // 2. GE 결정
     TSubclassOf<UGameplayEffect> EffectToApply = ExplosionGameplayEffectClass;
-    if (!EffectToApply) EffectToApply = ResolveDamageGE();
-    if (!EffectToApply) return;
-
+    if (!EffectToApply)
+    {
+	    EffectToApply = ResolveDamageGE();
+    }
+    if (!EffectToApply)
+    {
+	    return;
+    }
     // 3. 범위 탐지
     TArray<FOverlapResult> Overlaps;
     FCollisionQueryParams QueryParams;
@@ -359,95 +367,93 @@ void ASFAttackProjectile::ProcessExplosion_Server(const FVector& Location)
     ObjectParams.AddObjectTypesToQuery(ECC_WorldDynamic);
     ObjectParams.AddObjectTypesToQuery(ECC_PhysicsBody);
 
-    bool bHit = GetWorld()->OverlapMultiByObjectType(
-        Overlaps,
-        Location,
-        FQuat::Identity,
-        ObjectParams,
-        FCollisionShape::MakeSphere(ExplosionRadius),
-        QueryParams
-    );
-
+    bool bHit = GetWorld()->OverlapMultiByObjectType(Overlaps,Location,FQuat::Identity,ObjectParams,FCollisionShape::MakeSphere(ExplosionRadius),QueryParams);
     if (bDebugExplosion)
     {
         DrawDebugSphere(GetWorld(), Location, ExplosionRadius, 12, FColor::Red, false, 2.0f);
     }
 
-    if (bHit)
-    {
-        // [핵심 수정] 이미 처리된 액터를 기록할 Set 추가
-        TSet<AActor*> ProcessedActors;
+	if (!bHit)
+	{
+		return;
+	}
 
-        for (const FOverlapResult& Overlap : Overlaps)
-        {
-            AActor* TargetActor = Overlap.GetActor();
-            if (!TargetActor) continue;
+	ASFCharacterBase* SourceChar = Cast<ASFCharacterBase>(SourceActor.Get());
 
-            // [핵심 수정] 이미 데미지를 준 액터라면 건너뜀
-            if (ProcessedActors.Contains(TargetActor))
-            {
-                continue;
-            }
+	FGameplayEffectContextHandle SharedContext = SourceASC->MakeEffectContext();
+	SharedContext.AddInstigator(SourceActor.Get(), this);
 
-            // 처리 목록에 추가 (다음 루프부터는 무시됨)
-            ProcessedActors.Add(TargetActor);
+	if (FSFGameplayEffectContext* SFContext = static_cast<FSFGameplayEffectContext*>(SharedContext.Get()))
+	{
+		FHitResult ExplosionHit;
+		ExplosionHit.ImpactPoint = Location;
+		ExplosionHit.Location = Location;
+		SFContext->AddHitResult(ExplosionHit);
+	}
 
-            // ... (아군 판정 및 GE 적용 로직은 기존과 동일) ...
-            ASFCharacterBase* SourceChar = Cast<ASFCharacterBase>(SourceActor.Get());
-            ASFCharacterBase* TargetChar = Cast<ASFCharacterBase>(TargetActor);
-            
-            if (SourceChar && TargetChar)
-            {
-                 if (SourceChar->GetTeamAttitudeTowards(*TargetChar) == ETeamAttitude::Friendly)
-                 {
-                     continue;
-                 }
-            }
+	FGameplayEffectSpecHandle SharedSpec = SourceASC->MakeOutgoingSpec(EffectToApply, 1.0f, SharedContext);
+	if (!SharedSpec.IsValid())
+	{
+		return;
+	}
+	if (SetByCallerDamageTag.IsValid())
+	{
+		SharedSpec.Data->SetSetByCallerMagnitude(SetByCallerDamageTag, Damage);
+	}
 
-            UAbilitySystemComponent* TargetASC = UAbilitySystemBlueprintLibrary::GetAbilitySystemComponent(TargetActor);
-            if (TargetASC)
-            {
-                FGameplayEffectContextHandle ContextHandle = SourceASC->MakeEffectContext();
-                ContextHandle.AddInstigator(SourceActor.Get(), this);
-                
-                if (FSFGameplayEffectContext* SFContext = static_cast<FSFGameplayEffectContext*>(ContextHandle.Get()))
-                {
-                    FHitResult ExplosionHit;
-                    ExplosionHit.ImpactPoint = Location;
-                    ExplosionHit.Location = Location;
-                    ExplosionHit.ImpactNormal = (TargetActor->GetActorLocation() - Location).GetSafeNormal();
-                    SFContext->AddHitResult(ExplosionHit);
-                }
+	TSet<AActor*> ProcessedActors;
+	for (const FOverlapResult& Overlap : Overlaps)
+	{
+		AActor* TargetActor = Overlap.GetActor();
+		if (!TargetActor)
+		{
+			continue;
+		}
+		if (ProcessedActors.Contains(TargetActor))
+		{
+			continue;
+		}
+		ProcessedActors.Add(TargetActor);
 
-                FGameplayEffectSpecHandle SpecHandle = SourceASC->MakeOutgoingSpec(EffectToApply, 1.0f, ContextHandle);
-                if (SpecHandle.IsValid())
-                {
-                    if (SetByCallerDamageTag.IsValid())
-                    {
-                        SpecHandle.Data->SetSetByCallerMagnitude(SetByCallerDamageTag, Damage);
-                    }
-                    
-                    SourceASC->ApplyGameplayEffectSpecToTarget(*SpecHandle.Data.Get(), TargetASC);
-                    
-                    if (bDebugExplosion)
-                    {
-                        UE_LOG(LogTemp, Warning, TEXT("[Explosion] APPLIED DAMAGE to: %s / Damage: %f"), *TargetActor->GetName(), Damage);
-                    }
-                }
-            }
-        }
-    }
+		// 아군 체크
+		if (SourceChar)
+		{
+			if (ASFCharacterBase* TargetChar = Cast<ASFCharacterBase>(TargetActor))
+			{
+				if (SourceChar->GetTeamAttitudeTowards(*TargetChar) == ETeamAttitude::Friendly)
+				{
+					continue;
+				}
+			}
+		}
+
+		UAbilitySystemComponent* TargetASC = UAbilitySystemBlueprintLibrary::GetAbilitySystemComponent(TargetActor);
+		if (!TargetASC)
+		{
+			continue;
+		}
+		SourceASC->ApplyGameplayEffectSpecToTarget(*SharedSpec.Data.Get(), TargetASC);
+
+		if (bDebugExplosion)
+		{
+			UE_LOG(LogTemp, Warning, TEXT("[Explosion] APPLIED DAMAGE to: %s / Damage: %f"), *TargetActor->GetName(), Damage);
+		}
+	}
 }
 
 void ASFAttackProjectile::ApplyBuff_Server(AActor* TargetActor, const FHitResult& Hit)
 {
-	if (!BuffGameplayEffectClass) return;
-
+	if (!BuffGameplayEffectClass)
+	{
+		return;
+	}
 	UAbilitySystemComponent* SrcASC = SourceASC.Get();
 	UAbilitySystemComponent* TargetASC = UAbilitySystemBlueprintLibrary::GetAbilitySystemComponent(TargetActor);
 
-	if (!SrcASC || !TargetASC) return;
-
+	if (!SrcASC || !TargetASC)
+	{
+		return;
+	}
 	FGameplayEffectContextHandle ContextHandle = SrcASC->MakeEffectContext();
 	if (FSFGameplayEffectContext* SFContext = static_cast<FSFGameplayEffectContext*>(ContextHandle.Get()))
 	{

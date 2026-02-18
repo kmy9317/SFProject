@@ -57,11 +57,10 @@ void USFGA_Hero_MultiGroundAoE::SpawnSingleLightning()
 		FVector SpawnLocation = TargetLocation + FVector(RandomPoint.X, RandomPoint.Y, 0.0f);
 
 		// 지면 높이 보정 (LineTrace 등을 통해 정확한 지면을 찾을 수도 있음)
-		// 여기서는 TargetLocation Z값을 그대로 사용
+		// 일단은 TargetLocation Z값을 그대로 사용
 
 		// 2. 랜덤 회전 (Y축 회전 등 필요한 경우)
 		FRotator SpawnRotation = FRotator::ZeroRotator;
-
 		FTransform SpawnTransform(SpawnRotation, SpawnLocation);
 
 		FActorSpawnParameters Params;
@@ -77,15 +76,9 @@ void USFGA_Hero_MultiGroundAoE::SpawnSingleLightning()
 			float RandomScale = FMath::RandRange(MinScaleMultiplier, MaxScaleMultiplier);
 			
 			// 크기에 비례하여 데미지도 조절할지? (기획상엔 없으므로 크기만 조절)
-			// 여기서는 시각적 크기와 충돌체 크기 모두 반영
-			
 			float FinalDamage = BaseDamage.GetValueAtLevel(GetAbilityLevel());
 			float FinalRadius = LightningBoltRadius * RandomScale;
-
-			Lightning->SetActorScale3D(FVector(RandomScale)); // 전체 스케일 적용
-
-			// 초기화 호출
-			Lightning->InitLightning(GetAbilitySystemComponentFromActorInfo(), GetAvatarActorFromActorInfo(), FinalDamage, FinalRadius, LightningBoltHeight);
+			Lightning->InitLightning(GetAbilitySystemComponentFromActorInfo(), GetAvatarActorFromActorInfo(), FinalDamage, FinalRadius, LightningBoltHeight, RandomScale);
 		}
 	}
 }

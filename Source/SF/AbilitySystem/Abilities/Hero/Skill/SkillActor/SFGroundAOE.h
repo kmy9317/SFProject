@@ -39,7 +39,7 @@ protected:
 	UFUNCTION()
 	void OnRep_AttackRadius();
 	
-	void UpdateAOESize();
+	virtual void UpdateAOESize();
 	
 protected:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="SF|Components")

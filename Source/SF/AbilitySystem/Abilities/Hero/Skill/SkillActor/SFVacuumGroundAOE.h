@@ -41,5 +41,5 @@ protected:
 	// 끌어당기기 로직 수행 주기 (0이면 매 프레임 Tick, 값이 있으면 Timer 사용)
 	// 성능 최적화를 위해 Tick 대신 0.05~0.1초 간격으로 힘을 가하고 싶을 때 사용
 	UPROPERTY(EditDefaultsOnly, Category="SF|AOE|Vacuum")
-	float PullInterval = 0.0f;
+	float PullInterval = 0.05f;
 };

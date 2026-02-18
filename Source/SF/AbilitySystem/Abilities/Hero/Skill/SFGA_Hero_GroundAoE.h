@@ -54,8 +54,19 @@ protected:
 	UFUNCTION()
 	virtual void OnSpawnEventReceived(FGameplayEventData Payload);
 
+	// 공격 몽타주 재생 + 스폰 이벤트 대기 (서버/클라 공통)
+	void PlayAttackAndWaitSpawn();
+
 	// 유틸: 마우스 위치 가져오기
 	bool GetGroundLocationUnderCursor(FVector& OutLocation);
+
+private:
+
+	// 서버: 클라이언트가 보낸 TargetLocation 수신
+	void OnServerTargetDataReceived(const FGameplayAbilityTargetDataHandle& DataHandle, FGameplayTag ActivationTag);
+
+	// 서버: 수신한 위치 유효성 검증
+	bool ValidateTargetLocation(const FVector& RequestedLocation) const;
 
 protected:
 	// === 1. 설정 변수들 ===
@@ -96,6 +107,16 @@ protected:
 	UPROPERTY(EditDefaultsOnly, Category="SF|AOE|Animation")
 	FGameplayTag SpawnEventTag;
 
+	// === 서버 검증 ===
+
+	// 최대 시전 거리
+	UPROPERTY(EditDefaultsOnly, Category = "SF|AOE|Validation")
+	float MaxCastRange = 3000.f;
+
+	// 네트워크 지연 보상용 허용 오차 배율
+	UPROPERTY(EditDefaultsOnly, Category = "SF|AOE|Validation")
+	float RangeToleranceMultiplier = 1.2f;
+	
 protected:
 	// 확정된 목표 위치
 	FVector TargetLocation; 
@@ -106,7 +127,7 @@ private:
 	TObjectPtr<AActor> SpawnedReticle;
 	
 	UPROPERTY()
-	TObjectPtr<UAbilityTask_WaitInputRelease> InputReleaseTask; // [추가]
+	TObjectPtr<UAbilityTask_WaitInputRelease> InputReleaseTask;
 
 	UPROPERTY()
 	TObjectPtr<UAbilityTask_WaitInputPress> InputPressTask;
@@ -122,4 +143,7 @@ private:
 
 	UPROPERTY()
 	TObjectPtr<USFAbilityTask_WaitCancelInput> CancelInputTask;
+
+	FTimerHandle ReticleTimerHandle;
+	FDelegateHandle ServerTargetDataDelegateHandle;
 };
