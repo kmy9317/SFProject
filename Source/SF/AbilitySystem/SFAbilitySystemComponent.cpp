@@ -143,6 +143,20 @@ void USFAbilitySystemComponent::AbilitySpecInputReleased(FGameplayAbilitySpec& S
 	}
 }
 
+void USFAbilitySystemComponent::AbilitySpecCancelInputReceived(FGameplayAbilitySpec& Spec)
+{
+	if (Spec.IsActive())
+	{
+		PRAGMA_DISABLE_DEPRECATION_WARNINGS
+		const UGameplayAbility* Instance = Spec.GetPrimaryInstance();
+		FPredictionKey OriginalPredictionKey = Instance ? Instance->GetCurrentActivationInfo().GetActivationPredictionKey() : Spec.ActivationInfo.GetActivationPredictionKey();
+		PRAGMA_ENABLE_DEPRECATION_WARNINGS
+
+		// GameCustom2를 취소 입력 이벤트로 사용
+		InvokeReplicatedEvent(EAbilityGenericReplicatedEvent::GameCustom2, Spec.Handle,OriginalPredictionKey);
+	}
+}
+
 void USFAbilitySystemComponent::AbilityInputTagStarted(const FGameplayTag& InputTag)
 {
 	if (InputTag.IsValid())
@@ -218,7 +232,7 @@ void USFAbilitySystemComponent::ProcessAbilityInput(float DeltaTime, bool bGameP
 	// 정적 변수로 선언하여 매 프레임마다 메모리 할당을 피함
 	static TArray<FGameplayAbilitySpecHandle> AbilitiesToActivate;
 	AbilitiesToActivate.Reset();
-
+	
 	//
 	// 1단계: 지속 입력으로 활성화되는 어빌리티들 처리 (WhileInputActive 정책)
 	//
@@ -264,20 +278,46 @@ void USFAbilitySystemComponent::ProcessAbilityInput(float DeltaTime, bool bGameP
 		{
 			if (AbilitySpec->Ability)
 			{
-				// 어빌리티 스펙의 InputPressed 플래그 설정
-				AbilitySpec->InputPressed = true;
-
-				if (AbilitySpec->IsActive()) // 핵심 분기점: 현재 활성화된 어빌리티인 경우
+				// 이 입력의 InputTag 추출
+				FGameplayTagContainer PressedInputTags = AbilitySpec->GetDynamicSpecSourceTags();
+				
+				// CancelOnInputTags 체크: 이 InputTag로 취소되어야 할 활성 어빌리티가 있는지
+				bool bConsumed = false;
 				{
-					// 새로운 활성화 없이 입력 이벤트만 전달
+					ABILITYLIST_SCOPE_LOCK();
+					for (FGameplayAbilitySpec& ActiveSpec : ActivatableAbilities.Items)
+					{
+						if (!ActiveSpec.IsActive() || !ActiveSpec.Ability)
+						{
+							continue;
+						}
+
+						const USFGameplayAbility* SFAbility = Cast<USFGameplayAbility>(ActiveSpec.Ability);
+						if (!SFAbility)
+						{
+							continue;
+						}
+
+						const FGameplayTagContainer& CancelTags = SFAbility->GetCancelOnInputTags();
+						if (!CancelTags.IsEmpty() && CancelTags.HasAny(PressedInputTags))
+						{
+							AbilitySpecCancelInputReceived(ActiveSpec);
+							bConsumed = true;
+						}
+					}
+				}
+				if (bConsumed)
+				{
+					continue;
+				}
+				AbilitySpec->InputPressed = true;
+				if (AbilitySpec->IsActive())
+				{
 					AbilitySpecInputPressed(*AbilitySpec);
 				}
-				else // 어빌리티가 비활성화된 경우
+				else
 				{
-					// 새로운 어빌리티 활성화 시도
 					const USFGameplayAbility* SFAbilityCDO = Cast<USFGameplayAbility>(AbilitySpec->Ability);
-
-					// OnInputTriggered 정책인 어빌리티만 입력으로 활성화 가능
 					if (SFAbilityCDO && SFAbilityCDO->GetActivationPolicy() == ESFAbilityActivationPolicy::OnInputTriggered)
 					{
 						AbilitiesToActivate.AddUnique(AbilitySpec->Handle);

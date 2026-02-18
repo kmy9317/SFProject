@@ -24,14 +24,39 @@ void USFGA_Hero_ProjectileLaunch::ActivateAbility(const FGameplayAbilitySpecHand
 {
 	Super::ActivateAbility(Handle, ActorInfo, ActivationInfo, TriggerEventData);
 
-	// 필수 데이터 체크
-	if (!ProjectileClass || !LaunchMontage || !ProjectileSpawnEventTag.IsValid())
+	if (!ValidateLaunchRequirements())
 	{
 		EndAbility(Handle, ActorInfo, ActivationInfo, true, true);
 		return;
 	}
 
+	StartLaunchSequence();
+}
+
+bool USFGA_Hero_ProjectileLaunch::ValidateLaunchRequirements() const
+{
+	if (!ProjectileClass)
+	{
+		return false;
+	}
+
+	if (!LaunchMontage)
+	{
+		return false;
+	}
+
+	if (!ProjectileSpawnEventTag.IsValid())
+	{
+		return false;
+	}
+
+	return true;
+}
+
+void USFGA_Hero_ProjectileLaunch::StartLaunchSequence()
+{
 	WaitEventTask = UAbilityTask_WaitGameplayEvent::WaitGameplayEvent(this,ProjectileSpawnEventTag,nullptr,true,true);
+
 	if (WaitEventTask)
 	{
 		WaitEventTask->EventReceived.AddDynamic(this, &ThisClass::OnProjectileSpawnEventReceived);
@@ -50,7 +75,7 @@ void USFGA_Hero_ProjectileLaunch::ActivateAbility(const FGameplayAbilitySpecHand
 	}
 	else
 	{
-		EndAbility(Handle, ActorInfo, ActivationInfo, true, true);
+		EndAbility(CurrentSpecHandle, CurrentActorInfo, CurrentActivationInfo, true, true);
 	}
 }
 
@@ -104,14 +129,7 @@ void USFGA_Hero_ProjectileLaunch::SpawnProjectile_Server(const FTransform& Spawn
 	Params.Instigator = Cast<APawn>(Character);
 	Params.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
 
-	ASFAttackProjectile* Projectile = World->SpawnActorDeferred<ASFAttackProjectile>(
-		ProjectileClass,
-		SpawnTM,
-		Params.Owner,
-		Params.Instigator,
-		ESpawnActorCollisionHandlingMethod::AlwaysSpawn
-	);
-	
+	ASFAttackProjectile* Projectile = World->SpawnActorDeferred<ASFAttackProjectile>(ProjectileClass,SpawnTM,Params.Owner,Params.Instigator,ESpawnActorCollisionHandlingMethod::AlwaysSpawn);
 	const float Damage = GetScaledBaseDamage();
 	Projectile->InitProjectile(SourceASC, Damage, Character);
 	
@@ -189,6 +207,26 @@ void USFGA_Hero_ProjectileLaunch::OnMontageCancelled()
 	EndAbility(CurrentSpecHandle, CurrentActorInfo, CurrentActivationInfo, true, true);
 }
 
+void USFGA_Hero_ProjectileLaunch::CleanupLaunchTasks()
+{
+	if (WaitEventTask)
+	{
+		WaitEventTask->EventReceived.RemoveAll(this);
+		WaitEventTask->EndTask();
+		WaitEventTask = nullptr;
+	}
+
+	if (MontageTask)
+	{
+		MontageTask->OnBlendOut.RemoveAll(this);
+		MontageTask->OnCompleted.RemoveAll(this);
+		MontageTask->OnInterrupted.RemoveAll(this);
+		MontageTask->OnCancelled.RemoveAll(this);
+		MontageTask->EndTask();
+		MontageTask = nullptr;
+	}
+}
+
 void USFGA_Hero_ProjectileLaunch::CancelAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, bool bReplicateCancelAbility)
 {
 	if (ScopeLockCount > 0)
@@ -202,25 +240,6 @@ void USFGA_Hero_ProjectileLaunch::CancelAbility(const FGameplayAbilitySpecHandle
 
 void USFGA_Hero_ProjectileLaunch::EndAbility(const FGameplayAbilitySpecHandle Handle,const FGameplayAbilityActorInfo* ActorInfo,const FGameplayAbilityActivationInfo ActivationInfo,bool bReplicateEndAbility,bool bWasCancelled)
 {
-	if (WaitEventTask)
-	{
-		WaitEventTask->EventReceived.RemoveAll(this); // 델리게이트 해제 (필수)
-		WaitEventTask->EndTask(); 
-		WaitEventTask = nullptr;
-	}
-
-	if (MontageTask)
-	{
-		// 델리게이트를 먼저 끊어주어, EndTask()로 인한 몽타주 중지 이벤트가 
-		// 다시 OnMontageInterrupted -> EndAbility 로 들어오는 루프를 차단합니다.
-		MontageTask->OnBlendOut.RemoveAll(this);
-		MontageTask->OnCompleted.RemoveAll(this);
-		MontageTask->OnInterrupted.RemoveAll(this);
-		MontageTask->OnCancelled.RemoveAll(this);
-
-		MontageTask->EndTask();
-		MontageTask = nullptr;
-	}
-
+	CleanupLaunchTasks();
 	Super::EndAbility(Handle, ActorInfo, ActivationInfo, bReplicateEndAbility, bWasCancelled);
 }

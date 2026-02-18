@@ -5,17 +5,21 @@
 #include "Abilities/Tasks/AbilityTask_WaitInputPress.h"
 #include "Abilities/Tasks/AbilityTask_WaitInputRelease.h" // [추가] 필수 헤더
 #include "GameFramework/PlayerController.h"
-#include "Character/SFCharacterBase.h"
 #include "AbilitySystemComponent.h"
 #include "Camera/PlayerCameraManager.h"
-#include "Kismet/GameplayStatics.h"
 #include "InputCoreTypes.h"
+#include "SFHeroSkillTags.h"
+#include "AbilitySystem/Tasks/SFAbilityTask_WaitCancelInput.h"
 #include "GameFramework/PlayerController.h"
+#include "Input/SFInputGameplayTags.h"
 
 USFGA_Hero_GroundAoE::USFGA_Hero_GroundAoE(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 {
 	InstancingPolicy = EGameplayAbilityInstancingPolicy::InstancedPerActor;
+	CancelOnInputTags.AddTag(SFGameplayTags::InputTag_RightAttack);
+
+	bServerRespectsRemoteAbilityCancellation = true;
 }
 
 void USFGA_Hero_GroundAoE::ActivateAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, const FGameplayEventData* TriggerEventData)
@@ -39,37 +43,21 @@ void USFGA_Hero_GroundAoE::ActivateAbility(const FGameplayAbilitySpecHandle Hand
 	{
 		TargetLocation = Avatar->GetActorLocation();
 	}
-	
-	// 1. 준비 단계 시작 (Loop 몽타주 재생)
+
 	if (AimingLoopMontage)
 	{
-		// PlayAnimMontage 직접 호출 대신 Task 사용
-		AimingMontageTask = UAbilityTask_PlayMontageAndWait::CreatePlayMontageAndWaitProxy(
-		   this,
-		   NAME_None,
-		   AimingLoopMontage,
-		   1.0f,
-		   NAME_None,
-		   false // StopWhenAbilityEnds (수동으로 끌 것이므로 false가 낫습니다, true여도 EndAbility에서 꺼지긴 함)
-		);
-		// 루프 몽타주이므로 별도의 종료 델리게이트 연결 없이 실행만 시킴
+		AimingMontageTask = UAbilityTask_PlayMontageAndWait::CreatePlayMontageAndWaitProxy(this,NAME_None,AimingLoopMontage,1.0f,NAME_None,false );
 		AimingMontageTask->ReadyForActivation();
 	}
 
-	// 2. 카메라 모드 변경
-	if (AimingCameraModeTag.IsValid())
-	{
-		// 예: Cast<ASFCharacterBase>(Avatar)->SetCameraMode(AimingCameraModeTag);
-	}
-
-	// 3. Reticle(조준 장판) 소환
+	// Reticle(조준 장판) 소환
 	if (ReticleClass && GetWorld())
 	{
 		FActorSpawnParameters Params;
 		Params.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
 		SpawnedReticle = GetWorld()->SpawnActor<AActor>(ReticleClass, GetAvatarActorFromActorInfo()->GetActorTransform(), Params);
 
-		// [핵심 수정] 생성은 하되, 로컬 컨트롤러(시전자 본인)가 아니면 숨김 처리
+		// 생성은 하되 로컬 컨트롤러(시전자 본인)가 아니면 숨김 처리
 		if (SpawnedReticle)
 		{
 			if (!IsLocallyControlled())
@@ -79,19 +67,48 @@ void USFGA_Hero_GroundAoE::ActivateAbility(const FGameplayAbilitySpecHandle Hand
 		}
 	}
 	
-	// 4. Tick 활성화 (마우스 추적용)
+	// Tick 활성화 (마우스 추적용)
 	if (UWorld* World = GetWorld())
 	{
 		World->GetTimerManager().SetTimerForNextTick(this, &USFGA_Hero_GroundAoE::TickReticle);
 	}
+
+	// 취소 입력 대기 Task
+	CancelInputTask = USFAbilityTask_WaitCancelInput::WaitCancelInput(this);
+	if (CancelInputTask)
+	{
+		CancelInputTask->OnCancelInput.AddDynamic(this, &ThisClass::OnCancelInputReceived);
+		CancelInputTask->ReadyForActivation();
+	}
 	
-	// 5. 추가 입력 대기
+	// 입력 대기
 	InputReleaseTask = UAbilityTask_WaitInputRelease::WaitInputRelease(this, false);
 	if (InputReleaseTask)
 	{
 		InputReleaseTask->OnRelease.AddDynamic(this, &USFGA_Hero_GroundAoE::OnKeyReleased);
 		InputReleaseTask->ReadyForActivation();
 	}
+}
+
+void USFGA_Hero_GroundAoE::OnCancelInputReceived()
+{
+	// 디바운싱 (클라이언트 + 서버 양쪽에서 실행됨)
+	if (UAbilitySystemComponent* ASC = GetAbilitySystemComponentFromActorInfo())
+	{
+		ASC->AddLooseGameplayTag(SFGameplayTags::Ability_Skill_Activated);
+
+		TWeakObjectPtr<UAbilitySystemComponent> WeakASC = ASC;
+		FTimerHandle TimerHandle;
+		GetWorld()->GetTimerManager().SetTimer(TimerHandle, [WeakASC]()
+		{
+			if (WeakASC.IsValid())
+			{
+				WeakASC->RemoveLooseGameplayTag(SFGameplayTags::Ability_Skill_Activated);
+			}
+		}, 0.3f, false);
+	}
+
+	CancelAbility(CurrentSpecHandle, CurrentActorInfo, CurrentActivationInfo, false);
 }
 
 void USFGA_Hero_GroundAoE::OnKeyReleased(float TimeWaited)
@@ -103,7 +120,7 @@ void USFGA_Hero_GroundAoE::OnKeyReleased(float TimeWaited)
 		InputReleaseTask = nullptr;
 	}
 
-	// 이제 비로소 "다시 누르기(확정)"를 기다립니다.
+	// 이제 비로소 "다시 누르기(확정)"를 기다림
 	InputPressTask = UAbilityTask_WaitInputPress::WaitInputPress(this, false); // false: 새로 눌러야 함
 	if (InputPressTask)
 	{
@@ -114,48 +131,11 @@ void USFGA_Hero_GroundAoE::OnKeyReleased(float TimeWaited)
 
 void USFGA_Hero_GroundAoE::TickReticle()
 {
-	// 어빌리티가 종료되었으면 중단
-	if (!IsActive())
+	if (!IsActive() || MontageTask)
 	{
 		return;
 	}
 
-	if (MontageTask)
-	{
-		return;
-	}
-	
-	APlayerController* PC = Cast<APlayerController>(GetControllerFromActorInfo());
-	if (PC)
-	{
-		// 우클릭 감지
-		if (PC->WasInputKeyJustPressed(EKeys::RightMouseButton))
-		{
-			if (UAbilitySystemComponent* ASC = GetAbilitySystemComponentFromActorInfo())
-			{
-				FGameplayTag BlockTag = FGameplayTag::RequestGameplayTag(FName("Ability.Skill.Activated"));
-
-				ASC->AddLooseGameplayTag(BlockTag);
-
-				TWeakObjectPtr<UAbilitySystemComponent> WeakASC = ASC;
-                
-				FTimerHandle TimerHandle;
-				GetWorld()->GetTimerManager().SetTimer(TimerHandle, [WeakASC, BlockTag]()
-				{
-					if (WeakASC.IsValid())
-					{
-						WeakASC->RemoveLooseGameplayTag(BlockTag);
-					}
-				}, 0.3f, false);
-			}
-
-			// 어빌리티 취소
-			CancelAbility(CurrentSpecHandle, CurrentActorInfo, CurrentActivationInfo, true);
-			return;
-		}
-	}
-	
-	// 마우스 위치 추적 및 Reticle 업데이트
 	FVector HitLocation;
 	if (GetGroundLocationUnderCursor(HitLocation))
 	{
@@ -163,10 +143,9 @@ void USFGA_Hero_GroundAoE::TickReticle()
 		{
 			SpawnedReticle->SetActorLocation(HitLocation);
 		}
-		TargetLocation = HitLocation; // 현재 위치 저장
+		TargetLocation = HitLocation;
 	}
 
-	// 다음 틱 예약
 	if (UWorld* World = GetWorld())
 	{
 		World->GetTimerManager().SetTimerForNextTick(this, &USFGA_Hero_GroundAoE::TickReticle);
@@ -303,11 +282,18 @@ void USFGA_Hero_GroundAoE::EndAbility(const FGameplayAbilitySpecHandle Handle, c
 	}
 
 	// 2. Task 정리 (안전장치)
-	if (InputReleaseTask) InputReleaseTask->EndTask();
-	if (InputPressTask) InputPressTask->EndTask();
-
-	// 3. 카메라 원복 (필요 시)
-	// Cast<ASFCharacterBase>(Avatar)->ResetCameraMode();
+	if (InputReleaseTask)
+	{
+		InputReleaseTask->EndTask();
+	}
+	if (InputPressTask)
+	{
+		InputPressTask->EndTask();
+	}
+	if (CancelInputTask)
+	{
+		CancelInputTask->EndTask();
+	}
 
 	Super::EndAbility(Handle, ActorInfo, ActivationInfo, bReplicateEndAbility, bWasCancelled);
 }

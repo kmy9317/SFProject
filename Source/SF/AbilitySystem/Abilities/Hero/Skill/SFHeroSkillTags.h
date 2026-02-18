@@ -18,4 +18,6 @@ namespace SFGameplayTags
 
 	// Skill Type Manage Tags
 	SF_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(Ability_Skill_NonPersistent);
+	
+	SF_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(Ability_Skill_Activated);
 }

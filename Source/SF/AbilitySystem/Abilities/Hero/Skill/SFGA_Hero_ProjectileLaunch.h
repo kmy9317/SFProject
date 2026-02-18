@@ -31,7 +31,10 @@ protected:
 	virtual void EndAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, bool bReplicateEndAbility, bool bWasCancelled) override;
 	virtual void CancelAbility(const FGameplayAbilitySpecHandle Handle,const FGameplayAbilityActorInfo* ActorInfo,const FGameplayAbilityActivationInfo ActivationInfo,bool bReplicateCancelAbility) override;
 
-	// 노티파이(게임플레이 이벤트) 수신 → 발사체 스폰
+	bool ValidateLaunchRequirements() const;
+	
+	void StartLaunchSequence();
+
 	UFUNCTION()
 	virtual void OnProjectileSpawnEventReceived(FGameplayEventData Payload);
 
@@ -44,15 +47,11 @@ protected:
 	UFUNCTION()
 	void OnMontageCancelled();
 
-protected:
-	// 스폰 위치(메인핸드 무기 소켓) 계산
 	bool GetProjectileSpawnTransform(FTransform& OutSpawnTM) const;
-
-	// 발사 방향(바라보던 방향) 계산
 	FVector GetLaunchDirection() const;
-
-	// 실제 발사체 스폰(서버)
 	void SpawnProjectile_Server(const FTransform& SpawnTM, const FVector& LaunchDir);
+
+	void CleanupLaunchTasks();
 
 protected:
 

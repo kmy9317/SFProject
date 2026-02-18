@@ -128,6 +128,8 @@ public:
 	virtual float GetCalculatedManaCost(UAbilitySystemComponent* ASC = nullptr, int32 InLevel = -1) const;
 
 	bool ShouldPersistOnTravel() const { return bShouldPersistOnTravel; }
+
+	const FGameplayTagContainer& GetCancelOnInputTags() const { return CancelOnInputTags; }
 	
 protected:
 	//~UGameplayAbility interface
@@ -162,6 +164,10 @@ protected:
 	UPROPERTY(EditDefaultsOnly, Category = "SF|Persistence")
 	bool bShouldPersistOnTravel = true;
 
+	// 이 어빌리티가 활성화 중일 때 여기 등록된 InputTag가 눌리면 어빌리티를 취소하고 해당 입력의 어빌리티 활성화를 스킵
+	UPROPERTY(EditDefaultsOnly, Category = "SF|Ability|Cancel")
+	FGameplayTagContainer CancelOnInputTags;
+
 public:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category="SF|Ability")
 	TObjectPtr<UInputMappingContext> InputMappingContext;
@@ -182,7 +188,6 @@ public:
 	// [옵션] 혹자동으로 켜지지 않도록 스킬 별도 구분 용도 토글
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "SF|Duration")
 	bool bAutoApplyDurationEffect = true;
-
 
 private:
 	// 원본 모드 저장

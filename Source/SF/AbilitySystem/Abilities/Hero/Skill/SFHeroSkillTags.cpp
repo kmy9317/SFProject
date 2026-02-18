@@ -16,4 +16,7 @@ namespace SFGameplayTags
 
 	// Skill Type Manage Tags
 	UE_DEFINE_GAMEPLAY_TAG_COMMENT(Ability_Skill_NonPersistent, "Ability.Skill.NonPersistent", "Skill Type Manage Tag");
+
+	
+	UE_DEFINE_GAMEPLAY_TAG_COMMENT(Ability_Skill_Activated, "Ability.Skill.Activated", "Skill Activated Tag");
 }

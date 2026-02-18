@@ -7,6 +7,7 @@
 #include "ScalableFloat.h"
 #include "SFGA_Hero_GroundAoE.generated.h"
 
+class USFAbilityTask_WaitCancelInput;
 class ASFGroundAOE;
 class UAbilityTask_WaitGameplayEvent;
 class UAbilityTask_PlayMontageAndWait;
@@ -28,6 +29,33 @@ public:
 
 	virtual void ActivateAbility(const FGameplayAbilitySpecHandle Handle,const FGameplayAbilityActorInfo* ActorInfo,const FGameplayAbilityActivationInfo ActivationInfo,const FGameplayEventData* TriggerEventData) override;
 	virtual void EndAbility(const FGameplayAbilitySpecHandle Handle,const FGameplayAbilityActorInfo* ActorInfo,const FGameplayAbilityActivationInfo ActivationInfo,bool bReplicateEndAbility,bool bWasCancelled) override;
+
+protected:
+
+	// 틱마다 실행 (WaitTick 대용, Reticle 위치 업데이트)
+	void TickReticle();
+
+	// 키를 뗐을 때 호출 (준비 완료)
+	UFUNCTION()
+	void OnKeyReleased(float TimeWaited);
+
+	//  키를 다시 눌렀을 때 호출 (발사 확정)
+	UFUNCTION()
+	void OnConfirmInputPressed(float TimeWaited);
+
+	UFUNCTION()
+	void OnCancelInputReceived();
+
+	// 공격 몽타주 종료 시
+	UFUNCTION()
+	void OnAttackMontageCompleted();
+
+	// 노티파이 수신 시 장판 소환
+	UFUNCTION()
+	virtual void OnSpawnEventReceived(FGameplayEventData Payload);
+
+	// 유틸: 마우스 위치 가져오기
+	bool GetGroundLocationUnderCursor(FVector& OutLocation);
 
 protected:
 	// === 1. 설정 변수들 ===
@@ -55,11 +83,7 @@ protected:
 	// 데미지 주기 (초)
 	UPROPERTY(EditDefaultsOnly, Category="SF|AOE|Stat")
 	float TickInterval = 0.5f;
-
-	// 준비 단계에서 사용할 카메라 모드 태그
-	UPROPERTY(EditDefaultsOnly, Category="SF|AOE|Camera")
-	FGameplayTag AimingCameraModeTag;
-
+	
 	// 준비 단계 루프 몽타주
 	UPROPERTY(EditDefaultsOnly, Category="SF|AOE|Animation")
 	TObjectPtr<UAnimMontage> AimingLoopMontage;
@@ -73,36 +97,14 @@ protected:
 	FGameplayTag SpawnEventTag;
 
 protected:
+	// 확정된 목표 위치
+	FVector TargetLocation; 
 
-	// 틱마다 실행 (WaitTick 대용, Reticle 위치 업데이트)
-	void TickReticle();
-
-	// 키를 뗐을 때 호출 (준비 완료)
-	UFUNCTION()
-	void OnKeyReleased(float TimeWaited);
-
-	//  키를 다시 눌렀을 때 호출 (발사 확정)
-	UFUNCTION()
-	void OnConfirmInputPressed(float TimeWaited);
-
-	// 공격 몽타주 종료 시
-	UFUNCTION()
-	void OnAttackMontageCompleted();
-
-	// 노티파이 수신 시 장판 소환
-	UFUNCTION()
-	virtual void OnSpawnEventReceived(FGameplayEventData Payload);
-
-	// 유틸: 마우스 위치 가져오기
-	bool GetGroundLocationUnderCursor(FVector& OutLocation);
-
-	FVector TargetLocation; // 확정된 목표 위치
-	
 private:
 	// 상태 관리
 	UPROPERTY()
 	TObjectPtr<AActor> SpawnedReticle;
-
+	
 	UPROPERTY()
 	TObjectPtr<UAbilityTask_WaitInputRelease> InputReleaseTask; // [추가]
 
@@ -117,4 +119,7 @@ private:
 
 	UPROPERTY()
 	TObjectPtr<UAbilityTask_WaitGameplayEvent> WaitEventTask;
+
+	UPROPERTY()
+	TObjectPtr<USFAbilityTask_WaitCancelInput> CancelInputTask;
 };
