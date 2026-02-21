@@ -3,18 +3,20 @@
 #include "AbilitySystemComponent.h"
 #include "Components/SphereComponent.h"
 #include "NiagaraComponent.h"
+#include "Components/AudioComponent.h"
 #include "Kismet/GameplayStatics.h"
 #include "Libraries/SFCombatLibrary.h"
 #include "Net/UnrealNetwork.h"
+#include "System/SFPoolSubsystem.h"
 
 ASFGroundAOE::ASFGroundAOE(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 {
 	PrimaryActorTick.bCanEverTick = false;
 	bReplicates = true;
-
 	AreaCollision = CreateDefaultSubobject<USphereComponent>(TEXT("AreaCollision"));
 	RootComponent = AreaCollision;
+	RootComponent->SetIsReplicated(true);
 	AreaCollision->SetCollisionProfileName(TEXT("NoCollision"));
 	
 	AreaEffect = CreateDefaultSubobject<UNiagaraComponent>(TEXT("AreaEffect"));
@@ -30,8 +32,57 @@ void ASFGroundAOE::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLife
 {
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 
-	// AttackRadius 변수를 복제 목록에 등록
 	DOREPLIFETIME(ASFGroundAOE, AttackRadius);
+	DOREPLIFETIME(ASFGroundAOE, bIsVisualActive);
+}
+
+void ASFGroundAOE::ActivateVisuals()
+{
+	if (AreaEffect)
+	{
+		AreaEffect->ResetSystem();
+		AreaEffect->Activate(true);
+	}
+	if (AreaEffectCascade)
+	{
+		AreaEffectCascade->ResetParticles();
+		AreaEffectCascade->Activate(true);
+	}
+	if (SpawnSound)
+	{
+		ActiveSpawnAudioComp = UGameplayStatics::SpawnSoundAttached(SpawnSound, RootComponent, NAME_None,FVector::ZeroVector, EAttachLocation::KeepRelativeOffset,true);
+	}
+}
+
+void ASFGroundAOE::DeactivateVisuals()
+{
+	if (AreaEffect)
+	{
+		AreaEffect->DeactivateImmediate();
+		//AreaEffect->ResetSystem(); 
+	}
+	if (AreaEffectCascade)
+	{
+		AreaEffectCascade->DeactivateImmediate();
+		//AreaEffectCascade->ResetParticles();
+	}
+	if (ActiveSpawnAudioComp)
+	{
+		ActiveSpawnAudioComp->Stop();
+		ActiveSpawnAudioComp = nullptr;
+	}
+}
+
+void ASFGroundAOE::OnRep_IsVisualActive()
+{
+	if (bIsVisualActive)
+	{
+		ActivateVisuals();
+	}
+	else
+	{
+		DeactivateVisuals();
+	}
 }
 
 // 인자가 유효할 때만 변수를 덮어씌움
@@ -73,6 +124,22 @@ void ASFGroundAOE::InitAOE(UAbilitySystemComponent* InSourceASC, AActor* InSourc
 	}
 }
 
+void ASFGroundAOE::OnAcquiredFromPool()
+{
+	SetActorEnableCollision(true);
+	bIsVisualActive = true;
+	ActivateVisuals(); 
+}
+
+void ASFGroundAOE::OnReturnedToPool()
+{
+	bIsVisualActive = false; 
+	DeactivateVisuals();
+	SourceASC = nullptr;
+	SourceActor = nullptr;
+	BaseDamage = 0.f;
+}
+
 void ASFGroundAOE::OnRep_AttackRadius()
 {
 	UpdateAOESize();
@@ -101,16 +168,6 @@ void ASFGroundAOE::UpdateAOESize()
 	}
 }
 
-void ASFGroundAOE::BeginPlay()
-{
-	Super::BeginPlay();
-
-	if (SpawnSound)
-	{
-		UGameplayStatics::PlaySoundAtLocation(this, SpawnSound, GetActorLocation());
-	}
-}
-
 void ASFGroundAOE::EndPlay(const EEndPlayReason::Type EndPlayReason)
 {
 	GetWorld()->GetTimerManager().ClearTimer(DurationTimerHandle);
@@ -129,7 +186,10 @@ void ASFGroundAOE::OnDurationExpired()
 		ExecuteRemovalGameplayCue();
 	}
 	
-	Destroy();
+	if (USFPoolSubsystem* Pool = USFPoolSubsystem::Get(this))  // ◀ 추가
+	{
+		Pool->ReturnToPool(this);
+	}
 }
 
 void ASFGroundAOE::ExecuteExplosion()

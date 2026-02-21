@@ -8,18 +8,22 @@
 #include "NiagaraComponent.h"
 #include "NiagaraFunctionLibrary.h"
 #include "GenericTeamAgentInterface.h"
+#include "SFLogChannels.h"
 #include "System/SFAssetManager.h"
 #include "System/Data/SFGameData.h"
 #include "AbilitySystem/GameplayEffect/SFGameplayEffectContext.h"
 #include "Character/SFCharacterBase.h"
+#include "Components/AudioComponent.h"
 #include "Engine/OverlapResult.h"
+#include "Net/UnrealNetwork.h"
+#include "System/SFPoolSubsystem.h"
 
 ASFAttackProjectile::ASFAttackProjectile(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 {
 	PrimaryActorTick.bCanEverTick = false;
 	bReplicates = true;
-	SetReplicateMovement(true);
+	SetReplicateMovement(false);
 
 	Collision = CreateDefaultSubobject<USphereComponent>(TEXT("Collision"));
 	RootComponent = Collision;
@@ -32,6 +36,7 @@ ASFAttackProjectile::ASFAttackProjectile(const FObjectInitializer& ObjectInitial
 	Collision->SetGenerateOverlapEvents(true);
 	Collision->OnComponentHit.AddDynamic(this, &ThisClass::OnProjectileHit);
 	Collision->OnComponentBeginOverlap.AddDynamic(this, &ThisClass::OnProjectileOverlap);
+	Collision->SetIsReplicated(true);
 	
 	Mesh = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("Mesh"));
 	Mesh->SetupAttachment(Collision);
@@ -40,6 +45,8 @@ ASFAttackProjectile::ASFAttackProjectile(const FObjectInitializer& ObjectInitial
 	TrailNiagara = CreateDefaultSubobject<UNiagaraComponent>(TEXT("TrailNiagara"));
 	TrailNiagara->SetupAttachment(Collision);
 	TrailNiagara->SetAutoActivate(true);
+	TrailNiagara->SetTickGroup(TG_PostUpdateWork);
+	TrailNiagara->SetIsReplicated(true);
 
 	ProjectileMovement = CreateDefaultSubobject<UProjectileMovementComponent>(TEXT("ProjectileMovement"));
 	ProjectileMovement->UpdatedComponent = Collision;
@@ -53,16 +60,10 @@ ASFAttackProjectile::ASFAttackProjectile(const FObjectInitializer& ObjectInitial
 	SetByCallerDamageTag = FGameplayTag::RequestGameplayTag(TEXT("Data.Damage.BaseDamage"), /*ErrorIfNotFound*/ false);
 }
 
-void ASFAttackProjectile::BeginPlay()
+void ASFAttackProjectile::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
 {
-	Super::BeginPlay();
-
-	SetLifeSpan(LifeSeconds);
-
-	if (SpawnSound)
-	{
-		UGameplayStatics::PlaySoundAtLocation(this, SpawnSound, GetActorLocation());
-	}
+	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
+	DOREPLIFETIME(ThisClass, bIsVisualActive);
 }
 
 void ASFAttackProjectile::InitProjectile(UAbilitySystemComponent* InSourceASC, float InDamage, AActor* InSourceActor)
@@ -75,7 +76,32 @@ void ASFAttackProjectile::InitProjectile(UAbilitySystemComponent* InSourceASC, f
 	if (AActor* Src = SourceActor.Get())
 	{
 		Collision->IgnoreActorWhenMoving(Src, true);
+
+		TArray<AActor*> AttachedActors;
+		Src->GetAttachedActors(AttachedActors);
+		for (AActor* Attached : AttachedActors)
+		{
+			Collision->IgnoreActorWhenMoving(Attached, true);
+		}
 	}
+
+	if (UWorld* World = GetWorld())
+	{
+		World->GetTimerManager().SetTimer(LifeTimerHandle, this,&ASFAttackProjectile::OnLifeTimeExpired,LifeSeconds, false);
+	}
+}
+
+void ASFAttackProjectile::OnLifeTimeExpired()
+{
+	if (USFPoolSubsystem* Pool = USFPoolSubsystem::Get(this))
+	{
+		Pool->ReturnToPool(this);
+	}
+}
+
+void ASFAttackProjectile::EnableCollisionDeferred()
+{
+	SetActorEnableCollision(true);
 }
 
 void ASFAttackProjectile::InitProjectileCharged(UAbilitySystemComponent* InSourceASC, float InDamage, AActor* InSourceActor, float InScale, bool bInExplodes)
@@ -90,12 +116,62 @@ void ASFAttackProjectile::InitProjectileCharged(UAbilitySystemComponent* InSourc
 	bIsExplosive = bInExplodes;
 }
 
+void ASFAttackProjectile::OnAcquiredFromPool()
+{
+	// PMC 재초기화 (Deactivate 상태에서 복원)
+	if (ProjectileMovement)
+	{
+		ProjectileMovement->SetUpdatedComponent(Collision);
+		ProjectileMovement->SetComponentTickEnabled(true);
+		ProjectileMovement->Activate(false);
+		ProjectileMovement->Velocity = FVector::ZeroVector;
+
+		ProjectileMovement->InitialSpeed = InitialSpeed;
+		ProjectileMovement->MaxSpeed = MaxSpeed;
+	}
+
+	bIsVisualActive = true;
+	ActivateVisuals();
+}
+
+void ASFAttackProjectile::OnReturnedToPool()
+{
+	// PMC 정지
+	if (ProjectileMovement)
+	{
+		ProjectileMovement->StopMovementImmediately();
+		ProjectileMovement->SetComponentTickEnabled(false);
+		ProjectileMovement->Deactivate();
+	}
+
+	bIsVisualActive = false;
+	DeactivateVisuals();
+
+	// 누적된 충돌 무시 목록 초기화
+	Collision->ClearMoveIgnoreActors();
+
+	// 런타임 상태 리셋
+	SourceASC = nullptr;
+	SourceActor = nullptr;
+	Damage = 0.f;
+	bIsExplosive = false;
+
+	// 스케일 복원 (Charged에서 변경된 경우)
+	SetActorScale3D(FVector::OneVector);
+}
+
 void ASFAttackProjectile::Launch(const FVector& Direction)
 {
 	if (ProjectileMovement)
 	{
 		const FVector Dir = Direction.GetSafeNormal();
 		ProjectileMovement->Velocity = Dir * ProjectileMovement->InitialSpeed;
+	}
+
+	if (UWorld* World = GetWorld())
+	{
+		World->GetTimerManager().SetTimerForNextTick(
+			this, &ASFAttackProjectile::EnableCollisionDeferred);
 	}
 }
 
@@ -125,11 +201,14 @@ void ASFAttackProjectile::OnProjectileHit(UPrimitiveComponent* HitComp,AActor* O
 		{
 			ProcessExplosion_Server(Hit.ImpactPoint);
 		}
-	}
 
-	if (bDestroyOnHit)
-	{
-		Destroy();
+		if (bDestroyOnHit)
+		{
+			if (USFPoolSubsystem* Pool = USFPoolSubsystem::Get(this))
+			{
+				Pool->ReturnToPool(this);
+			}
+		}
 	}
 }
 
@@ -148,6 +227,12 @@ void ASFAttackProjectile::OnProjectileOverlap(UPrimitiveComponent* OverlappedCom
 			return;
 		}
 	}
+	else
+	{
+		// SourceActor 미설정 상태 — 초기화 전이므로 무시
+		return;
+	}
+	
 
 	bool bAppliedEffect = false; // 효과(데미지 or 버프)가 적용되었는지 체크
 
@@ -204,6 +289,7 @@ void ASFAttackProjectile::OnProjectileOverlap(UPrimitiveComponent* OverlappedCom
 			FVector ImpactLoc = bFromSweep ? FVector(SweepResult.ImpactPoint) : GetActorLocation();
 			FVector ImpactNorm = bFromSweep ? FVector(SweepResult.ImpactNormal) : -GetVelocity().GetSafeNormal();
 			Multicast_PlayImpactFX(ImpactLoc, ImpactNorm);
+			UE_LOG(LogSF, Warning, TEXT("OnProjectileOverlap: %s, PlayImact"), *ImpactLoc.ToString())
 
 			// 3. 폭발 로직 (아군이 아닐 때만 폭발한다고 가정)
 			if (bIsExplosive)
@@ -234,9 +320,13 @@ void ASFAttackProjectile::OnProjectileOverlap(UPrimitiveComponent* OverlappedCom
 	else
 	{
 		// 관통이 아닌데, 파괴 옵션이 켜져 있으면 파괴
-		if (bDestroyOnHit)
+		if (bDestroyOnHit && HasAuthority())
 		{
-			Destroy();
+			if (USFPoolSubsystem* Pool = USFPoolSubsystem::Get(this))
+			{
+				Pool->ReturnToPool(this);
+				UE_LOG(LogSF, Warning, TEXT("OnProjectileOverlap, ReturnToPool"));
+			}
 		}
 	}
 }
@@ -438,6 +528,56 @@ void ASFAttackProjectile::ProcessExplosion_Server(const FVector& Location)
 		{
 			UE_LOG(LogTemp, Warning, TEXT("[Explosion] APPLIED DAMAGE to: %s / Damage: %f"), *TargetActor->GetName(), Damage);
 		}
+	}
+}
+
+void ASFAttackProjectile::ActivateVisuals()
+{
+	if (TrailNiagara)
+	{
+		//TrailNiagara->DeactivateImmediate();
+		TrailNiagara->UpdateComponentToWorld();
+		TrailNiagara->ReinitializeSystem();
+	}
+	if (SpawnSound)
+	{
+		ActiveSpawnAudioComp = UGameplayStatics::SpawnSoundAttached(SpawnSound, RootComponent, NAME_None,FVector::ZeroVector, EAttachLocation::KeepRelativeOffset,true);
+	}
+}
+
+void ASFAttackProjectile::DeactivateVisuals()
+{
+	if (TrailNiagara)
+	{
+		TrailNiagara->ReinitializeSystem();
+		TrailNiagara->DeactivateImmediate();
+	}
+	if (ActiveSpawnAudioComp)
+	{
+		ActiveSpawnAudioComp->Stop();
+		ActiveSpawnAudioComp = nullptr;
+	}
+}
+
+void ASFAttackProjectile::OnRep_IsVisualActive()
+{
+	if (bIsVisualActive)
+	{
+		if (ProjectileMovement)
+		{
+			//ProjectileMovement->Velocity = ReplicatedLaunchVelocity;
+		}
+		ActivateVisuals();
+	}
+	else
+	{
+		if (ProjectileMovement)
+		{
+			ProjectileMovement->StopMovementImmediately();
+			ProjectileMovement->SetComponentTickEnabled(false);
+			ProjectileMovement->Deactivate();
+		}
+		DeactivateVisuals();
 	}
 }
 

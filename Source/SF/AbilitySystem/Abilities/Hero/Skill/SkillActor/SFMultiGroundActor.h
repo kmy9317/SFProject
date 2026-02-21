@@ -21,6 +21,11 @@ public:
 
 	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
 
+	//~ ISFPoolable Interface Override
+	virtual void OnAcquiredFromPool() override;
+	virtual void OnReturnedToPool() override;
+	//~ End ISFPoolable Interface Override
+	
 	// 번개 초기화 (부모의 InitAOE 대신 사용)
 	void InitLightning(UAbilitySystemComponent* InSourceASC,AActor* InSourceActor,float InBaseDamage,float InBoltRadius,float InBoltHeight, float InScale = 1.0f);
 
@@ -32,6 +37,9 @@ protected:
 private:
 	UFUNCTION()
 	void OnRep_LightningScale();
+
+private:
+	void OnLifeTimeExpired(); 
 	
 protected:
 	// 원기둥 형태 충돌을 위한 캡슐 컴포넌트
@@ -40,4 +48,6 @@ protected:
 
 	UPROPERTY(ReplicatedUsing = OnRep_LightningScale)
 	float LightningScale = 1.0f;
+
+	FTimerHandle PoolReturnTimerHandle;
 };

@@ -1,6 +1,8 @@
 // SFGA_Projectile_Charged.cpp
 
 #include "SFGA_Projectile_Charged.h"
+
+#include "SFLogChannels.h"
 #include "Abilities/Tasks/AbilityTask_PlayMontageAndWait.h"
 #include "Abilities/Tasks/AbilityTask_WaitInputRelease.h"
 #include "Abilities/Tasks/AbilityTask_WaitGameplayEvent.h"
@@ -12,6 +14,7 @@
 #include "Player/SFPlayerController.h"
 #include "Actors/SFAttackProjectile.h"
 #include "Character/SFCharacterBase.h"
+#include "System/SFPoolSubsystem.h"
 
 USFGA_Projectile_Charged::USFGA_Projectile_Charged(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
@@ -213,6 +216,7 @@ void USFGA_Projectile_Charged::OnProjectileSpawnEventReceived(FGameplayEventData
        if (ASFCharacterBase* Character = GetSFCharacterFromActorInfo())
 	   {
 			SpawnTM = FTransform(Character->GetActorRotation(), Character->GetActorLocation() + FallbackSpawnOffset);
+       		UE_LOG(LogSF, Warning, TEXT("SFGA_Projectile_Charged: Failed to get projectile spawn transform. Using fallback offset: %s"), *FallbackSpawnOffset.ToString());
 	   }
     }
 
@@ -239,20 +243,22 @@ void USFGA_Projectile_Charged::OnProjectileSpawnEventReceived(FGameplayEventData
         
         if (World && Character && SourceASC && ProjectileClass)
         {
-            FActorSpawnParameters Params;
-            Params.Owner = Character;
-            Params.Instigator = Cast<APawn>(Character);
-            Params.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
-            ASFAttackProjectile* Projectile = World->SpawnActor<ASFAttackProjectile>(ProjectileClass,SpawnTM.GetLocation(),LaunchDir.Rotation(),Params);
-            if (Projectile)
-            {
-                Projectile->InitProjectileCharged(SourceASC, FinalDamage, Character, FinalScale, bFinalExplode);
-                Projectile->Launch(LaunchDir);
-            }
+        	FTransform ProjectileTM(LaunchDir.Rotation(), SpawnTM.GetLocation());
+        	USFPoolSubsystem* Pool = USFPoolSubsystem::Get(this);
+        	if (!Pool)
+        	{
+        		return;
+        	}
+        	ASFAttackProjectile* Projectile = Pool->AcquireActor<ASFAttackProjectile>(ProjectileClass, ProjectileTM);
+        	if (Projectile)
+        	{
+        		Projectile->SetOwner(Character);
+        		Projectile->SetInstigator(Cast<APawn>(Character));
+        		Projectile->InitProjectileCharged(SourceASC, FinalDamage, Character, FinalScale, bFinalExplode);
+        		Projectile->Launch(LaunchDir);
+        	}
         }
     }
-    
-    // Montage 종료 대기 (EndAbility 호출 안함)
 }
 
 int32 USFGA_Projectile_Charged::CalculatePhase(float TimeHeld) const
@@ -317,8 +323,10 @@ void USFGA_Projectile_Charged::BroadcastUIRefresh(int32 NewPhaseIndex)
 void USFGA_Projectile_Charged::EndAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, bool bReplicateEndAbility, bool bWasCancelled)
 {
     // 타이머 해제
-    GetWorld()->GetTimerManager().ClearTimer(PhaseTimerHandle);
-    
+	if (UWorld* World = GetWorld())
+	{
+		World->GetTimerManager().ClearTimer(PhaseTimerHandle);
+	}
     // UI 정리
     if (ActorInfo->IsLocallyControlled())
     {

@@ -3,6 +3,7 @@
 #include "GameFramework/Actor.h"
 #include "Engine/World.h"
 #include "Kismet/KismetMathLibrary.h" // 랜덤 위치 계산용
+#include "System/SFPoolSubsystem.h"
 
 USFGA_Hero_MultiGroundAoE::USFGA_Hero_MultiGroundAoE(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
@@ -62,17 +63,14 @@ void USFGA_Hero_MultiGroundAoE::SpawnSingleLightning()
 		// 2. 랜덤 회전 (Y축 회전 등 필요한 경우)
 		FRotator SpawnRotation = FRotator::ZeroRotator;
 		FTransform SpawnTransform(SpawnRotation, SpawnLocation);
-
-		FActorSpawnParameters Params;
-		Params.Owner = GetAvatarActorFromActorInfo();
-		Params.Instigator = Cast<APawn>(Params.Owner);
-		Params.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
-
+		
 		// 3. 액터 소환
-		ASFMultiGroundActor* Lightning = GetWorld()->SpawnActor<ASFMultiGroundActor>(LightningActorClass, SpawnTransform, Params);
+		ASFMultiGroundActor* Lightning = USFPoolSubsystem::Get(this)->AcquireActor<ASFMultiGroundActor>(LightningActorClass, SpawnTransform);
 		if (Lightning)
 		{
-			// 4. 랜덤 크기 설정
+			Lightning->SetOwner(GetAvatarActorFromActorInfo());
+			Lightning->SetInstigator(Cast<APawn>(GetAvatarActorFromActorInfo()));
+
 			float RandomScale = FMath::RandRange(MinScaleMultiplier, MaxScaleMultiplier);
 			
 			// 크기에 비례하여 데미지도 조절할지? (기획상엔 없으므로 크기만 조절)

@@ -5,6 +5,7 @@
 #include "Algo/Sort.h"                 // 정렬 알고리즘
 #include "Kismet/KismetSystemLibrary.h" // LineTrace
 #include "GameFramework/PlayerController.h" // PlayerController 헤더 필요
+#include "System/SFPoolSubsystem.h"
 
 USFGA_Hero_ProjectileMultiSummon::USFGA_Hero_ProjectileMultiSummon(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
@@ -151,26 +152,22 @@ void USFGA_Hero_ProjectileMultiSummon::SpawnProjectileAt(const FTransform& Spawn
 		return;
 	}
 
-	// [수렴] 목표 지점(CachedTargetLocation)을 향하는 방향 벡터
 	FVector FinalLaunchDir = (CachedTargetLocation - SpawnTM.GetLocation()).GetSafeNormal();
 
-	FActorSpawnParameters Params;
-	Params.Owner = Character;
-	Params.Instigator = Cast<APawn>(Character);
-	Params.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
-
-	ASFAttackProjectile* Projectile = World->SpawnActor<ASFAttackProjectile>(
-		ProjectileClass,
-		SpawnTM.GetLocation(),
-		FinalLaunchDir.Rotation(), 
-		Params
-	);
-
+	FTransform FinalTM(FinalLaunchDir.Rotation(), SpawnTM.GetLocation());
+	
+	USFPoolSubsystem* Pool = USFPoolSubsystem::Get(this);
+	if (!Pool)
+	{
+		return;
+	}
+	ASFAttackProjectile* Projectile = Pool->AcquireActor<ASFAttackProjectile>(ProjectileClass, FinalTM);
 	if (Projectile)
 	{
+		Projectile->SetOwner(Character);
+		Projectile->SetInstigator(Cast<APawn>(Character));
 		const float Damage = GetScaledBaseDamage();
 		Projectile->InitProjectile(SourceASC, Damage, Character);
-		
 		Projectile->Launch(FinalLaunchDir);
 	}
 }

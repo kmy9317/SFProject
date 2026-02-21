@@ -3,6 +3,7 @@
 #include "CoreMinimal.h"
 #include "GameFramework/Actor.h"
 #include "GameplayTagContainer.h"
+#include "Interface/SFPoolable.h"
 #include "SFGroundAOE.generated.h"
 
 class USphereComponent;
@@ -12,7 +13,7 @@ class UAbilitySystemComponent;
 class UGameplayEffect;
 
 UCLASS()
-class SF_API ASFGroundAOE : public AActor
+class SF_API ASFGroundAOE : public AActor, public ISFPoolable
 {
 	GENERATED_BODY()
 	
@@ -21,11 +22,15 @@ public:
 
 	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
 
+	//~ ISFPoolable Interface
+	virtual void OnAcquiredFromPool() override;
+	virtual void OnReturnedToPool() override;
+	//~ ISFPoolable Interface
+	
 	// 초기화 함수
 	void InitAOE(UAbilitySystemComponent* InSourceASC,AActor* InSourceActor,float InBaseDamage,float InRadius,float InDuration,float InTickInterval,float InExplosionRadius = -1.0f, float InExplosionDamageMultiplier = -1.0f,bool bOverrideExplodeOnEnd = false, bool bForceExplode = false );
 
 protected:
-	virtual void BeginPlay() override;
 	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
 
 	UFUNCTION()
@@ -38,8 +43,15 @@ protected:
 
 	UFUNCTION()
 	void OnRep_AttackRadius();
+
+	// 클라이언트 풀 활성화 시 이펙트/사운드 처리
+	UFUNCTION()
+	void OnRep_IsVisualActive();
 	
 	virtual void UpdateAOESize();
+
+	virtual void ActivateVisuals();
+	virtual void DeactivateVisuals();
 	
 protected:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="SF|Components")
@@ -50,6 +62,9 @@ protected:
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="SF|Components")
 	TObjectPtr<UParticleSystemComponent> AreaEffectCascade;
+
+	UPROPERTY()
+	TObjectPtr<UAudioComponent> ActiveSpawnAudioComp;
 
 protected:
 	// === [변경] 에디터에서 설정 가능한 폭발 옵션 === //
@@ -103,4 +118,9 @@ protected:
 	
 	FTimerHandle DurationTimerHandle;
 	FTimerHandle TickTimerHandle;
+	
+private:
+	//풀 재사용 시 클라이언트 동기화용 카운터
+	UPROPERTY(ReplicatedUsing = OnRep_IsVisualActive)
+	bool bIsVisualActive = false;
 };

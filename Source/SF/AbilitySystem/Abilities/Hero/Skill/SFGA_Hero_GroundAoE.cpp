@@ -12,6 +12,7 @@
 #include "AbilitySystem/Tasks/SFAbilityTask_WaitCancelInput.h"
 #include "GameFramework/PlayerController.h"
 #include "Input/SFInputGameplayTags.h"
+#include "System/SFPoolSubsystem.h"
 
 USFGA_Hero_GroundAoE::USFGA_Hero_GroundAoE(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
@@ -316,18 +317,21 @@ void USFGA_Hero_GroundAoE::OnSpawnEventReceived(FGameplayEventData Payload)
 	{
 		if (AOEActorClass && GetWorld())
 		{
-			FActorSpawnParameters Params;
-			Params.Owner = GetAvatarActorFromActorInfo();
-			Params.Instigator = Cast<APawn>(Params.Owner);
-			
-			// Reticle의 위치(TargetLocation)에 소환
 			FTransform SpawnTM(FRotator::ZeroRotator, TargetLocation);
-
-			ASFGroundAOE* AOEActor = GetWorld()->SpawnActor<ASFGroundAOE>(AOEActorClass, SpawnTM, Params);
+			USFPoolSubsystem* Pool = USFPoolSubsystem::Get(this);
+			if (!Pool)
+			{
+				return;
+			}
+			ASFGroundAOE* AOEActor = Pool->AcquireActor<ASFGroundAOE>(AOEActorClass, SpawnTM);
 			if (AOEActor)
 			{
+				// Owner/Instigator 재설정(풀 재사용 시 필요)
+				AOEActor->SetOwner(GetAvatarActorFromActorInfo());
+				AOEActor->SetInstigator(Cast<APawn>(GetAvatarActorFromActorInfo()));
+
 				float FinalDamage = BaseDamage.GetValueAtLevel(GetAbilityLevel());
-				AOEActor->InitAOE(GetAbilitySystemComponentFromActorInfo(), GetAvatarActorFromActorInfo(),FinalDamage,AOERadius,Duration,TickInterval);
+				AOEActor->InitAOE(GetAbilitySystemComponentFromActorInfo(), GetAvatarActorFromActorInfo(), FinalDamage, AOERadius, Duration, TickInterval);
 			}
 		}
 	}

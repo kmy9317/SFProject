@@ -1,5 +1,6 @@
 #include "SFGA_Hero_ProjectileLaunch.h"
 
+#include "SFLogChannels.h"
 #include "Abilities/Tasks/AbilityTask_PlayMontageAndWait.h"
 #include "Abilities/Tasks/AbilityTask_WaitGameplayEvent.h"
 #include "AbilitySystem/SFAbilitySystemComponent.h"
@@ -9,6 +10,7 @@
 
 #include "Components/MeshComponent.h"
 #include "GameFramework/PlayerController.h"
+#include "System/SFPoolSubsystem.h"
 
 USFGA_Hero_ProjectileLaunch::USFGA_Hero_ProjectileLaunch(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
@@ -123,26 +125,17 @@ void USFGA_Hero_ProjectileLaunch::SpawnProjectile_Server(const FTransform& Spawn
 	{
 		return;
 	}
-
-	FActorSpawnParameters Params;
-	Params.Owner = Character;
-	Params.Instigator = Cast<APawn>(Character);
-	Params.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
-
-	ASFAttackProjectile* Projectile = World->SpawnActorDeferred<ASFAttackProjectile>(ProjectileClass,SpawnTM,Params.Owner,Params.Instigator,ESpawnActorCollisionHandlingMethod::AlwaysSpawn);
-	const float Damage = GetScaledBaseDamage();
-	Projectile->InitProjectile(SourceASC, Damage, Character);
 	
-	if (Projectile)
-	{
-		Projectile->FinishSpawning(SpawnTM);
-	}
-	
+	ASFAttackProjectile* Projectile = USFPoolSubsystem::Get(this)->AcquireActor<ASFAttackProjectile>(ProjectileClass, SpawnTM);
 	if (!Projectile)
 	{
 		return;
 	}
-	
+	Projectile->SetOwner(Character);
+	Projectile->SetInstigator(Cast<APawn>(Character));
+
+	const float Damage = GetScaledBaseDamage();
+	Projectile->InitProjectile(SourceASC, Damage, Character);
 	Projectile->Launch(LaunchDir);
 }
 
@@ -157,11 +150,19 @@ bool USFGA_Hero_ProjectileLaunch::GetProjectileSpawnTransform(FTransform& OutSpa
 	AActor* WeaponActor = GetMainHandWeaponActor();
 	if (WeaponActor)
 	{
-		if (UMeshComponent* MeshComp = WeaponActor->FindComponentByClass<UMeshComponent>())
+		TArray<UMeshComponent*> MeshComponents;
+		WeaponActor->GetComponents<UMeshComponent>(MeshComponents);
+		for (UMeshComponent* MeshComp : MeshComponents)
 		{
-			if (MeshComp->DoesSocketExist(SpawnSocketName))
+			if (MeshComp && MeshComp->DoesSocketExist(SpawnSocketName))
 			{
 				OutSpawnTM = MeshComp->GetSocketTransform(SpawnSocketName, RTS_World);
+
+				UE_LOG(LogSF, Warning, TEXT("[Projectile] Socket:%s Loc:%s CharLoc:%s Delta:%f"),
+					*SpawnSocketName.ToString(),
+					*OutSpawnTM.GetLocation().ToString(),
+					*Character->GetActorLocation().ToString(),
+					FVector::Dist(OutSpawnTM.GetLocation(), Character->GetActorLocation()));
 				return true;
 			}
 		}

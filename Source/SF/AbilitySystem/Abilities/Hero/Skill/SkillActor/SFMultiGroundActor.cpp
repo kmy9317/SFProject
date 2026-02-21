@@ -5,6 +5,7 @@
 #include "Libraries/SFCombatLibrary.h"
 #include "AbilitySystemComponent.h"
 #include "Net/UnrealNetwork.h"
+#include "System/SFPoolSubsystem.h"
 
 ASFMultiGroundActor::ASFMultiGroundActor(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
@@ -46,9 +47,32 @@ void ASFMultiGroundActor::InitLightning(UAbilitySystemComponent* InSourceASC, AA
 		// 실제 데미지 판정 실행 (아래 오버라이드된 함수가 호출됨)
 		ApplyDamageToTargets(BaseDamage, 0.0f); 
 	}
+	
+	if (UWorld* World = GetWorld())
+	{
+		World->GetTimerManager().SetTimer(PoolReturnTimerHandle,this,&ThisClass::OnLifeTimeExpired,1.5f, false);
+	}
+}
 
-	// 자동 파괴
-	SetLifeSpan(1.5f); 
+void ASFMultiGroundActor::OnLifeTimeExpired()
+{
+	if (USFPoolSubsystem* Pool = USFPoolSubsystem::Get(this))
+	{
+		Pool->ReturnToPool(this);
+	}
+}
+
+void ASFMultiGroundActor::OnAcquiredFromPool()
+{
+	Super::OnAcquiredFromPool();
+	// 스케일은 InitLightning에서 매번 설정되므로 기본값 복원
+	SetActorScale3D(FVector::OneVector);
+}
+
+void ASFMultiGroundActor::OnReturnedToPool()
+{
+	Super::OnReturnedToPool();
+	// 추가 정리 필요 없음 — 부모가 이펙트/상태 처리
 }
 
 void ASFMultiGroundActor::BeginPlay()
