@@ -405,3 +405,13 @@ void USFGA_Hero_GroundAoE::EndAbility(const FGameplayAbilitySpecHandle Handle, c
 
 	Super::EndAbility(Handle, ActorInfo, ActivationInfo, bReplicateEndAbility, bWasCancelled);
 }
+
+TArray<FSFPoolPrewarmEntry> USFGA_Hero_GroundAoE::GetPoolPrewarmEntries() const
+{
+	TArray<FSFPoolPrewarmEntry> Entries;
+	if (AOEActorClass && PoolCountPerPlayer > 0)
+	{
+		Entries.Add({ AOEActorClass, PoolCountPerPlayer });
+	}
+	return Entries;
+}

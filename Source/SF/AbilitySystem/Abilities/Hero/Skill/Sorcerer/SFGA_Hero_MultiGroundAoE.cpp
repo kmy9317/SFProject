@@ -91,3 +91,13 @@ void USFGA_Hero_MultiGroundAoE::EndAbility(const FGameplayAbilitySpecHandle Hand
 
 	Super::EndAbility(Handle, ActorInfo, ActivationInfo, bReplicateEndAbility, bWasCancelled);
 }
+
+TArray<FSFPoolPrewarmEntry> USFGA_Hero_MultiGroundAoE::GetPoolPrewarmEntries() const
+{
+	TArray<FSFPoolPrewarmEntry> Entries;
+	if (LightningActorClass && LightningCount > 0)
+	{
+		Entries.Add({ LightningActorClass, LightningCount });
+	}
+	return Entries;
+}

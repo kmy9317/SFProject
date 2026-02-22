@@ -21,6 +21,17 @@ class UInputMappingContext;
 class USFAbilitySystemComponent;
 class ASFCharacterBase;
 
+USTRUCT(BlueprintType)
+struct FSFPoolPrewarmEntry
+{
+	GENERATED_BODY()
+
+	UPROPERTY()
+	TSubclassOf<AActor> ActorClass;
+
+	int32 CountPerPlayer = 0;
+};
+
 UENUM(BlueprintType)
 enum class ESFAbilityActivationPolicy : uint8
 {
@@ -53,6 +64,9 @@ public:
 	
 	// 커스텀 세이브 데이터 유무
 	virtual bool HasCustomPersistentData() const { return false; }
+
+	// 이 어빌리티가 필요로 하는 풀 예열 정보 반환
+	virtual TArray<FSFPoolPrewarmEntry> GetPoolPrewarmEntries() const { return TArray<FSFPoolPrewarmEntry>(); }
 
 	UFUNCTION(BlueprintCallable, Category = "SF|Ability")
 	USFAbilitySystemComponent* GetSFAbilitySystemComponentFromActorInfo() const;

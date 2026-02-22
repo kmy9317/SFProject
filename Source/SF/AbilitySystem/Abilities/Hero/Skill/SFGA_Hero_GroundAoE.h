@@ -30,6 +30,8 @@ public:
 	virtual void ActivateAbility(const FGameplayAbilitySpecHandle Handle,const FGameplayAbilityActorInfo* ActorInfo,const FGameplayAbilityActivationInfo ActivationInfo,const FGameplayEventData* TriggerEventData) override;
 	virtual void EndAbility(const FGameplayAbilitySpecHandle Handle,const FGameplayAbilityActorInfo* ActorInfo,const FGameplayAbilityActivationInfo ActivationInfo,bool bReplicateEndAbility,bool bWasCancelled) override;
 
+	virtual TArray<FSFPoolPrewarmEntry> GetPoolPrewarmEntries() const override;
+	
 protected:
 
 	// 틱마다 실행 (WaitTick 대용, Reticle 위치 업데이트)
@@ -74,6 +76,9 @@ protected:
 	// 소환할 장판 액터 클래스
 	UPROPERTY(EditDefaultsOnly, Category="SF|AOE")
 	TSubclassOf<ASFGroundAOE> AOEActorClass;
+
+	UPROPERTY(EditDefaultsOnly, Category="SF|Pool")
+	int32 PoolCountPerPlayer = 1;
 
 	// 범위 지정 시 보여줄 Reticle(인디케이터) 액터 클래스
 	UPROPERTY(EditDefaultsOnly, Category="SF|AOE")

@@ -55,6 +55,7 @@ ASFAttackProjectile::ASFAttackProjectile(const FObjectInitializer& ObjectInitial
 	ProjectileMovement->bRotationFollowsVelocity = true;
 	ProjectileMovement->bShouldBounce = false;
 	ProjectileMovement->ProjectileGravityScale = 0.f;
+	ProjectileMovement->bAutoActivate = false;
 
 	// 기본 SetByCaller 태그 (프로젝트에 존재하는 태그로 BP에서 바꿔도 됨)
 	SetByCallerDamageTag = FGameplayTag::RequestGameplayTag(TEXT("Data.Damage.BaseDamage"), /*ErrorIfNotFound*/ false);

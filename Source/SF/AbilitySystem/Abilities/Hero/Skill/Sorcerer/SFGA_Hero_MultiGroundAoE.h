@@ -20,6 +20,7 @@ public:
 
 	virtual void EndAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, bool bReplicateEndAbility, bool bWasCancelled) override;
 
+	virtual TArray<FSFPoolPrewarmEntry> GetPoolPrewarmEntries() const override;
 protected:
 	// === 설정 변수 ===
 

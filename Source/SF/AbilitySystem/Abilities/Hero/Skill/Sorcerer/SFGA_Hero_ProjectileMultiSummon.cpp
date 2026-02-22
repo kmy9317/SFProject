@@ -224,3 +224,13 @@ void USFGA_Hero_ProjectileMultiSummon::EndAbility(const FGameplayAbilitySpecHand
 
 	Super::EndAbility(Handle, ActorInfo, ActivationInfo, bReplicateEndAbility, bWasCancelled);
 }
+
+TArray<FSFPoolPrewarmEntry> USFGA_Hero_ProjectileMultiSummon::GetPoolPrewarmEntries() const
+{
+	TArray<FSFPoolPrewarmEntry> Entries;
+	if (ProjectileClass && NumProjectiles > 0)
+	{
+		Entries.Add({ ProjectileClass, NumProjectiles });
+	}
+	return Entries;
+}

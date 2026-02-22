@@ -22,6 +22,7 @@
 #include "Messages/SFPortalInfoMessages.h"
 #include "Net/UnrealNetwork.h"
 #include "System/SFAssetManager.h"
+#include "System/SFPoolSubsystem.h"
 
 ASFPlayerState::ASFPlayerState(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
@@ -314,7 +315,7 @@ void ASFPlayerState::OnPawnDataLoadComplete(const USFPawnData* LoadedPawnData)
 	PawnDataHandle.Reset();
 	
 	TryApplyPermanentUpgrade();
-	
+
 	// 델리게이트 브로드캐스트 - GameMode가 처리
 	OnPawnDataLoaded.Broadcast(GetSFPlayerController(), LoadedPawnData);
 }
@@ -353,17 +354,45 @@ void ASFPlayerState::SetPawnData(const USFPawnData* InPawnData)
 				AbilitySet->GiveToAbilitySystem(AbilitySystemComponent, nullptr);
 			}
 		}
-
-		// 강화는 "서버가 PlayFab 데이터를 수신한 이후"에만 적용되어야 함
-		//TryApplyPermanentUpgrade();
 	}
 
 	if (HasSavedInventoryData())
 	{
 		RestorePersistedInventoryData();
 	}
+
+	// 현재 부여된 풀링해야 할 어빌리티에서 풀 예열
+	PrewarmPoolForCurrentAbilities();
 	
 	ForceNetUpdate();
+}
+
+void ASFPlayerState::PrewarmPoolForCurrentAbilities()
+{
+	if (!AbilitySystemComponent)
+	{
+		return;
+	}
+
+	USFPoolSubsystem* Pool = USFPoolSubsystem::Get(this);
+	if (!Pool)
+	{
+		return;
+	}
+
+	for (const FGameplayAbilitySpec& Spec : AbilitySystemComponent->GetActivatableAbilities())
+	{
+		if (const USFGameplayAbility* AbilityCDO = Cast<USFGameplayAbility>(Spec.Ability))
+		{
+			for (const FSFPoolPrewarmEntry& Entry : AbilityCDO->GetPoolPrewarmEntries())
+			{
+				if (Entry.ActorClass)
+				{
+					Pool->PrewarmPool(Entry.ActorClass, Entry.CountPerPlayer);
+				}
+			}
+		}
+	}
 }
 
 void ASFPlayerState::SetPlayerSelection(const FSFPlayerSelectionInfo& NewPlayerSelection)
@@ -533,8 +562,19 @@ void ASFPlayerState::ApplySkillUpgrade(TSubclassOf<USFGameplayAbility> NewAbilit
 	USFGameplayAbility* AbilityCDO = NewAbilityClass->GetDefaultObject<USFGameplayAbility>();
 	FGameplayAbilitySpec NewSpec(AbilityCDO, InheritedLevel);
 	NewSpec.GetDynamicSpecSourceTags().AddTag(InputTag);
-    
 	AbilitySystemComponent->GiveAbility(NewSpec);
+
+	// 새 어빌리티의 풀 예열
+	if (USFPoolSubsystem* Pool = USFPoolSubsystem::Get(this))
+	{
+		for (const FSFPoolPrewarmEntry& Entry : AbilityCDO->GetPoolPrewarmEntries())
+		{
+			if (Entry.ActorClass)
+			{
+				Pool->PrewarmPool(Entry.ActorClass, Entry.CountPerPlayer);
+			}
+		}
+	}
 
 	OnSkillUpgradeCompleted.Broadcast();
 }

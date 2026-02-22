@@ -55,6 +55,8 @@ protected:
 	virtual void OnAvatarSet(const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilitySpec& Spec) override;
 	virtual void OnRemoveAbility(const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilitySpec& Spec) override;
 
+	void PrewarmAllAbilitySets();
+
 public:
 
 	// 커스텀 데이터 저장/복원 (FInstancedStruct 방식)

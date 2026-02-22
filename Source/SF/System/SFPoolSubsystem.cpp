@@ -25,6 +25,18 @@ bool USFPoolSubsystem::DoesSupportWorldType(const EWorldType::Type WorldType) co
 	return WorldType == EWorldType::Game || WorldType == EWorldType::PIE;
 }
 
+void USFPoolSubsystem::Deinitialize()
+{
+	if (UWorld* World = GetWorld())
+	{
+		World->GetTimerManager().ClearTimer(PrewarmTimerHandle);
+	}
+
+	PendingPrewarms.Empty();
+	
+	Super::Deinitialize();
+}
+
 AActor* USFPoolSubsystem::AcquireActor(TSubclassOf<AActor> ActorClass, const FTransform& SpawnTransform)
 {
 	if (!ActorClass)
@@ -33,7 +45,6 @@ AActor* USFPoolSubsystem::AcquireActor(TSubclassOf<AActor> ActorClass, const FTr
 	}
 
 	FSFPoolArray& Pool = ActorPools.FindOrAdd(ActorClass);
-
 	AActor* Actor = nullptr;
 
 	// 풀에서 유휴 액터 검색 (Pending Kill 체크)
@@ -69,7 +80,6 @@ AActor* USFPoolSubsystem::AcquireActor(TSubclassOf<AActor> ActorClass, const FTr
 	}
 
 	ActivateActor(Actor, SpawnTransform);
-	
 	return Actor;
 }
 
@@ -100,72 +110,94 @@ void USFPoolSubsystem::PrewarmPool(TSubclassOf<AActor> ActorClass, int32 Count)
 	{
 		return;
 	}
+	
+	PendingPrewarms.Add({ ActorClass, Count  });
 
-	FSFPoolArray& Pool = ActorPools.FindOrAdd(ActorClass);
-
-	for (int32 i = 0; i < Count; ++i)
+	if (UWorld* World = GetWorld())
 	{
-		AActor* Actor = SpawnPooledActor(ActorClass);
-		if (Actor)
+		if (!World->GetTimerManager().IsTimerActive(PrewarmTimerHandle))
 		{
-			Actor->SetNetDormancy(DORM_DormantAll);
-			Pool.InactiveActors.Add(Actor);
+			World->GetTimerManager().SetTimer(PrewarmTimerHandle, this,&USFPoolSubsystem::ProcessPrewarmBatch,0.1f, true);
 		}
 	}
 }
 
-void USFPoolSubsystem::SetPoolLimit(TSubclassOf<AActor> ActorClass, int32 MaxCount)
+void USFPoolSubsystem::ProcessPrewarmBatch()
 {
-	if (ActorClass)
+	int32 SpawnedThisFrame = 0;
+	while (PendingPrewarms.Num() > 0 && SpawnedThisFrame < PrewarmBatchSize)
 	{
-		PoolLimits.Add(ActorClass, MaxCount);
+		FSFPendingPrewarm& Current = PendingPrewarms[0];
+		FSFPoolArray& Pool = ActorPools.FindOrAdd(Current.ActorClass);
+		if (AActor* Actor = SpawnPooledActor(Current.ActorClass))
+		{
+			Pool.InactiveActors.Add(Actor);
+			SpawnedThisFrame++;
+		}
+
+		Current.Remaining--;
+		if (Current.Remaining <= 0)
+		{
+			UE_LOG(LogSF, Warning, TEXT("[SFPool] Prewarm complete: %s (pool: %d)"), *Current.ActorClass->GetName(), Pool.InactiveActors.Num());
+			PendingPrewarms.RemoveAt(0);
+		}
+	}
+
+	if (PendingPrewarms.Num() == 0)
+	{
+		if (UWorld* World = GetWorld())
+		{
+			World->GetTimerManager().ClearTimer(PrewarmTimerHandle);
+		}
+		UE_LOG(LogSF, Warning, TEXT("[SFPool] All prewarm complete"));
 	}
 }
 
 AActor* USFPoolSubsystem::SpawnPooledActor(TSubclassOf<AActor> ActorClass)
 {
-	FSFPoolArray& Pool = ActorPools.FindOrAdd(ActorClass);
-
-	// 하드 리밋 체크
-	const int32 MaxCount = PoolLimits.Contains(ActorClass) ? PoolLimits[ActorClass] : DefaultMaxPoolSize;
-
-	if (Pool.TotalSpawnedCount >= MaxCount)
-	{
-		UE_LOG(LogSF, Warning, TEXT("[SFPool] Hard limit reached for %s (%d/%d)"), *ActorClass->GetName(), Pool.TotalSpawnedCount, MaxCount);
-		return nullptr;
-	}
-
 	UWorld* World = GetWorld();
 	if (!World)
 	{
 		return nullptr;
 	}
-
-	FActorSpawnParameters Params;
-	Params.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
-	AActor* NewActor = World->SpawnActor<AActor>(ActorClass, FTransform::Identity, Params);
+	
+	FSFPoolArray& Pool = ActorPools.FindOrAdd(ActorClass);
+	AActor* NewActor = World->SpawnActorDeferred<AActor>(ActorClass, FTransform::Identity, nullptr, nullptr, ESpawnActorCollisionHandlingMethod::AlwaysSpawn);
 	if (!NewActor)
 	{
 		return nullptr;
 	}
-
-
+	
+	// 복제 완전 차단 상태로 시작
+	NewActor->SetReplicates(false);
 	NewActor->bAlwaysRelevant = true;
+	NewActor->FinishSpawning(FTransform::Identity);
 	NewActor->SetActorEnableCollision(false);
 	NewActor->SetActorHiddenInGame(true);
 	NewActor->SetActorTickEnabled(false);
+	NewActor->SetActorLocation(FVector(0.f, 0.f, -10000.f));
+
+	// 풀 상태 초기화
+	if (ISFPoolable* Poolable = Cast<ISFPoolable>(NewActor))
+	{
+		Poolable->bInactiveInPool = true;
+	}
+
+	// // Flush 없이 바로 Dormant → 초기 복제(x)
+	NewActor->SetNetDormancy(DORM_DormantAll);
 
 	Pool.TotalSpawnedCount++;
-
-	UE_LOG(LogSF, Warning, TEXT("[SFPool] Spawned new %s (Total: %d/%d)"), *ActorClass->GetName(), Pool.TotalSpawnedCount, MaxCount);
-
 	return NewActor;
 }
 
 void USFPoolSubsystem::ActivateActor(AActor* Actor, const FTransform& SpawnTransform)
 {
-	Actor->SetNetDormancy(DORM_Awake);
+	if (!Actor->GetIsReplicated())
+	{
+		Actor->SetReplicates(true);
+	}
 	
+	Actor->SetNetDormancy(DORM_Awake);
 	Actor->SetActorTransform(SpawnTransform, false, nullptr, ETeleportType::ResetPhysics);
 	Actor->SetActorHiddenInGame(false);
 	Actor->SetActorTickEnabled(true);

@@ -31,6 +31,8 @@ protected:
 	virtual void EndAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, bool bReplicateEndAbility, bool bWasCancelled) override;
 	virtual void CancelAbility(const FGameplayAbilitySpecHandle Handle,const FGameplayAbilityActorInfo* ActorInfo,const FGameplayAbilityActivationInfo ActivationInfo,bool bReplicateCancelAbility) override;
 
+	virtual TArray<FSFPoolPrewarmEntry> GetPoolPrewarmEntries() const override;
+	
 	bool ValidateLaunchRequirements() const;
 	
 	void StartLaunchSequence();
@@ -60,6 +62,9 @@ protected:
 	
 	UPROPERTY(EditDefaultsOnly, Category="SF|Projectile")
 	TSubclassOf<ASFAttackProjectile> ProjectileClass;
+
+	UPROPERTY(EditDefaultsOnly, Category="SF|Projectile")
+	int32 PoolCountPerPlayer = 2;
 
 	// 몽타주
 	UPROPERTY(EditDefaultsOnly, Category="SF|Projectile|Montage")

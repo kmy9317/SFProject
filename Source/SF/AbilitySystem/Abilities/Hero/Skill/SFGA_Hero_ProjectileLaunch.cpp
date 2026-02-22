@@ -239,6 +239,16 @@ void USFGA_Hero_ProjectileLaunch::CancelAbility(const FGameplayAbilitySpecHandle
 	Super::CancelAbility(Handle, ActorInfo, ActivationInfo, bReplicateCancelAbility);
 }
 
+TArray<FSFPoolPrewarmEntry> USFGA_Hero_ProjectileLaunch::GetPoolPrewarmEntries() const
+{
+	TArray<FSFPoolPrewarmEntry> Entries;
+	if (ProjectileClass && PoolCountPerPlayer)
+	{
+		Entries.Add({ ProjectileClass, PoolCountPerPlayer });
+	}
+	return Entries;
+}
+
 void USFGA_Hero_ProjectileLaunch::EndAbility(const FGameplayAbilitySpecHandle Handle,const FGameplayAbilityActorInfo* ActorInfo,const FGameplayAbilityActivationInfo ActivationInfo,bool bReplicateEndAbility,bool bWasCancelled)
 {
 	CleanupLaunchTasks();

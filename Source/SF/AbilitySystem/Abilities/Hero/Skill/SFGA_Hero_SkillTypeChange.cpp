@@ -4,6 +4,7 @@
 #include "AbilitySystem/SFAbilitySystemComponent.h"
 #include "SFLogChannels.h"
 #include "Input/SFInputGameplayTags.h"
+#include "System/SFPoolSubsystem.h"
 
 USFGA_Hero_SkillTypeChange::USFGA_Hero_SkillTypeChange()
 {
@@ -47,7 +48,63 @@ void USFGA_Hero_SkillTypeChange::OnAvatarSet(const FGameplayAbilityActorInfo* Ac
 	// 어빌리티 세트 부여
 	ApplyCurrentAbilitySet(SFASC);
 
+	// 모든 속성의 어빌리티 풀 예열
+	PrewarmAllAbilitySets();
+
 	bHasActivatedOnce = true;
+}
+
+void USFGA_Hero_SkillTypeChange::PrewarmAllAbilitySets()
+{
+	USFPoolSubsystem* Pool = USFPoolSubsystem::Get(this);
+	if (!Pool)
+	{
+		return;
+	}
+
+	for (int32 SetIdx = 0; SetIdx < AbilitySets.Num(); ++SetIdx)
+	{
+		const USFAbilitySet* AbilitySet = AbilitySets[SetIdx];
+		if (!IsValid(AbilitySet))
+		{
+			continue;
+		}
+
+		FGameplayTag ElementTag;
+		if (ElementTags.IsValidIndex(SetIdx))
+		{
+			ElementTag = ElementTags[SetIdx];
+		}
+
+		for (const FSFAbilitySet_GameplayAbility& AbilityToGrant : AbilitySet->GetGrantedGameplayAbilities())
+		{
+			TSubclassOf<USFGameplayAbility> AbilityClass = AbilityToGrant.Ability;
+
+			// 오버라이드(업그레이드) 반영
+			if (ElementTag.IsValid() && ElementSkillOverrides.Contains(ElementTag))
+			{
+				const FSFSkillOverrideInfo& Info = ElementSkillOverrides[ElementTag];
+				if (Info.SlotOverrides.Contains(AbilityToGrant.InputTag))
+				{
+					AbilityClass = Info.SlotOverrides[AbilityToGrant.InputTag];
+				}
+			}
+
+			if (!IsValid(AbilityClass))
+			{
+				continue;
+			}
+
+			USFGameplayAbility* AbilityCDO = AbilityClass->GetDefaultObject<USFGameplayAbility>();
+			for (const FSFPoolPrewarmEntry& Entry : AbilityCDO->GetPoolPrewarmEntries())
+			{
+				if (Entry.ActorClass)
+				{
+					Pool->PrewarmPool(Entry.ActorClass, Entry.CountPerPlayer);
+				}
+			}
+		}
+	}
 }
 
 void USFGA_Hero_SkillTypeChange::ApplyCurrentAbilitySet(USFAbilitySystemComponent* SFASC)
@@ -136,6 +193,19 @@ void USFGA_Hero_SkillTypeChange::RegisterSkillOverride(FGameplayTag ElementTag, 
 	// 클래스 오버라이드만 저장
 	FSFSkillOverrideInfo& Info = ElementSkillOverrides.FindOrAdd(ElementTag);
 	Info.SlotOverrides.Add(InputTag, NewAbilityClass);
+
+	// 새 어빌리티 풀 예열
+	USFGameplayAbility* NewCDO = NewAbilityClass->GetDefaultObject<USFGameplayAbility>();
+	if (USFPoolSubsystem* Pool = USFPoolSubsystem::Get(this))
+	{
+		for (const FSFPoolPrewarmEntry& Entry : NewCDO->GetPoolPrewarmEntries())
+		{
+			if (Entry.ActorClass)
+			{
+				Pool->PrewarmPool(Entry.ActorClass, Entry.CountPerPlayer);
+			}
+		}
+	}
 
 	// 현재 사용 중인 속성이면 즉시 새로고침
 	if (ElementTags.IsValidIndex(CurrentSetIndex) && ElementTags[CurrentSetIndex] == ElementTag)

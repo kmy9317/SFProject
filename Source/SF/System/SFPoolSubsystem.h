@@ -4,6 +4,8 @@
 #include "Subsystems/WorldSubsystem.h"
 #include "SFPoolSubsystem.generated.h"
 
+class USFPawnData;
+
 USTRUCT()
 struct FSFPoolArray
 {
@@ -13,6 +15,17 @@ struct FSFPoolArray
 	TArray<TObjectPtr<AActor>> InactiveActors;
 
 	int32 TotalSpawnedCount = 0;
+};
+
+USTRUCT()
+struct FSFPendingPrewarm
+{
+	GENERATED_BODY()
+
+	UPROPERTY()
+	TSubclassOf<AActor> ActorClass;
+	
+	int32 Remaining;
 };
 
 /**
@@ -41,22 +54,28 @@ public:
 	// 지정 클래스의 액터를 Count개만큼 미리 스폰
 	void PrewarmPool(TSubclassOf<AActor> ActorClass, int32 Count);
 
-	// 클래스별 하드 리밋 설정
-	void SetPoolLimit(TSubclassOf<AActor> ActorClass, int32 MaxCount);
-
 protected:
 	virtual bool DoesSupportWorldType(const EWorldType::Type WorldType) const override;
+	virtual void Deinitialize() override;
 
 private:
 	AActor* SpawnPooledActor(TSubclassOf<AActor> ActorClass);
 	void ActivateActor(AActor* Actor, const FTransform& SpawnTransform);
 	void DeactivateActor(AActor* Actor);
 
+	// 분산 예열 처리(매 프레임 BatchSize만큼) 
+	void ProcessPrewarmBatch();
+
+private:
+	
+	FTimerHandle PrewarmTimerHandle;
+	
+	// 프레임당 최대 스폰 수
+	int32 PrewarmBatchSize = 3;
+
+	UPROPERTY()
+	TArray<FSFPendingPrewarm> PendingPrewarms;
+	
 	UPROPERTY()
 	TMap<TSubclassOf<AActor>, FSFPoolArray> ActorPools;
-
-	// 클래스별 최대 스폰 수 (하드 리밋), 미등록 시 DefaultMaxPoolSize 사용
-	TMap<TSubclassOf<AActor>, int32> PoolLimits;
-
-	int32 DefaultMaxPoolSize = 50;
 };
