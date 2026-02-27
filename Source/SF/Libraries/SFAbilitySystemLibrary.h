@@ -4,6 +4,7 @@
 #include "Kismet/BlueprintFunctionLibrary.h"
 #include "SFAbilitySystemLibrary.generated.h"
 
+struct FGameplayEventData;
 struct FGameplayTag;
 struct FGameplayEffectSpec;
 class UAbilitySystemComponent;
@@ -27,11 +28,8 @@ public:
 	static void SendGameplayEventFromSpec(UAbilitySystemComponent* ASC, const FGameplayTag& EventTag, const FGameplayEffectSpec& Spec);
 
 	UFUNCTION(BlueprintCallable, Category = "SF|AbilitySystem")
-	static void SendDeathEventFromSpec(UAbilitySystemComponent* ASC, const FGameplayEffectSpec& Spec);
-
-	UFUNCTION(BlueprintCallable, Category = "SF|AbilitySystem")
-	static void SendDownedEventFromSpec(UAbilitySystemComponent* ASC, const FGameplayEffectSpec& Spec);
-
+	static void SendZeroHealthEventFromSpec(UAbilitySystemComponent* ASC, float Damage, const FGameplayEffectSpec& Spec);
+	
 	UFUNCTION(BlueprintCallable, Category = "SF|AbilitySystem")
 	static void SendHitReactionEventFromSpec(UAbilitySystemComponent* ASC, float Damage, const FGameplayEffectSpec& Spec);
 
@@ -42,13 +40,18 @@ public:
 	static void SendStaggerEventFromSpec(UAbilitySystemComponent* ASC, const FGameplayEffectSpec& Spec);
 
 	//~=============================================================================
-	// Spec 없는 이벤트 (어빌리티 등에서 사용)
+	// Payload 기반 이벤트 (어빌리티에서 주로 사용)
 	//~=============================================================================
 	
-	// 공통 GameplayEvent 발송 (Spec 없는 버전) 
+	// 공통 GameplayEvent 발송
 	UFUNCTION(BlueprintCallable, Category = "SF|AbilitySystem")
 	static void SendGameplayEvent(UAbilitySystemComponent* ASC, const FGameplayTag& EventTag, AActor* Instigator = nullptr);
 
+	// Payload 전달형 (GA_DeathHandler 등에서 원본 컨텍스트를 유지하며 발송)
 	UFUNCTION(BlueprintCallable, Category = "SF|AbilitySystem")
-	static void SendDeathEvent(UAbilitySystemComponent* ASC, AActor* Instigator = nullptr);
+	static void SendDeathEvent(UAbilitySystemComponent* ASC, const FGameplayEventData& SourcePayload);
+
+	UFUNCTION(BlueprintCallable, Category = "SF|AbilitySystem")
+	static void SendDownedEvent(UAbilitySystemComponent* ASC, const FGameplayEventData& SourcePayload);
+
 };

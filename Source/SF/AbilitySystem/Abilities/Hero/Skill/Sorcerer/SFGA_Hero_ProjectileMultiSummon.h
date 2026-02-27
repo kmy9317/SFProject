@@ -19,18 +19,14 @@ public:
 
 protected:
 	/** * [오버라이드] 
-	 * 부모의 단일 발사 로직을 무시하고, 멀티 발사 프로세스를 시작합니다.
+	 * 부모의 단일 발사 로직을 무시하고, 멀티 발사 프로세스를 시작
 	 */
 	virtual void OnProjectileSpawnEventReceived(FGameplayEventData Payload) override;
 
-	virtual void EndAbility(
-		const FGameplayAbilitySpecHandle Handle,
-		const FGameplayAbilityActorInfo* ActorInfo,
-		const FGameplayAbilityActivationInfo ActivationInfo,
-		bool bReplicateEndAbility,
-		bool bWasCancelled
-	) override;
+	virtual void EndAbility(const FGameplayAbilitySpecHandle Handle,const FGameplayAbilityActorInfo* ActorInfo,const FGameplayAbilityActivationInfo ActivationInfo,bool bReplicateEndAbility,bool bWasCancelled) override;
 
+	virtual TArray<FSFPoolPrewarmEntry> GetPoolPrewarmEntries() const override;
+	
 private:
 	/** 개별 투사체를 스폰 (목표 지점을 향해 발사) */
 	void SpawnProjectileAt(const FTransform& SpawnTM);

@@ -146,6 +146,8 @@ private:
 	void OnPawnDataLoadComplete(const USFPawnData* LoadedPawnData);
 	void ApplySkillUpgrade(TSubclassOf<USFGameplayAbility> NewAbilityClass, FGameplayTag InputTag);
 
+	void PrewarmPoolForCurrentAbilities();
+
 	UFUNCTION()
 	void OnRep_PawnData();
 

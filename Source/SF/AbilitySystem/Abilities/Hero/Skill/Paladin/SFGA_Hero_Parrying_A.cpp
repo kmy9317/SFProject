@@ -20,8 +20,6 @@ void USFGA_Hero_Parrying_A::OnChainMontageCompleted()
         return;
     }
 
-    // ========== 패링 성공 ==========
-    
     // 추가 GE 적용 (1회만)
     if (HasAuthority(&CurrentActivationInfo)
         && ParrySuccessExtraEffect
@@ -126,16 +124,10 @@ void USFGA_Hero_Parrying_A::OnComboStateRemoved(const FActiveGameplayEffect& Rem
     UnbindComboStateRemovedDelegate();
 }
 
-void USFGA_Hero_Parrying_A::EndAbility(
-	const FGameplayAbilitySpecHandle Handle,
-	const FGameplayAbilityActorInfo* ActorInfo,
-	const FGameplayAbilityActivationInfo ActivationInfo,
-	bool bReplicateEndAbility,
-	bool bWasCancelled)
+void USFGA_Hero_Parrying_A::EndAbility(const FGameplayAbilitySpecHandle Handle,const FGameplayAbilityActorInfo* ActorInfo,const FGameplayAbilityActivationInfo ActivationInfo,bool bReplicateEndAbility,bool bWasCancelled)
 {
 	//태그 제거는 EndAbility에서 처리
-	if (ActorInfo && ActorInfo->AbilitySystemComponent.IsValid()
-		&& ParryExtraEffectAppliedTag.IsValid())
+	if (ActorInfo && ActorInfo->AbilitySystemComponent.IsValid() && ParryExtraEffectAppliedTag.IsValid())
 	{
 		UAbilitySystemComponent* ASC = ActorInfo->AbilitySystemComponent.Get();
 		ASC->RemoveLooseGameplayTag(ParryExtraEffectAppliedTag);

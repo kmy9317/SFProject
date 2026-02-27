@@ -21,6 +21,17 @@ class UInputMappingContext;
 class USFAbilitySystemComponent;
 class ASFCharacterBase;
 
+USTRUCT(BlueprintType)
+struct FSFPoolPrewarmEntry
+{
+	GENERATED_BODY()
+
+	UPROPERTY()
+	TSubclassOf<AActor> ActorClass;
+
+	int32 CountPerPlayer = 0;
+};
+
 UENUM(BlueprintType)
 enum class ESFAbilityActivationPolicy : uint8
 {
@@ -53,6 +64,9 @@ public:
 	
 	// 커스텀 세이브 데이터 유무
 	virtual bool HasCustomPersistentData() const { return false; }
+
+	// 이 어빌리티가 필요로 하는 풀 예열 정보 반환
+	virtual TArray<FSFPoolPrewarmEntry> GetPoolPrewarmEntries() const { return TArray<FSFPoolPrewarmEntry>(); }
 
 	UFUNCTION(BlueprintCallable, Category = "SF|Ability")
 	USFAbilitySystemComponent* GetSFAbilitySystemComponentFromActorInfo() const;
@@ -118,16 +132,18 @@ public:
 	void ExecuteMontageGameplayCue(const FSFMontagePlayData& MontageData);
 
 	UFUNCTION(BlueprintCallable, Category = "SF|Ability|Input")
-	void RestorePlayerInput();
+	void RestorePlayerInput(bool bRestoreLookInput = false);
 
 	UFUNCTION(BlueprintCallable, Category = "SF|Ability|Input")
-	void DisablePlayerInput();
+	void DisablePlayerInput(bool bDisableLookInput = false);
 
 	// 계산된 마나 코스트 반환
 	UFUNCTION(BlueprintCallable, Category = "SF|Cost")
-	float GetCalculatedManaCost(UAbilitySystemComponent* ASC = nullptr) const;
+	virtual float GetCalculatedManaCost(UAbilitySystemComponent* ASC = nullptr, int32 InLevel = -1) const;
 
 	bool ShouldPersistOnTravel() const { return bShouldPersistOnTravel; }
+
+	const FGameplayTagContainer& GetCancelOnInputTags() const { return CancelOnInputTags; }
 	
 protected:
 	//~UGameplayAbility interface
@@ -137,18 +153,12 @@ protected:
 	// 스킬이 발동될 때 실행되는 함수 (언리얼 BP상의 Event ActivateAbility와 동일)
 	virtual void ActivateAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, const FGameplayEventData* TriggerEventData) override;
 	
-	virtual bool CommitAbility(
-	const FGameplayAbilitySpecHandle Handle,
-	const FGameplayAbilityActorInfo* ActorInfo,
-	const FGameplayAbilityActivationInfo ActivationInfo,
-	FGameplayTagContainer* OptionalRelevantTags
-) override;
+	virtual bool CommitAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, FGameplayTagContainer* OptionalRelevantTags) override;
 	
-	bool CommitAbility(
-		const FGameplayAbilitySpecHandle Handle,
-		const FGameplayAbilityActorInfo* ActorInfo,
-		const FGameplayAbilityActivationInfo ActivationInfo
-	);
+	bool CommitAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo);
+	
+	float CalculateManaCostFromGameplayEffect(const UGameplayEffect* CostGE, UAbilitySystemComponent* ASC, int32 AbilityLevel) const;
+	
 protected:
 	
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "SF|AbilityActivation")
@@ -167,6 +177,10 @@ protected:
 	// Travel 시 저장할 어빌리티인지 여부 (동적 부여 어빌리티는 false)
 	UPROPERTY(EditDefaultsOnly, Category = "SF|Persistence")
 	bool bShouldPersistOnTravel = true;
+
+	// 이 어빌리티가 활성화 중일 때 여기 등록된 InputTag가 눌리면 어빌리티를 취소하고 해당 입력의 어빌리티 활성화를 스킵
+	UPROPERTY(EditDefaultsOnly, Category = "SF|Ability|Cancel")
+	FGameplayTagContainer CancelOnInputTags;
 
 public:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category="SF|Ability")
@@ -188,7 +202,6 @@ public:
 	// [옵션] 혹자동으로 켜지지 않도록 스킬 별도 구분 용도 토글
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "SF|Duration")
 	bool bAutoApplyDurationEffect = true;
-
 
 private:
 	// 원본 모드 저장

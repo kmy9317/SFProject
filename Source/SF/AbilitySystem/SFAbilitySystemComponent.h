@@ -89,6 +89,9 @@ protected:
 	// ProcessAbilityInput에서 활성화된 어빌리티에 InputReleased 이벤트 전달
 	virtual void AbilitySpecInputReleased(FGameplayAbilitySpec& Spec) override;
 
+	// CancelOnInputTags에 의한 취소 입력을 복제 이벤트로 전송
+	void AbilitySpecCancelInputReceived(FGameplayAbilitySpec& Spec);
+
 public:
 	 // 어빌리티가 추가되거나 제거될 때 UI 등에 알림을 보내는 델리게이트(OnGiveAbility/OnRemoveAbility에서 브로드캐스트됨)
 	FAbilityChangedDelegate AbilityChangedDelegate;

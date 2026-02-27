@@ -7,6 +7,7 @@
 #include "ScalableFloat.h"
 #include "SFGA_Hero_GroundAoE.generated.h"
 
+class USFAbilityTask_WaitCancelInput;
 class ASFGroundAOE;
 class UAbilityTask_WaitGameplayEvent;
 class UAbilityTask_PlayMontageAndWait;
@@ -21,23 +22,53 @@ class UAbilityTask_WaitInputRelease;
 UCLASS()
 class SF_API USFGA_Hero_GroundAoE : public USFGA_Equipment_Base
 {
-GENERATED_BODY()
-
+	GENERATED_BODY()
+	
 public:
 	USFGA_Hero_GroundAoE(const FObjectInitializer& ObjectInitializer = FObjectInitializer::Get());
 
-	virtual void ActivateAbility(
-		const FGameplayAbilitySpecHandle Handle,
-		const FGameplayAbilityActorInfo* ActorInfo,
-		const FGameplayAbilityActivationInfo ActivationInfo,
-		const FGameplayEventData* TriggerEventData) override;
+	virtual void ActivateAbility(const FGameplayAbilitySpecHandle Handle,const FGameplayAbilityActorInfo* ActorInfo,const FGameplayAbilityActivationInfo ActivationInfo,const FGameplayEventData* TriggerEventData) override;
+	virtual void EndAbility(const FGameplayAbilitySpecHandle Handle,const FGameplayAbilityActorInfo* ActorInfo,const FGameplayAbilityActivationInfo ActivationInfo,bool bReplicateEndAbility,bool bWasCancelled) override;
 
-	virtual void EndAbility(
-		const FGameplayAbilitySpecHandle Handle,
-		const FGameplayAbilityActorInfo* ActorInfo,
-		const FGameplayAbilityActivationInfo ActivationInfo,
-		bool bReplicateEndAbility,
-		bool bWasCancelled) override;
+	virtual TArray<FSFPoolPrewarmEntry> GetPoolPrewarmEntries() const override;
+	
+protected:
+
+	// 틱마다 실행 (WaitTick 대용, Reticle 위치 업데이트)
+	void TickReticle();
+
+	// 키를 뗐을 때 호출 (준비 완료)
+	UFUNCTION()
+	void OnKeyReleased(float TimeWaited);
+
+	//  키를 다시 눌렀을 때 호출 (발사 확정)
+	UFUNCTION()
+	void OnConfirmInputPressed(float TimeWaited);
+
+	UFUNCTION()
+	void OnCancelInputReceived();
+
+	// 공격 몽타주 종료 시
+	UFUNCTION()
+	void OnAttackMontageCompleted();
+
+	// 노티파이 수신 시 장판 소환
+	UFUNCTION()
+	virtual void OnSpawnEventReceived(FGameplayEventData Payload);
+
+	// 공격 몽타주 재생 + 스폰 이벤트 대기 (서버/클라 공통)
+	void PlayAttackAndWaitSpawn();
+
+	// 유틸: 마우스 위치 가져오기
+	bool GetGroundLocationUnderCursor(FVector& OutLocation);
+
+private:
+
+	// 서버: 클라이언트가 보낸 TargetLocation 수신
+	void OnServerTargetDataReceived(const FGameplayAbilityTargetDataHandle& DataHandle, FGameplayTag ActivationTag);
+
+	// 서버: 수신한 위치 유효성 검증
+	bool ValidateTargetLocation(const FVector& RequestedLocation) const;
 
 protected:
 	// === 1. 설정 변수들 ===
@@ -45,6 +76,9 @@ protected:
 	// 소환할 장판 액터 클래스
 	UPROPERTY(EditDefaultsOnly, Category="SF|AOE")
 	TSubclassOf<ASFGroundAOE> AOEActorClass;
+
+	UPROPERTY(EditDefaultsOnly, Category="SF|Pool")
+	int32 PoolCountPerPlayer = 1;
 
 	// 범위 지정 시 보여줄 Reticle(인디케이터) 액터 클래스
 	UPROPERTY(EditDefaultsOnly, Category="SF|AOE")
@@ -65,11 +99,7 @@ protected:
 	// 데미지 주기 (초)
 	UPROPERTY(EditDefaultsOnly, Category="SF|AOE|Stat")
 	float TickInterval = 0.5f;
-
-	// 준비 단계에서 사용할 카메라 모드 태그
-	UPROPERTY(EditDefaultsOnly, Category="SF|AOE|Camera")
-	FGameplayTag AimingCameraModeTag;
-
+	
 	// 준비 단계 루프 몽타주
 	UPROPERTY(EditDefaultsOnly, Category="SF|AOE|Animation")
 	TObjectPtr<UAnimMontage> AimingLoopMontage;
@@ -82,40 +112,27 @@ protected:
 	UPROPERTY(EditDefaultsOnly, Category="SF|AOE|Animation")
 	FGameplayTag SpawnEventTag;
 
-protected:
-	// === 2. 내부 로직 함수 ===
+	// === 서버 검증 ===
 
-	// 틱마다 실행 (WaitTick 대용, Reticle 위치 업데이트)
-	void TickReticle();
+	// 최대 시전 거리
+	UPROPERTY(EditDefaultsOnly, Category = "SF|AOE|Validation")
+	float MaxCastRange = 3000.f;
 
-	// [추가] 1단계: 키를 뗐을 때 호출 (준비 완료)
-	UFUNCTION()
-	void OnKeyReleased(float TimeWaited);
-
-	// [변경] 2단계: 키를 다시 눌렀을 때 호출 (발사 확정)
-	UFUNCTION()
-	void OnConfirmInputPressed(float TimeWaited);
-
-	// 공격 몽타주 종료 시
-	UFUNCTION()
-	void OnAttackMontageCompleted();
-
-	// 노티파이 수신 시 장판 소환
-	UFUNCTION()
-	virtual void OnSpawnEventReceived(FGameplayEventData Payload);
-
-	// 유틸: 마우스 위치 가져오기
-	bool GetGroundLocationUnderCursor(FVector& OutLocation);
-
-	FVector TargetLocation; // 확정된 목표 위치
+	// 네트워크 지연 보상용 허용 오차 배율
+	UPROPERTY(EditDefaultsOnly, Category = "SF|AOE|Validation")
+	float RangeToleranceMultiplier = 1.2f;
 	
+protected:
+	// 확정된 목표 위치
+	FVector TargetLocation; 
+
 private:
 	// 상태 관리
 	UPROPERTY()
 	TObjectPtr<AActor> SpawnedReticle;
-
+	
 	UPROPERTY()
-	TObjectPtr<UAbilityTask_WaitInputRelease> InputReleaseTask; // [추가]
+	TObjectPtr<UAbilityTask_WaitInputRelease> InputReleaseTask;
 
 	UPROPERTY()
 	TObjectPtr<UAbilityTask_WaitInputPress> InputPressTask;
@@ -128,4 +145,10 @@ private:
 
 	UPROPERTY()
 	TObjectPtr<UAbilityTask_WaitGameplayEvent> WaitEventTask;
+
+	UPROPERTY()
+	TObjectPtr<USFAbilityTask_WaitCancelInput> CancelInputTask;
+
+	FTimerHandle ReticleTimerHandle;
+	FDelegateHandle ServerTargetDataDelegateHandle;
 };

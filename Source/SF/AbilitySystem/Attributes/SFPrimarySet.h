@@ -28,8 +28,6 @@ protected:
 	virtual void PreAttributeChange(const FGameplayAttribute& Attribute, float& NewValue) override;
 	virtual void PostAttributeChange(const FGameplayAttribute& Attribute, float OldValue, float NewValue) override;
 
-	virtual void HandleZeroHealth(USFAbilitySystemComponent* SFASC, const FGameplayEffectModCallbackData& Data);
-
 	virtual void ClampAttribute(const FGameplayAttribute& Attribute, float& NewValue) const override;
 
 	void TrackDamageDealt(const FGameplayEffectModCallbackData& Data, float DamageAmount);

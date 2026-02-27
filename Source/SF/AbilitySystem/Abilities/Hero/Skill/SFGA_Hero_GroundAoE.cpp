@@ -3,19 +3,24 @@
 #include "Abilities/Tasks/AbilityTask_PlayMontageAndWait.h"
 #include "Abilities/Tasks/AbilityTask_WaitGameplayEvent.h"
 #include "Abilities/Tasks/AbilityTask_WaitInputPress.h"
-#include "Abilities/Tasks/AbilityTask_WaitInputRelease.h" // [추가] 필수 헤더
-#include "GameFramework/PlayerController.h"
-#include "Character/SFCharacterBase.h"
+#include "Abilities/Tasks/AbilityTask_WaitInputRelease.h" 
 #include "AbilitySystemComponent.h"
 #include "Camera/PlayerCameraManager.h"
-#include "Kismet/GameplayStatics.h"
-#include "InputCoreTypes.h"
+#include "SFHeroSkillTags.h"
+#include "AbilitySystem/SFAbilitySystemComponent.h"
+#include "AbilitySystem/GameplayEffect/Hero/EffectContext/SFTargetDataTypes.h"
+#include "AbilitySystem/Tasks/SFAbilityTask_WaitCancelInput.h"
 #include "GameFramework/PlayerController.h"
+#include "Input/SFInputGameplayTags.h"
+#include "System/SFPoolSubsystem.h"
 
 USFGA_Hero_GroundAoE::USFGA_Hero_GroundAoE(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 {
 	InstancingPolicy = EGameplayAbilityInstancingPolicy::InstancedPerActor;
+	CancelOnInputTags.AddTag(SFGameplayTags::InputTag_RightAttack);
+
+	bServerRespectsRemoteAbilityCancellation = true;
 }
 
 void USFGA_Hero_GroundAoE::ActivateAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, const FGameplayEventData* TriggerEventData)
@@ -26,6 +31,7 @@ void USFGA_Hero_GroundAoE::ActivateAbility(const FGameplayAbilitySpecHandle Hand
 	InputReleaseTask = nullptr;
 	InputPressTask = nullptr;
 	WaitEventTask = nullptr;
+	CancelInputTask = nullptr;
 	
 	Super::ActivateAbility(Handle, ActorInfo, ActivationInfo, TriggerEventData);
 
@@ -39,59 +45,77 @@ void USFGA_Hero_GroundAoE::ActivateAbility(const FGameplayAbilitySpecHandle Hand
 	{
 		TargetLocation = Avatar->GetActorLocation();
 	}
-	
-	// 1. 준비 단계 시작 (Loop 몽타주 재생)
+
 	if (AimingLoopMontage)
 	{
-		// PlayAnimMontage 직접 호출 대신 Task 사용
-		AimingMontageTask = UAbilityTask_PlayMontageAndWait::CreatePlayMontageAndWaitProxy(
-		   this,
-		   NAME_None,
-		   AimingLoopMontage,
-		   1.0f,
-		   NAME_None,
-		   false // StopWhenAbilityEnds (수동으로 끌 것이므로 false가 낫습니다, true여도 EndAbility에서 꺼지긴 함)
-		);
-		// 루프 몽타주이므로 별도의 종료 델리게이트 연결 없이 실행만 시킴
+		AimingMontageTask = UAbilityTask_PlayMontageAndWait::CreatePlayMontageAndWaitProxy(this,NAME_None,AimingLoopMontage,1.0f,NAME_None,false );
 		AimingMontageTask->ReadyForActivation();
 	}
-
-	// 2. 카메라 모드 변경
-	if (AimingCameraModeTag.IsValid())
+	
+	// 로컬 전용: Reticle + TickReticle + 입력 Task
+	if (IsLocallyControlled())
 	{
-		// 예: Cast<ASFCharacterBase>(Avatar)->SetCameraMode(AimingCameraModeTag);
-	}
-
-	// 3. Reticle(조준 장판) 소환
-	if (ReticleClass && GetWorld())
-	{
-		FActorSpawnParameters Params;
-		Params.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
-		SpawnedReticle = GetWorld()->SpawnActor<AActor>(ReticleClass, GetAvatarActorFromActorInfo()->GetActorTransform(), Params);
-
-		// [핵심 수정] 생성은 하되, 로컬 컨트롤러(시전자 본인)가 아니면 숨김 처리
-		if (SpawnedReticle)
+		if (ReticleClass && GetWorld())
 		{
-			if (!IsLocallyControlled())
-			{
-				SpawnedReticle->SetActorHiddenInGame(true);
-			}
+			FActorSpawnParameters Params;
+			Params.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
+			SpawnedReticle = GetWorld()->SpawnActor<AActor>(ReticleClass, GetAvatarActorFromActorInfo()->GetActorTransform(), Params);
+		}
+		
+		if (UWorld* World = GetWorld())
+		{
+			World->GetTimerManager().SetTimer(ReticleTimerHandle, this, &ThisClass::TickReticle, 1.f / 60.f, true);
 		}
 	}
-	
-	// 4. Tick 활성화 (마우스 추적용)
-	if (UWorld* World = GetWorld())
-	{
-		World->GetTimerManager().SetTimerForNextTick(this, &USFGA_Hero_GroundAoE::TickReticle);
-	}
-	
-	// 5. 추가 입력 대기
+
+	// 입력 대기
 	InputReleaseTask = UAbilityTask_WaitInputRelease::WaitInputRelease(this, false);
 	if (InputReleaseTask)
 	{
-		InputReleaseTask->OnRelease.AddDynamic(this, &USFGA_Hero_GroundAoE::OnKeyReleased);
+		InputReleaseTask->OnRelease.AddDynamic(this, &ThisClass::OnKeyReleased);
 		InputReleaseTask->ReadyForActivation();
 	}
+	// 취소 입력 대기 Task
+	CancelInputTask = USFAbilityTask_WaitCancelInput::WaitCancelInput(this);
+	if (CancelInputTask)
+	{
+		CancelInputTask->OnCancelInput.AddDynamic(this, &ThisClass::OnCancelInputReceived);
+		CancelInputTask->ReadyForActivation();
+	}
+
+	// 서버(원격 클라이언트 전용): TargetData 대기
+	// 리슨 서버 호스트는 OnConfirmInputPressed에서 직접 진행하므로 불필요
+	if (ActorInfo->IsNetAuthority() && !ActorInfo->IsLocallyControlled())
+	{
+		USFAbilitySystemComponent* ASC = Cast<USFAbilitySystemComponent>(ActorInfo->AbilitySystemComponent.Get());
+		if (ASC)
+		{
+			FAbilityTargetDataSetDelegate& TargetDataDelegate = ASC->AbilityTargetDataSetDelegate(Handle, ActivationInfo.GetActivationPredictionKey());
+			ServerTargetDataDelegateHandle = TargetDataDelegate.AddUObject(this, &ThisClass::OnServerTargetDataReceived);
+			ASC->CallReplicatedTargetDataDelegatesIfSet(Handle, ActivationInfo.GetActivationPredictionKey());
+		}
+	}
+}
+
+void USFGA_Hero_GroundAoE::OnCancelInputReceived()
+{
+	// 디바운싱 (클라이언트 + 서버 양쪽에서 실행됨)
+	if (UAbilitySystemComponent* ASC = GetAbilitySystemComponentFromActorInfo())
+	{
+		ASC->AddLooseGameplayTag(SFGameplayTags::Ability_Skill_Activated);
+
+		TWeakObjectPtr<UAbilitySystemComponent> WeakASC = ASC;
+		FTimerHandle TimerHandle;
+		GetWorld()->GetTimerManager().SetTimer(TimerHandle, [WeakASC]()
+		{
+			if (WeakASC.IsValid())
+			{
+				WeakASC->RemoveLooseGameplayTag(SFGameplayTags::Ability_Skill_Activated);
+			}
+		}, 0.3f, false);
+	}
+
+	CancelAbility(CurrentSpecHandle, CurrentActorInfo, CurrentActivationInfo, false);
 }
 
 void USFGA_Hero_GroundAoE::OnKeyReleased(float TimeWaited)
@@ -103,7 +127,7 @@ void USFGA_Hero_GroundAoE::OnKeyReleased(float TimeWaited)
 		InputReleaseTask = nullptr;
 	}
 
-	// 이제 비로소 "다시 누르기(확정)"를 기다립니다.
+	// 이제 비로소 "다시 누르기(확정)"를 기다림
 	InputPressTask = UAbilityTask_WaitInputPress::WaitInputPress(this, false); // false: 새로 눌러야 함
 	if (InputPressTask)
 	{
@@ -114,48 +138,11 @@ void USFGA_Hero_GroundAoE::OnKeyReleased(float TimeWaited)
 
 void USFGA_Hero_GroundAoE::TickReticle()
 {
-	// 어빌리티가 종료되었으면 중단
-	if (!IsActive())
+	if (!IsActive() || MontageTask)
 	{
 		return;
 	}
 
-	if (MontageTask)
-	{
-		return;
-	}
-	
-	APlayerController* PC = Cast<APlayerController>(GetControllerFromActorInfo());
-	if (PC)
-	{
-		// 우클릭 감지
-		if (PC->WasInputKeyJustPressed(EKeys::RightMouseButton))
-		{
-			if (UAbilitySystemComponent* ASC = GetAbilitySystemComponentFromActorInfo())
-			{
-				FGameplayTag BlockTag = FGameplayTag::RequestGameplayTag(FName("Ability.Skill.Activated"));
-
-				ASC->AddLooseGameplayTag(BlockTag);
-
-				TWeakObjectPtr<UAbilitySystemComponent> WeakASC = ASC;
-                
-				FTimerHandle TimerHandle;
-				GetWorld()->GetTimerManager().SetTimer(TimerHandle, [WeakASC, BlockTag]()
-				{
-					if (WeakASC.IsValid())
-					{
-						WeakASC->RemoveLooseGameplayTag(BlockTag);
-					}
-				}, 0.3f, false);
-			}
-
-			// 어빌리티 취소
-			CancelAbility(CurrentSpecHandle, CurrentActorInfo, CurrentActivationInfo, true);
-			return;
-		}
-	}
-	
-	// 마우스 위치 추적 및 Reticle 업데이트
 	FVector HitLocation;
 	if (GetGroundLocationUnderCursor(HitLocation))
 	{
@@ -163,21 +150,12 @@ void USFGA_Hero_GroundAoE::TickReticle()
 		{
 			SpawnedReticle->SetActorLocation(HitLocation);
 		}
-		TargetLocation = HitLocation; // 현재 위치 저장
-	}
-
-	// 다음 틱 예약
-	if (UWorld* World = GetWorld())
-	{
-		World->GetTimerManager().SetTimerForNextTick(this, &USFGA_Hero_GroundAoE::TickReticle);
+		TargetLocation = HitLocation;
 	}
 }
 
 void USFGA_Hero_GroundAoE::OnConfirmInputPressed(float TimeWaited)
 {
-	// 입력 확정!
-	
-	// 1. Press Task 정리
 	if (InputPressTask)
 	{
 		InputPressTask->EndTask();
@@ -189,56 +167,148 @@ void USFGA_Hero_GroundAoE::OnConfirmInputPressed(float TimeWaited)
 		AimingMontageTask->EndTask();
 		AimingMontageTask = nullptr;
 	}
-	
-	// 2. 코스트 지불
+
+	// 확정 후 취소 입력 비활성화
+	if (CancelInputTask)
+	{
+		CancelInputTask->EndTask();
+		CancelInputTask = nullptr;
+	}
+
 	if (!CommitAbility(CurrentSpecHandle, CurrentActorInfo, CurrentActivationInfo))
 	{
 		EndAbility(CurrentSpecHandle, CurrentActorInfo, CurrentActivationInfo, true, true);
 		return;
 	}
 
-	// 3. Reticle 제거 (시각적으로만 숨김, EndAbility에서 파괴)
+	if (!IsLocallyControlled())
+	{
+		return;
+	}
+
 	if (SpawnedReticle)
 	{
 		SpawnedReticle->SetActorHiddenInGame(true);
 	}
-	
-	// 4. 공격 몽타주 재생
+
+	if (UWorld* World = GetWorld())
+	{
+		World->GetTimerManager().ClearTimer(ReticleTimerHandle);
+	}
+
+	if (HasAuthority(&CurrentActivationInfo))
+	{
+		// 리슨 서버 호스트: TargetData 불필요, 직접 진행
+		PlayAttackAndWaitSpawn();
+	}
+	else
+	{
+		// 원격 클라이언트: 서버에 위치 전송 + 예측으로 즉시 몽타주 재생
+		{
+			FScopedPredictionWindow ScopedPrediction(GetAbilitySystemComponentFromActorInfo());
+			FSFGameplayAbilityTargetData_Location* LocationData = new FSFGameplayAbilityTargetData_Location(TargetLocation);
+			FGameplayAbilityTargetDataHandle DataHandle(LocationData);
+			GetAbilitySystemComponentFromActorInfo()->ServerSetReplicatedTargetData(GetCurrentAbilitySpecHandle(),GetCurrentActivationInfo().GetActivationPredictionKey(),DataHandle,FGameplayTag(),GetAbilitySystemComponentFromActorInfo()->ScopedPredictionKey);
+		}
+		PlayAttackAndWaitSpawn();
+	}
+}
+
+void USFGA_Hero_GroundAoE::OnServerTargetDataReceived(const FGameplayAbilityTargetDataHandle& DataHandle,FGameplayTag ActivationTag)
+{
+	USFAbilitySystemComponent* ASC = GetSFAbilitySystemComponentFromActorInfo();
+	if (ASC)
+	{
+		ASC->ConsumeClientReplicatedTargetData(CurrentSpecHandle, CurrentActivationInfo.GetActivationPredictionKey());
+	}
+
+	const FSFGameplayAbilityTargetData_Location* LocationData = static_cast<const FSFGameplayAbilityTargetData_Location*>(DataHandle.Get(0));
+
+	if (!LocationData)
+	{
+		CancelAbility(CurrentSpecHandle, CurrentActorInfo, CurrentActivationInfo, true);
+		return;
+	}
+
+	// 서버 유효성 검증
+	if (!ValidateTargetLocation(LocationData->TargetLocation))
+	{
+		AActor* AvatarActor = GetAvatarActorFromActorInfo();
+		if (AvatarActor)
+		{
+			// 부정 위치 → 캐릭터 전방 MaxCastRange 지점으로 보정
+			TargetLocation = AvatarActor->GetActorLocation() + AvatarActor->GetActorForwardVector() * MaxCastRange;
+		}
+		else
+		{
+			CancelAbility(CurrentSpecHandle, CurrentActorInfo, CurrentActivationInfo, true);
+			return;
+		}
+	}
+	else
+	{
+		TargetLocation = LocationData->TargetLocation;
+	}
+
+	PlayAttackAndWaitSpawn();
+}
+
+bool USFGA_Hero_GroundAoE::ValidateTargetLocation(const FVector& RequestedLocation) const
+{
+	AActor* AvatarActor = GetAvatarActorFromActorInfo();
+	if (!AvatarActor)
+	{
+		return false;
+	}
+
+	// 1. 거리 제한 (네트워크 지연 허용 오차 포함)
+	float AllowedRange = MaxCastRange * RangeToleranceMultiplier;
+	float DistSq = FVector::DistSquared2D(AvatarActor->GetActorLocation(), RequestedLocation);
+	if (DistSq > FMath::Square(AllowedRange))
+	{
+		return false;
+	}
+
+	// 2. 지면 존재 확인
+	FHitResult Hit;
+	FVector TraceStart = RequestedLocation + FVector(0.f, 0.f, 500.f);
+	FVector TraceEnd = RequestedLocation - FVector(0.f, 0.f, 500.f);
+	FCollisionQueryParams Params;
+	Params.AddIgnoredActor(AvatarActor);
+
+	if (!GetWorld()->LineTraceSingleByChannel(Hit, TraceStart, TraceEnd, ECC_Visibility, Params))
+	{
+		return false;
+	}
+
+	return true;
+}
+
+void USFGA_Hero_GroundAoE::PlayAttackAndWaitSpawn()
+{
 	if (AttackMontage)
 	{
-		MontageTask = UAbilityTask_PlayMontageAndWait::CreatePlayMontageAndWaitProxy(
-			this,
-			NAME_None,
-			AttackMontage
-		);
-
-		MontageTask->OnCompleted.AddDynamic(this, &USFGA_Hero_GroundAoE::OnAttackMontageCompleted);
-		MontageTask->OnInterrupted.AddDynamic(this, &USFGA_Hero_GroundAoE::OnAttackMontageCompleted);
-		MontageTask->OnBlendOut.AddDynamic(this, &USFGA_Hero_GroundAoE::OnAttackMontageCompleted);
+		MontageTask = UAbilityTask_PlayMontageAndWait::CreatePlayMontageAndWaitProxy(this, NAME_None, AttackMontage);
+		MontageTask->OnCompleted.AddDynamic(this, &ThisClass::OnAttackMontageCompleted);
+		MontageTask->OnInterrupted.AddDynamic(this, &ThisClass::OnAttackMontageCompleted);
+		MontageTask->OnBlendOut.AddDynamic(this, &ThisClass::OnAttackMontageCompleted);
 		MontageTask->ReadyForActivation();
 	}
 	else
 	{
-		// 몽타주 없으면 즉시 소환
 		FGameplayEventData DummyPayload;
 		OnSpawnEventReceived(DummyPayload);
 		EndAbility(CurrentSpecHandle, CurrentActorInfo, CurrentActivationInfo, true, false);
 	}
 
-	// 5. 소환 이벤트 대기 (몽타주 노티파이)
 	if (SpawnEventTag.IsValid())
 	{
-		WaitEventTask = UAbilityTask_WaitGameplayEvent::WaitGameplayEvent(
-			this,
-			SpawnEventTag,
-			nullptr,
-			true,
-			true
-		);
-		WaitEventTask->EventReceived.AddDynamic(this, &USFGA_Hero_GroundAoE::OnSpawnEventReceived);
+		WaitEventTask = UAbilityTask_WaitGameplayEvent::WaitGameplayEvent(this, SpawnEventTag, nullptr, true, true);
+		WaitEventTask->EventReceived.AddDynamic(this, &ThisClass::OnSpawnEventReceived);
 		WaitEventTask->ReadyForActivation();
 	}
 }
+
 
 void USFGA_Hero_GroundAoE::OnSpawnEventReceived(FGameplayEventData Payload)
 {
@@ -247,26 +317,21 @@ void USFGA_Hero_GroundAoE::OnSpawnEventReceived(FGameplayEventData Payload)
 	{
 		if (AOEActorClass && GetWorld())
 		{
-			FActorSpawnParameters Params;
-			Params.Owner = GetAvatarActorFromActorInfo();
-			Params.Instigator = Cast<APawn>(Params.Owner);
-			
-			// Reticle의 위치(TargetLocation)에 소환
 			FTransform SpawnTM(FRotator::ZeroRotator, TargetLocation);
-
-			ASFGroundAOE* AOEActor = GetWorld()->SpawnActor<ASFGroundAOE>(AOEActorClass, SpawnTM, Params);
+			USFPoolSubsystem* Pool = USFPoolSubsystem::Get(this);
+			if (!Pool)
+			{
+				return;
+			}
+			ASFGroundAOE* AOEActor = Pool->AcquireActor<ASFGroundAOE>(AOEActorClass, SpawnTM);
 			if (AOEActor)
 			{
+				// Owner/Instigator 재설정(풀 재사용 시 필요)
+				AOEActor->SetOwner(GetAvatarActorFromActorInfo());
+				AOEActor->SetInstigator(Cast<APawn>(GetAvatarActorFromActorInfo()));
+
 				float FinalDamage = BaseDamage.GetValueAtLevel(GetAbilityLevel());
-				
-				AOEActor->InitAOE(
-					GetAbilitySystemComponentFromActorInfo(),
-					GetAvatarActorFromActorInfo(),
-					FinalDamage,
-					AOERadius,
-					Duration,
-					TickInterval
-				);
+				AOEActor->InitAOE(GetAbilitySystemComponentFromActorInfo(), GetAvatarActorFromActorInfo(), FinalDamage, AOERadius, Duration, TickInterval);
 			}
 		}
 	}
@@ -280,9 +345,6 @@ void USFGA_Hero_GroundAoE::OnAttackMontageCompleted()
 bool USFGA_Hero_GroundAoE::GetGroundLocationUnderCursor(FVector& OutLocation)
 {
 	APlayerController* PC = Cast<APlayerController>(GetControllerFromActorInfo());
-	
-	// [수정] PlayerCameraManager는 함수가 아니라 변수입니다.
-	// 그리고 null 체크를 추가하여 안전성을 높입니다.
 	if (!PC || !PC->PlayerCameraManager)
 	{
 		return false;
@@ -290,8 +352,6 @@ bool USFGA_Hero_GroundAoE::GetGroundLocationUnderCursor(FVector& OutLocation)
 
 	FVector CameraLoc;
 	FRotator CameraRot;
-	
-	// [수정] 괄호()를 없애고 멤버 변수(->PlayerCameraManager)로 접근합니다.
 	PC->PlayerCameraManager->GetCameraViewPoint(CameraLoc, CameraRot);
 
 	// 카메라 앞쪽으로 쏠 레이저의 길이
@@ -302,16 +362,11 @@ bool USFGA_Hero_GroundAoE::GetGroundLocationUnderCursor(FVector& OutLocation)
 	FHitResult Hit;
 	FCollisionQueryParams Params;
 	Params.AddIgnoredActor(GetAvatarActorFromActorInfo());
-	if (SpawnedReticle) Params.AddIgnoredActor(SpawnedReticle);
-
-	bool bHit = GetWorld()->LineTraceSingleByChannel(
-		Hit,
-		TraceStart,
-		TraceEnd,
-		ECC_Visibility,
-		Params
-	);
-
+	if (SpawnedReticle)
+	{
+		Params.AddIgnoredActor(SpawnedReticle);
+	}
+	bool bHit = GetWorld()->LineTraceSingleByChannel(Hit,TraceStart,TraceEnd,ECC_Visibility,Params);
 	if (bHit)
 	{
 		OutLocation = Hit.Location;
@@ -323,19 +378,40 @@ bool USFGA_Hero_GroundAoE::GetGroundLocationUnderCursor(FVector& OutLocation)
 
 void USFGA_Hero_GroundAoE::EndAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, bool bReplicateEndAbility, bool bWasCancelled)
 {
-	// 1. Reticle 파괴
 	if (SpawnedReticle)
 	{
 		SpawnedReticle->Destroy();
 		SpawnedReticle = nullptr;
 	}
 
-	// 2. Task 정리 (안전장치)
-	if (InputReleaseTask) InputReleaseTask->EndTask();
-	if (InputPressTask) InputPressTask->EndTask();
+	if (UWorld* World = GetWorld())
+	{
+		World->GetTimerManager().ClearTimer(ReticleTimerHandle);
+	}
 
-	// 3. 카메라 원복 (필요 시)
-	// Cast<ASFCharacterBase>(Avatar)->ResetCameraMode();
+	// 서버 TargetData 델리게이트 정리
+	if (ActorInfo->IsNetAuthority() && ServerTargetDataDelegateHandle.IsValid())
+	{
+		if (USFAbilitySystemComponent* ASC = GetSFAbilitySystemComponentFromActorInfo())
+		{
+			FAbilityTargetDataSetDelegate& Delegate = ASC->AbilityTargetDataSetDelegate(CurrentSpecHandle, CurrentActivationInfo.GetActivationPredictionKey());Delegate.Remove(ServerTargetDataDelegateHandle);
+			ServerTargetDataDelegateHandle.Reset();
+		}
+	}
+
+	if (InputReleaseTask) { InputReleaseTask->EndTask(); }
+	if (InputPressTask)   { InputPressTask->EndTask(); }
+	if (CancelInputTask)  { CancelInputTask->EndTask(); }
 
 	Super::EndAbility(Handle, ActorInfo, ActivationInfo, bReplicateEndAbility, bWasCancelled);
+}
+
+TArray<FSFPoolPrewarmEntry> USFGA_Hero_GroundAoE::GetPoolPrewarmEntries() const
+{
+	TArray<FSFPoolPrewarmEntry> Entries;
+	if (AOEActorClass && PoolCountPerPlayer > 0)
+	{
+		Entries.Add({ AOEActorClass, PoolCountPerPlayer });
+	}
+	return Entries;
 }

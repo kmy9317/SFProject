@@ -19,25 +19,35 @@ class SF_API ASFMultiGroundActor : public ASFGroundAOE
 public:
 	ASFMultiGroundActor(const FObjectInitializer& ObjectInitializer);
 
+	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
+
+	//~ ISFPoolable Interface Override
+	virtual void OnAcquiredFromPool() override;
+	virtual void OnReturnedToPool() override;
+	//~ End ISFPoolable Interface Override
+	
 	// 번개 초기화 (부모의 InitAOE 대신 사용)
-	void InitLightning(
-		UAbilitySystemComponent* InSourceASC,
-		AActor* InSourceActor,
-		float InBaseDamage,
-		float InBoltRadius,      // 번개 두께
-		float InBoltHeight       // 번개 높이 (원기둥 구현용)
-	);
+	void InitLightning(UAbilitySystemComponent* InSourceASC,AActor* InSourceActor,float InBaseDamage,float InBoltRadius,float InBoltHeight, float InScale = 1.0f);
 
 protected:
 	virtual void BeginPlay() override;
-
-	// 부모의 Tick 데미지 로직 등을 무력화하기 위해 오버라이드
-	virtual void OnDamageTick_Implementation(); 
-
 	virtual void ApplyDamageToTargets(float DamageAmount, float EffectRadius) override;
+	virtual void UpdateAOESize() override;
+
+private:
+	UFUNCTION()
+	void OnRep_LightningScale();
+
+private:
+	void OnLifeTimeExpired(); 
 	
 protected:
 	// 원기둥 형태 충돌을 위한 캡슐 컴포넌트
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="SF|Components")
 	TObjectPtr<UCapsuleComponent> LightningCollision;
+
+	UPROPERTY(ReplicatedUsing = OnRep_LightningScale)
+	float LightningScale = 1.0f;
+
+	FTimerHandle PoolReturnTimerHandle;
 };

@@ -40,19 +40,19 @@ bool USFPrimarySet_Hero::PreGameplayEffectExecute(FGameplayEffectModCallbackData
 		return true;
 	}
 
-	// Dead 또는 Downed 상태 체크
 	const bool bIsDeadOrDowned = SFASC->HasMatchingGameplayTag(SFGameplayTags::Character_State_Dead) ||
 								  SFASC->HasMatchingGameplayTag(SFGameplayTags::Character_State_Downed);
 
 	// Damage 차단 (Downed 상태)
 	if (Data.EvaluatedData.Attribute == GetDamageAttribute())
 	{
-		if (SFASC->HasMatchingGameplayTag(SFGameplayTags::Character_State_Downed))
+		if (bIsDeadOrDowned)
 		{
 			return false;
 		}
 	}
 
+	// 힐링 차단
 	if (Data.EvaluatedData.Attribute == GetHealthAttribute())
 	{
 		if (Data.EvaluatedData.Magnitude > 0.f && bIsDeadOrDowned)
@@ -135,18 +135,6 @@ void USFPrimarySet_Hero::PostAttributeChange(const FGameplayAttribute& Attribute
 	}
 }
 
-void USFPrimarySet_Hero::HandleZeroHealth(USFAbilitySystemComponent* SFASC, const FGameplayEffectModCallbackData& Data)
-{
-	if (CanEnterDownedState())
-	{
-		USFAbilitySystemLibrary::SendDownedEventFromSpec(SFASC, Data.EffectSpec);
-	}
-	else
-	{
-		Super::HandleZeroHealth(SFASC, Data);
-	}
-}
-
 void USFPrimarySet_Hero::ClampAttribute(const FGameplayAttribute& Attribute, float& NewValue) const
 {
 	Super::ClampAttribute(Attribute, NewValue);
@@ -223,15 +211,4 @@ void USFPrimarySet_Hero::OnRep_StaminaRegen(const FGameplayAttributeData& OldVal
 void USFPrimarySet_Hero::OnRep_ManaReduction(const FGameplayAttributeData& OldValue)
 {
 	GAMEPLAYATTRIBUTE_REPNOTIFY(ThisClass, ManaReduction, OldValue);
-}
-
-bool USFPrimarySet_Hero::CanEnterDownedState() const
-{
-	USFPlayerCombatStateComponent* CombatState = USFPlayerCombatStateComponent::FindPlayerCombatStateComponent(GetOwningActor());
-	if (!CombatState)
-	{
-		return false;
-	}
-
-	return CombatState->GetRemainingDownCount() > 0;
 }

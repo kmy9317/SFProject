@@ -13,8 +13,6 @@ class UAnimMontage;
 
 /**
  * 원거리 발사체 스킬
- * SFGA_Skill_Melee의 불필요한 근접 판정 로직을 제거하고
- * Equipment_Base를 직접 상속받아 경량화된 버전입니다.
  */
 UCLASS()
 class SF_API USFGA_Hero_ProjectileLaunch : public USFGA_Equipment_Base
@@ -24,28 +22,21 @@ class SF_API USFGA_Hero_ProjectileLaunch : public USFGA_Equipment_Base
 public:
 	USFGA_Hero_ProjectileLaunch(const FObjectInitializer& ObjectInitializer = FObjectInitializer::Get());
 
-	// [가져온 기능] 레벨에 따른 기본 데미지 반환
+	// 레벨에 따른 기본 데미지 반환
 	UFUNCTION(BlueprintCallable, Category = "SF|Damage")
 	float GetScaledBaseDamage() const;
-
+	
 protected:
-	virtual void ActivateAbility(
-		const FGameplayAbilitySpecHandle Handle,
-		const FGameplayAbilityActorInfo* ActorInfo,
-		const FGameplayAbilityActivationInfo ActivationInfo,
-		const FGameplayEventData* TriggerEventData
-	) override;
+	virtual void ActivateAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, const FGameplayEventData* TriggerEventData) override;
+	virtual void EndAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, bool bReplicateEndAbility, bool bWasCancelled) override;
+	virtual void CancelAbility(const FGameplayAbilitySpecHandle Handle,const FGameplayAbilityActorInfo* ActorInfo,const FGameplayAbilityActivationInfo ActivationInfo,bool bReplicateCancelAbility) override;
 
-	virtual void EndAbility(
-		const FGameplayAbilitySpecHandle Handle,
-		const FGameplayAbilityActorInfo* ActorInfo,
-		const FGameplayAbilityActivationInfo ActivationInfo,
-		bool bReplicateEndAbility,
-		bool bWasCancelled
-	) override;
+	virtual TArray<FSFPoolPrewarmEntry> GetPoolPrewarmEntries() const override;
+	
+	bool ValidateLaunchRequirements() const;
+	
+	void StartLaunchSequence();
 
-protected:
-	// 노티파이(게임플레이 이벤트) 수신 → 발사체 스폰
 	UFUNCTION()
 	virtual void OnProjectileSpawnEventReceived(FGameplayEventData Payload);
 
@@ -57,31 +48,23 @@ protected:
 
 	UFUNCTION()
 	void OnMontageCancelled();
-	virtual void CancelAbility(
-		const FGameplayAbilitySpecHandle Handle,
-		const FGameplayAbilityActorInfo* ActorInfo,
-		const FGameplayAbilityActivationInfo ActivationInfo,
-		bool bReplicateCancelAbility
-	) override;
 
-protected:
-	// 스폰 위치(메인핸드 무기 소켓) 계산
 	bool GetProjectileSpawnTransform(FTransform& OutSpawnTM) const;
-
-	// 발사 방향(바라보던 방향) 계산
 	FVector GetLaunchDirection() const;
-
-	// 실제 발사체 스폰(서버)
 	void SpawnProjectile_Server(const FTransform& SpawnTM, const FVector& LaunchDir);
 
-protected:
-	// [가져온 기능] Skill_Melee에 있던 데미지 계수 변수를 이쪽으로 이동
-	UPROPERTY(EditDefaultsOnly, Category="SF|Damage")
-	FScalableFloat BaseDamage = 10.f;
+	void CleanupLaunchTasks();
 
 protected:
+
+	UPROPERTY(EditDefaultsOnly, Category="SF|Damage")
+	FScalableFloat BaseDamage = 10.f;
+	
 	UPROPERTY(EditDefaultsOnly, Category="SF|Projectile")
 	TSubclassOf<ASFAttackProjectile> ProjectileClass;
+
+	UPROPERTY(EditDefaultsOnly, Category="SF|Projectile")
+	int32 PoolCountPerPlayer = 2;
 
 	// 몽타주
 	UPROPERTY(EditDefaultsOnly, Category="SF|Projectile|Montage")
@@ -102,7 +85,6 @@ protected:
 	UPROPERTY(EditDefaultsOnly, Category="SF|Projectile|Socket")
 	FVector FallbackSpawnOffset = FVector(50.f, 0.f, 60.f);
 
-protected:
 	UPROPERTY()
 	TObjectPtr<UAbilityTask_PlayMontageAndWait> MontageTask;
 

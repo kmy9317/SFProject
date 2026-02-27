@@ -2,6 +2,7 @@
 
 #include "AbilitySystemComponent.h"
 #include "AbilitySystemLog.h"
+#include "SFLogChannels.h"
 #include "AbilityCost/SFAbilityCost.h"
 #include "AbilitySystem/SFAbilitySystemComponent.h"
 #include "AbilitySystem/GameplayCues/SFGameplayCueTags.h"
@@ -14,6 +15,7 @@
 #include "Input/SFEnhancedPlayerInput.h"
 #include "Player/SFPlayerController.h"
 #include "AbilitySystem/Abilities/Hero/Skill/SFHeroSkillTags.h"
+#include "AbilitySystem/Attributes/Hero/SFPrimarySet_Hero.h"
 #include "Character/Hero/SFHero.h"
 #include "Player/SFPlayerState.h"
 
@@ -41,6 +43,7 @@ bool USFGameplayAbility::CheckCost(const FGameplayAbilitySpecHandle Handle, cons
 	}
 
 	// 추가 Cost 체크
+	// TODO : 실제 check 시점에 Cost 적용 가능한지 Cost 클래스에서 체크할 수 있도록 변경해야 함
 	for (const USFAbilityCost* Cost : AdditionalCosts)
 	{
 		if (Cost && !Cost->CheckCost(this, Handle, ActorInfo, OptionalRelevantTags))
@@ -335,6 +338,20 @@ void USFGameplayAbility::RestoreSlidingMode()
 	bSlidingModeApplied = false;
 }
 
+bool USFGameplayAbility::CommitAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, FGameplayTagContainer* OptionalRelevantTags)
+{
+	// 기존 GAS 커밋 로직 그대로 수행
+	const bool bCommitted = Super::CommitAbility(Handle, ActorInfo, ActivationInfo, OptionalRelevantTags);
+
+	// 커밋 성공한 경우에만 후처리
+	if (bCommitted)
+	{
+		TryProcCooldownReset();
+	}
+
+	return bCommitted;
+}
+
 void USFGameplayAbility::TryProcCooldownReset()
 {
 	// 서버에서만
@@ -373,43 +390,10 @@ void USFGameplayAbility::TryProcCooldownReset()
 	ASC->RemoveActiveEffectsWithGrantedTags(*CooldownTags);
 }
 
-bool USFGameplayAbility::CommitAbility(
-	const FGameplayAbilitySpecHandle Handle,
-	const FGameplayAbilityActorInfo* ActorInfo,
-	const FGameplayAbilityActivationInfo ActivationInfo,
-	FGameplayTagContainer* OptionalRelevantTags
-)
-{
-	// 기존 GAS 커밋 로직 그대로 수행
-	const bool bCommitted = Super::CommitAbility(
-		Handle,
-		ActorInfo,
-		ActivationInfo,
-		OptionalRelevantTags
-	);
-
-	// 커밋 성공한 경우에만 후처리
-	if (bCommitted)
-	{
-		TryProcCooldownReset();
-	}
-
-	return bCommitted;
-}
-
-bool USFGameplayAbility::CommitAbility(
-	const FGameplayAbilitySpecHandle Handle,
-	const FGameplayAbilityActorInfo* ActorInfo,
-	const FGameplayAbilityActivationInfo ActivationInfo
-)
+bool USFGameplayAbility::CommitAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo)
 {
 	// 모든 기존 스킬 호출은 여기로
-	return CommitAbility(
-		Handle,
-		ActorInfo,
-		ActivationInfo,
-		nullptr
-	);
+	return CommitAbility(Handle, ActorInfo, ActivationInfo, nullptr);
 }
 
 void USFGameplayAbility::FlushPressedInput(UInputAction* InputAction)
@@ -447,15 +431,20 @@ void USFGameplayAbility::ExecuteMontageGameplayCue(const FSFMontagePlayData& Mon
 	ASC->ExecuteGameplayCue(SFGameplayTags::GameplayCue_Animation_PlayMontage ,CueParams);
 }
 
-void USFGameplayAbility::RestorePlayerInput()
+void USFGameplayAbility::RestorePlayerInput(bool bRestoreLookInput)
 {
 	if (ASFPlayerController* PC = GetSFPlayerControllerFromActorInfo())
 	{
 		PC->SetIgnoreMoveInput(false);
+
+		if (bRestoreLookInput)
+		{
+			PC->SetIgnoreLookInput(false);
+		}
 	}
 }
 
-void USFGameplayAbility::DisablePlayerInput()
+void USFGameplayAbility::DisablePlayerInput(bool bDisableLookInput)
 {
 	if (ASFHero* Hero = Cast<ASFHero>(GetAvatarActorFromActorInfo()))
 	{
@@ -468,6 +457,10 @@ void USFGameplayAbility::DisablePlayerInput()
 	if (ASFPlayerController* PC = GetSFPlayerControllerFromActorInfo())
 	{
 		PC->SetIgnoreMoveInput(true);
+		if (bDisableLookInput)
+		{
+			PC->SetIgnoreLookInput(true);
+		}
 	}
 
 	// ASC 입력 버퍼 클리어
@@ -480,36 +473,62 @@ void USFGameplayAbility::DisablePlayerInput()
 	}
 }
 
-float USFGameplayAbility::GetCalculatedManaCost(UAbilitySystemComponent* ASC) const
+float USFGameplayAbility::GetCalculatedManaCost(UAbilitySystemComponent* ASC, int32 InLevel) const
 {
 	const UGameplayEffect* CostGE = GetCostGameplayEffect();
-	if (!CostGE) return 0.f;
+	
+	// 레벨 결정 로직
+	int32 AbilityLevel = 1;
+	if (InLevel >= 0)
+	{
+		AbilityLevel = InLevel;
+	}
+	else if (IsInstantiated())
+	{
+		AbilityLevel = GetAbilityLevel();
+	}
+	else if (ASC)
+	{
+		if (const FGameplayAbilitySpec* Spec = ASC->FindAbilitySpecFromClass(GetClass()))
+		{
+			AbilityLevel = Spec->Level;
+		}
+	}
+	// 공통 계산 함수 호출
+	return CalculateManaCostFromGameplayEffect(CostGE, ASC, AbilityLevel);
+}
 
-	// ASC가 없으면 자신 가져오기
-	if (!ASC) ASC = GetAbilitySystemComponentFromActorInfo();
-	if (!ASC) return 0.f;
-
-	// 가상의 (Spec) 
+float USFGameplayAbility::CalculateManaCostFromGameplayEffect(const UGameplayEffect* CostGE, UAbilitySystemComponent* ASC, int32 AbilityLevel) const
+{
+	if (!CostGE)
+	{
+		return 0.f;
+	}
+	if (!ASC)
+	{
+		ASC = GetAbilitySystemComponentFromActorInfo();
+	}
+	if (!ASC)
+	{
+		return 0.f;
+	}
+	// Spec 생성
 	FGameplayEffectContextHandle ContextHandle = ASC->MakeEffectContext();
 	ContextHandle.AddInstigator(ASC->GetOwner(), ASC->GetOwner());
 
-	// Spec 생성 - 레벨 정보 함께
-	FGameplayEffectSpec Spec(CostGE, ContextHandle, GetAbilityLevel());
-
-	// 모든 수치(Curve + Attribute) 계산 수행
+	FGameplayEffectSpec Spec(CostGE, ContextHandle, AbilityLevel);
 	Spec.CalculateModifierMagnitudes();
 
-	// Mana 속성을 찾아서 값 반환
+	// Mana 속성 찾기
 	for (int32 i = 0; i < Spec.Modifiers.Num(); ++i)
 	{
 		const FGameplayModifierInfo& ModInfo = CostGE->Modifiers[i];
-		
-		if (ModInfo.Attribute.AttributeName.Contains(TEXT("Mana")))
+		if (ModInfo.Attribute == USFPrimarySet_Hero::GetManaAttribute())
 		{
-			// 계산된 최종 값(Evaluated)
 			return FMath::Abs(Spec.GetModifierMagnitude(i, true));
 		}
 	}
-	
+    
 	return 0.f;
 }
+

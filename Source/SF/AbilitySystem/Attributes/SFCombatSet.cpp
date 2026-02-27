@@ -4,6 +4,7 @@
 
 USFCombatSet::USFCombatSet()
 {
+	InitIncomingDamageMultiplier(1.0f);
 }
 
 void USFCombatSet::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const

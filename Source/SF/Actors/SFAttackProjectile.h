@@ -3,6 +3,7 @@
 #include "CoreMinimal.h"
 #include "GameFramework/Actor.h"
 #include "GameplayTagContainer.h"
+#include "Interface/SFPoolable.h"
 #include "SFAttackProjectile.generated.h"
 
 class USphereComponent;
@@ -15,12 +16,14 @@ class UGameplayEffect;
 class UAbilitySystemComponent;
 
 UCLASS()
-class SF_API ASFAttackProjectile : public AActor
+class SF_API ASFAttackProjectile : public AActor, public ISFPoolable
 {
 	GENERATED_BODY()
 
 public:
 	ASFAttackProjectile(const FObjectInitializer& ObjectInitializer = FObjectInitializer::Get());
+
+	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
 
 	// GA에서 발사 직후 호출: 소스 정보/데미지 주입
 	void InitProjectile(UAbilitySystemComponent* InSourceASC, float InDamage, AActor* InSourceActor);
@@ -29,29 +32,17 @@ public:
 	// 실제 발사(속도/방향 적용)
 	void Launch(const FVector& Direction);
 
-protected:
-	virtual void BeginPlay() override;
+	virtual void OnAcquiredFromPool() override;
+	virtual void OnReturnedToPool() override;
 
 protected:
+	
 	UFUNCTION()
-	void OnProjectileHit(
-		UPrimitiveComponent* HitComp,
-		AActor* OtherActor,
-		UPrimitiveComponent* OtherComp,
-		FVector NormalImpulse,
-		const FHitResult& Hit
-	);
+	void OnProjectileHit(UPrimitiveComponent* HitComp,AActor* OtherActor,UPrimitiveComponent* OtherComp,FVector NormalImpulse,const FHitResult& Hit);
 
-	// ✅ Pawn 판정은 Overlap에서 처리
+	//  Pawn 판정은 Overlap에서 처리
 	UFUNCTION()
-	void OnProjectileOverlap(
-		UPrimitiveComponent* OverlappedComponent,
-		AActor* OtherActor,
-		UPrimitiveComponent* OtherComp,
-		int32 OtherBodyIndex,
-		bool bFromSweep,
-		const FHitResult& SweepResult
-	);
+	void OnProjectileOverlap(UPrimitiveComponent* OverlappedComponent,AActor* OtherActor,UPrimitiveComponent* OtherComp,int32 OtherBodyIndex,bool bFromSweep,const FHitResult& SweepResult);
 
 	// 서버에서 데미지/GE 적용
 	void ApplyHitEffects_Server(AActor* TargetActor, const FHitResult& Hit);
@@ -62,6 +53,17 @@ protected:
 
 	// 추가 폭발 공격
 	void ProcessExplosion_Server(const FVector& Location);
+
+	UFUNCTION()
+	void OnRep_IsVisualActive();
+
+	void ActivateVisuals();
+	void DeactivateVisuals();
+
+private:
+	void OnLifeTimeExpired();
+
+	void EnableCollisionDeferred();
 
 protected:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="SF|Projectile")
@@ -149,8 +151,12 @@ protected:
 
 	// 아군 버프 적용 처리를 위한 서버 함수
 	void ApplyBuff_Server(AActor* TargetActor, const FHitResult& Hit);
-	
+
 private:
+
+	UPROPERTY(ReplicatedUsing = OnRep_IsVisualActive)
+	bool bIsVisualActive = false;
+	
 	UPROPERTY()
 	TWeakObjectPtr<UAbilitySystemComponent> SourceASC;
 
@@ -162,6 +168,11 @@ private:
 	
 	UPROPERTY()
 	bool bIsExplosive = false;
+
+	FTimerHandle LifeTimerHandle;
+
+	UPROPERTY()
+	TObjectPtr<UAudioComponent> ActiveSpawnAudioComp;
 	
 private:
 	TSubclassOf<UGameplayEffect> ResolveDamageGE() const;

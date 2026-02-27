@@ -89,6 +89,8 @@ void ASFBuffArea::OnTickArea()
 	if (!World) return;
 
 	TArray<AActor*> Candidates;
+
+	// TODO : 전체 Actor를 가져오면 너무 부하가 큼
 	UGameplayStatics::GetAllActorsOfClass(World, AActor::StaticClass(), Candidates);
 
 	const FVector Origin = GetActorLocation();

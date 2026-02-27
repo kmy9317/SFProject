@@ -1,7 +1,10 @@
 #include "SFGA_Hero_SkillTypeChange.h"
+
+#include "SFHeroSkillTags.h"
 #include "AbilitySystem/SFAbilitySystemComponent.h"
 #include "SFLogChannels.h"
 #include "Input/SFInputGameplayTags.h"
+#include "System/SFPoolSubsystem.h"
 
 USFGA_Hero_SkillTypeChange::USFGA_Hero_SkillTypeChange()
 {
@@ -15,77 +18,137 @@ void USFGA_Hero_SkillTypeChange::OnAvatarSet(const FGameplayAbilityActorInfo* Ac
 {
 	Super::OnAvatarSet(ActorInfo, Spec);
 
-    // 초기화: 게임 시작 시 0번(첫 번째) 세트 부여
-    if (ActorInfo->IsNetAuthority() && !bHasActivatedOnce)
-    {
-       // [추가된 로직] 초기화 전, 기존에 InputTag를 가진 스킬들을 청소 (방어 코드)
-       USFAbilitySystemComponent* SFASC = Cast<USFAbilitySystemComponent>(ActorInfo->AbilitySystemComponent.Get());
-       if (SFASC)
-       {
-           // 삭제할 태그 목록 정의 (소서러가 사용하는 슬롯들)
-           TArray<FGameplayTag> InputTagsToClear;
-           InputTagsToClear.Add(SFGameplayTags::InputTag_PrimarySkill);
-           InputTagsToClear.Add(SFGameplayTags::InputTag_SecondarySkill);
-       	   InputTagsToClear.Add(SFGameplayTags::InputTag_Attack);
-           // 필요한 태그 추가...
+	if (!ActorInfo->IsNetAuthority() || bHasActivatedOnce)
+	{
+		return;
+	}
 
-           // 삭제할 핸들을 임시 저장할 배열 (반복문 안에서 직접 삭제하면 충돌 위험)
-           TArray<FGameplayAbilitySpecHandle> AbilitiesToRemove;
+	if (AbilitySets.Num() == 0)
+	{
+		return;
+	}
 
-           // ASC의 모든 어빌리티 순회
-           for (const FGameplayAbilitySpec& AbilitySpec : SFASC->GetActivatableAbilities())
-           {
-               // 현재 이 관리자 스킬(Self)은 삭제하면 안 됨!
-               if (AbilitySpec.Ability == this)
-               {
-                   continue;
-               }
+	USFAbilitySystemComponent* SFASC = Cast<USFAbilitySystemComponent>(ActorInfo->AbilitySystemComponent.Get());
+	if (!SFASC)
+	{
+		return;
+	}
 
-               // 해당 어빌리티가 우리가 지우려는 InputTag를 가지고 있는지 검사
-               for (const FGameplayTag& TagToCheck : InputTagsToClear)
-               {
-                   if (AbilitySpec.GetDynamicSpecSourceTags().HasTag(TagToCheck))
-                   {
-                       AbilitiesToRemove.Add(AbilitySpec.Handle);
-                       break; // 태그 하나만 걸려도 삭제 대상
-                   }
-               }
-           }
+	// 인덱스 결정: 복원 데이터가 있으면 복원값, 없으면 0
+	if (bHasRestoredData)
+	{
+		CurrentSetIndex = FMath::Clamp(CurrentSetIndex, 0, AbilitySets.Num() - 1);
+		UE_LOG(LogSF, Log, TEXT("[SkillTypeChange] Using restored index: %d"), CurrentSetIndex);
+	}
+	else
+	{
+		CurrentSetIndex = 0;
+	}
 
-           // 수집된 어빌리티 일괄 삭제
-           for (const FGameplayAbilitySpecHandle& HandleToRemove : AbilitiesToRemove)
-           {
-               SFASC->ClearAbility(HandleToRemove);
-           }
-       }
+	// 어빌리티 세트 부여
+	ApplyCurrentAbilitySet(SFASC);
 
-       // --- 기존 초기화 로직 시작 ---
-    	if (AbilitySets.Num() > 0)
-    	{
-    		// 복원된 데이터가 있으면 해당 인덱스 사용, 없으면 0
-    		if (bHasRestoredData)
-    		{
-    			CurrentSetIndex = FMath::Clamp(CurrentSetIndex, 0, AbilitySets.Num() - 1);
-    			UE_LOG(LogSF, Log, TEXT("[SkillTypeChange] Using restored index: %d"), CurrentSetIndex);
-    		}
-    		else
-    		{
-    			CurrentSetIndex = 0;
-    		}
-            
-    		const USFAbilitySet* InitialSet = AbilitySets[CurrentSetIndex];
-    		FGameplayTag InitialElementTag;
-    		if (ElementTags.IsValidIndex(CurrentSetIndex))
-    		{
-    			InitialElementTag = ElementTags[CurrentSetIndex];
-    		}
+	// 모든 속성의 어빌리티 풀 예열
+	PrewarmAllAbilitySets();
 
-    		GiveAbilitySetWithOverrides(InitialSet, InitialElementTag);
-            
-    		bHasActivatedOnce = true;
-    	}
-    }
+	bHasActivatedOnce = true;
 }
+
+void USFGA_Hero_SkillTypeChange::PrewarmAllAbilitySets()
+{
+	USFPoolSubsystem* Pool = USFPoolSubsystem::Get(this);
+	if (!Pool)
+	{
+		return;
+	}
+
+	for (int32 SetIdx = 0; SetIdx < AbilitySets.Num(); ++SetIdx)
+	{
+		const USFAbilitySet* AbilitySet = AbilitySets[SetIdx];
+		if (!IsValid(AbilitySet))
+		{
+			continue;
+		}
+
+		FGameplayTag ElementTag;
+		if (ElementTags.IsValidIndex(SetIdx))
+		{
+			ElementTag = ElementTags[SetIdx];
+		}
+
+		for (const FSFAbilitySet_GameplayAbility& AbilityToGrant : AbilitySet->GetGrantedGameplayAbilities())
+		{
+			TSubclassOf<USFGameplayAbility> AbilityClass = AbilityToGrant.Ability;
+
+			// 오버라이드(업그레이드) 반영
+			if (ElementTag.IsValid() && ElementSkillOverrides.Contains(ElementTag))
+			{
+				const FSFSkillOverrideInfo& Info = ElementSkillOverrides[ElementTag];
+				if (Info.SlotOverrides.Contains(AbilityToGrant.InputTag))
+				{
+					AbilityClass = Info.SlotOverrides[AbilityToGrant.InputTag];
+				}
+			}
+
+			if (!IsValid(AbilityClass))
+			{
+				continue;
+			}
+
+			USFGameplayAbility* AbilityCDO = AbilityClass->GetDefaultObject<USFGameplayAbility>();
+			for (const FSFPoolPrewarmEntry& Entry : AbilityCDO->GetPoolPrewarmEntries())
+			{
+				if (Entry.ActorClass)
+				{
+					Pool->PrewarmPool(Entry.ActorClass, Entry.CountPerPlayer);
+				}
+			}
+		}
+	}
+}
+
+void USFGA_Hero_SkillTypeChange::ApplyCurrentAbilitySet(USFAbilitySystemComponent* SFASC)
+{
+	if (!AbilitySets.IsValidIndex(CurrentSetIndex))
+	{
+		return;
+	}
+
+	const USFAbilitySet* TargetSet = AbilitySets[CurrentSetIndex];
+	FGameplayTag TargetElementTag;
+
+	if (ElementTags.IsValidIndex(CurrentSetIndex))
+	{
+		TargetElementTag = ElementTags[CurrentSetIndex];
+	}
+
+	GiveAbilitySetWithOverrides(TargetSet, TargetElementTag);
+}
+
+FInstancedStruct USFGA_Hero_SkillTypeChange::SaveCustomPersistentData() const
+{
+	// 저장 전 현재 슬롯 레벨 캐싱
+	const_cast<USFGA_Hero_SkillTypeChange*>(this)->SyncCurrentSlotLevels();
+    
+	FSFSkillTypeChangeData Data;
+	Data.CurrentSetIndex = CurrentSetIndex;
+	Data.ElementOverrides = ElementSkillOverrides;
+	Data.SharedSlotLevels = SharedSlotLevels; 
+  
+	return FInstancedStruct::Make(Data);
+}
+
+void USFGA_Hero_SkillTypeChange::RestoreCustomPersistentData(const FInstancedStruct& InData)
+{
+	if (const FSFSkillTypeChangeData* Data = InData.GetPtr<FSFSkillTypeChangeData>())
+	{
+		CurrentSetIndex = Data->CurrentSetIndex;
+		ElementSkillOverrides = Data->ElementOverrides;
+		SharedSlotLevels = Data->SharedSlotLevels;
+		bHasRestoredData = true;
+	}
+}
+
 
 void USFGA_Hero_SkillTypeChange::ActivateAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, const FGameplayEventData* TriggerEventData)
 {
@@ -106,53 +169,11 @@ void USFGA_Hero_SkillTypeChange::EndAbility(const FGameplayAbilitySpecHandle Han
 	Super::EndAbility(Handle, ActorInfo, ActivationInfo, bReplicateEndAbility, bWasCancelled);
 }
 
-FInstancedStruct USFGA_Hero_SkillTypeChange::SaveCustomPersistentData() const
-{
-	// 저장 전 현재 슬롯 레벨 캐싱 (const 우회)
-	const_cast<USFGA_Hero_SkillTypeChange*>(this)->SyncCurrentSlotLevels();
-    
-	FSFSkillTypeChangeData Data;
-	Data.CurrentSetIndex = CurrentSetIndex;
-	Data.ElementOverrides = ElementSkillOverrides;
-	Data.SharedSlotLevels = SharedSlotLevels; 
-  
-	return FInstancedStruct::Make(Data);
-}
-
-void USFGA_Hero_SkillTypeChange::RestoreCustomPersistentData(const FInstancedStruct& InData)
-{
-	if (const FSFSkillTypeChangeData* Data = InData.GetPtr<FSFSkillTypeChangeData>())
-	{
-		CurrentSetIndex = Data->CurrentSetIndex;
-		ElementSkillOverrides = Data->ElementOverrides;
-		SharedSlotLevels = Data->SharedSlotLevels;
-		bHasRestoredData = true;
-        
-		if (bHasActivatedOnce)
-		{
-			USFAbilitySystemComponent* SFASC = Cast<USFAbilitySystemComponent>(GetActorInfo().AbilitySystemComponent.Get());
-			if (SFASC && AbilitySets.IsValidIndex(CurrentSetIndex))
-			{
-				ActiveGrantedHandles.TakeFromAbilitySystem(SFASC);
-                
-				const USFAbilitySet* TargetSet = AbilitySets[CurrentSetIndex];
-				FGameplayTag TargetElementTag;
-				if (ElementTags.IsValidIndex(CurrentSetIndex))
-				{
-					TargetElementTag = ElementTags[CurrentSetIndex];
-				}
-                
-				GiveAbilitySetWithOverrides(TargetSet, TargetElementTag);
-			}
-		}
-	}
-}
-
 void USFGA_Hero_SkillTypeChange::OnRemoveAbility(const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilitySpec& Spec)
 {
 	// 이 관리자 스킬이 제거되면, 부여했던 하위 스킬들도 모두 회수
 	USFAbilitySystemComponent* SFASC = Cast<USFAbilitySystemComponent>(ActorInfo->AbilitySystemComponent.Get());
-	if (SFASC) // IsValid 체크 필요 (SFAbilitySet.h 참고)
+	if (SFASC)
 	{
 		ActiveGrantedHandles.TakeFromAbilitySystem(SFASC);
 	}
@@ -168,26 +189,30 @@ void USFGA_Hero_SkillTypeChange::RegisterSkillOverride(FGameplayTag ElementTag, 
 	}
 
 	USFAbilitySystemComponent* SFASC = Cast<USFAbilitySystemComponent>(GetActorInfo().AbilitySystemComponent.Get());
-    
-	// 현재 슬롯 레벨 동기화 (현재 활성화된 스킬 레벨을 공유 레벨에 반영)
-	if (ElementTags.IsValidIndex(CurrentSetIndex) && ElementTags[CurrentSetIndex] == ElementTag)
-	{
-		int32 CurrentLevel = GetCurrentSlotLevel(InputTag);
-		SharedSlotLevels.Add(InputTag, CurrentLevel);
-	}
 
 	// 클래스 오버라이드만 저장
 	FSFSkillOverrideInfo& Info = ElementSkillOverrides.FindOrAdd(ElementTag);
 	Info.SlotOverrides.Add(InputTag, NewAbilityClass);
+
+	// 새 어빌리티 풀 예열
+	USFGameplayAbility* NewCDO = NewAbilityClass->GetDefaultObject<USFGameplayAbility>();
+	if (USFPoolSubsystem* Pool = USFPoolSubsystem::Get(this))
+	{
+		for (const FSFPoolPrewarmEntry& Entry : NewCDO->GetPoolPrewarmEntries())
+		{
+			if (Entry.ActorClass)
+			{
+				Pool->PrewarmPool(Entry.ActorClass, Entry.CountPerPlayer);
+			}
+		}
+	}
 
 	// 현재 사용 중인 속성이면 즉시 새로고침
 	if (ElementTags.IsValidIndex(CurrentSetIndex) && ElementTags[CurrentSetIndex] == ElementTag)
 	{
 		if (SFASC && AbilitySets.IsValidIndex(CurrentSetIndex))
 		{
-			SyncCurrentSlotLevels();
-			ActiveGrantedHandles.TakeFromAbilitySystem(SFASC);
-			GiveAbilitySetWithOverrides(AbilitySets[CurrentSetIndex], ElementTag);
+			SwapManagedAbility(SFASC, InputTag, NewAbilityClass);
 		}
 	}
 }
@@ -207,20 +232,8 @@ void USFGA_Hero_SkillTypeChange::CycleToNextAbilitySet()
 	ActiveGrantedHandles.TakeFromAbilitySystem(SFASC);
 
 	// 인덱스 순환
-	if (AbilitySets.Num() > 0)
-	{
-		CurrentSetIndex = (CurrentSetIndex + 1) % AbilitySets.Num();
-
-		const USFAbilitySet* NextSet = AbilitySets[CurrentSetIndex];
-        
-		FGameplayTag CurrentElementTag;
-		if (ElementTags.IsValidIndex(CurrentSetIndex))
-		{
-			CurrentElementTag = ElementTags[CurrentSetIndex];
-		}
-
-		GiveAbilitySetWithOverrides(NextSet, CurrentElementTag);
-	}
+	CurrentSetIndex = (CurrentSetIndex + 1) % AbilitySets.Num();
+	ApplyCurrentAbilitySet(SFASC);
 }
 
 void USFGA_Hero_SkillTypeChange::GiveAbilitySetWithOverrides(const USFAbilitySet* AbilitySet, FGameplayTag CurrentElementTag)
@@ -246,8 +259,10 @@ void USFGA_Hero_SkillTypeChange::GiveAbilitySetWithOverrides(const USFAbilitySet
 	// 1. Attribute Sets 부여
     for (const FSFAbilitySet_AttributeSet& SetToGrant : AbilitySet->GetGrantedAttributes())
     {
-        if (!IsValid(SetToGrant.AttributeSet)) continue;
-
+	    if (!IsValid(SetToGrant.AttributeSet))
+	    {
+	    	continue;
+		}
         UAttributeSet* NewSet = NewObject<UAttributeSet>(SFASC->GetOwner(), SetToGrant.AttributeSet);
         SFASC->AddAttributeSetSubobject(NewSet);
         ActiveGrantedHandles.AddAttributeSet(NewSet);
@@ -256,8 +271,10 @@ void USFGA_Hero_SkillTypeChange::GiveAbilitySetWithOverrides(const USFAbilitySet
     // 2. Gameplay Abilities 부여
     for (const FSFAbilitySet_GameplayAbility& AbilityToGrant : AbilitySet->GetGrantedGameplayAbilities())
     {
-        if (!IsValid(AbilityToGrant.Ability)) continue;
-
+        if (!IsValid(AbilityToGrant.Ability))
+        {
+	        continue;
+        }
         TSubclassOf<USFGameplayAbility> AbilityClass = AbilityToGrant.Ability;
         FGameplayTag InputTag = AbilityToGrant.InputTag;
         int32 AbilityLevel = AbilityToGrant.AbilityLevel;  // 기본값
@@ -278,20 +295,20 @@ void USFGA_Hero_SkillTypeChange::GiveAbilitySetWithOverrides(const USFAbilitySet
             AbilityLevel = SharedSlotLevels[InputTag];
         }
 
-        if (!IsValid(AbilityClass)) continue;
-
+        if (!IsValid(AbilityClass))
+        {
+	        continue;
+        }
         USFGameplayAbility* AbilityCDO = AbilityClass->GetDefaultObject<USFGameplayAbility>();
         FGameplayAbilitySpec AbilitySpec(AbilityCDO, AbilityLevel);
         AbilitySpec.SourceObject = SourceObject;
         AbilitySpec.GetDynamicSpecSourceTags().AddTag(InputTag);
 
-        const FGameplayAbilitySpecHandle Handle = SFASC->GiveAbility(AbilitySpec);
+    	// 관리 대상 표시 → SeamlessTravel 시 저장 제외
+    	AbilitySpec.GetDynamicSpecSourceTags().AddTag(SFGameplayTags::Ability_Skill_NonPersistent);
+    	const FGameplayAbilitySpecHandle Handle = SFASC->GiveAbility(AbilitySpec);
         ActiveGrantedHandles.AddAbilitySpecHandle(Handle);
-        
-        UE_LOG(LogSF, Verbose, TEXT("[SkillTypeChange] Granted: %s (Level %d) for slot %s"), 
-            *GetNameSafe(AbilityClass), AbilityLevel, *InputTag.ToString());
     }
-
     // 3. Gameplay Effects 부여
     for (const FSFAbilitySet_GameplayEffect& EffectToGrant : AbilitySet->GetGrantedGameplayEffects())
     {
@@ -330,21 +347,27 @@ void USFGA_Hero_SkillTypeChange::SyncCurrentSlotLevels()
 	}
 }
 
-int32 USFGA_Hero_SkillTypeChange::GetCurrentSlotLevel(FGameplayTag InputTag) const
+void USFGA_Hero_SkillTypeChange::SwapManagedAbility(USFAbilitySystemComponent* SFASC, FGameplayTag InputTag, TSubclassOf<USFGameplayAbility> NewAbilityClass)
 {
-	USFAbilitySystemComponent* SFASC = Cast<USFAbilitySystemComponent>(GetActorInfo().AbilitySystemComponent.Get());
-	if (!SFASC)
-	{
-		return 1;
-	}
-
 	for (const FGameplayAbilitySpec& Spec : SFASC->GetActivatableAbilities())
 	{
-		if (Spec.GetDynamicSpecSourceTags().HasTagExact(InputTag))
+		if (Spec.GetDynamicSpecSourceTags().HasTagExact(InputTag) && Spec.GetDynamicSpecSourceTags().HasTag(SFGameplayTags::Ability_Skill_NonPersistent))
 		{
-			return Spec.Level;
+			int32 PrevLevel = Spec.Level;
+			SharedSlotLevels.Add(InputTag, PrevLevel);
+
+			ActiveGrantedHandles.RemoveAbilitySpecHandle(Spec.Handle);
+			SFASC->ClearAbility(Spec.Handle);
+
+			USFGameplayAbility* NewCDO = NewAbilityClass->GetDefaultObject<USFGameplayAbility>();
+			FGameplayAbilitySpec NewSpec(NewCDO, PrevLevel);
+			NewSpec.SourceObject = GetAvatarActorFromActorInfo();
+			NewSpec.GetDynamicSpecSourceTags().AddTag(InputTag);
+			NewSpec.GetDynamicSpecSourceTags().AddTag(SFGameplayTags::Ability_Skill_NonPersistent);
+
+			FGameplayAbilitySpecHandle NewHandle = SFASC->GiveAbility(NewSpec);
+			ActiveGrantedHandles.AddAbilitySpecHandle(NewHandle);
+			break;
 		}
 	}
-
-	return 1;
 }

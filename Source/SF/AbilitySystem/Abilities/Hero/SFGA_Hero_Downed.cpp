@@ -47,6 +47,12 @@ void USFGA_Hero_Downed::ActivateAbility(const FGameplayAbilitySpecHandle Handle,
 		return;
 	}
 
+	// 원본 공격자 컨텍스트 캐싱
+	if (TriggerEventData)
+	{
+		CachedTriggerPayload = *TriggerEventData;
+	}
+
 	if (USFAbilitySystemComponent* ASC = GetSFAbilitySystemComponentFromActorInfo())
 	{
 		ASC->CancelActiveAbilities(nullptr, nullptr, this);
@@ -171,7 +177,7 @@ void USFGA_Hero_Downed::HandleDeath()
 	
 	if (UAbilitySystemComponent* ASC = GetAbilitySystemComponentFromActorInfo())
 	{
-		USFAbilitySystemLibrary::SendDeathEvent(ASC);
+		USFAbilitySystemLibrary::SendDeathEvent(ASC, CachedTriggerPayload);
 	}
 }
 

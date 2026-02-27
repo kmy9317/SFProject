@@ -4,6 +4,31 @@
 #include "AbilitySystem/GameplayEvent/SFGameplayEventTags.h"
 #include "Character/SFCharacterGameplayTags.h"
 
+namespace
+{
+	FGameplayEventData MakePayloadFromSpec(UAbilitySystemComponent* ASC, const FGameplayEffectSpec& Spec, float Damage = 0.0f)
+	{
+		FGameplayEventData Payload;
+		Payload.Target = ASC->GetAvatarActor();
+		Payload.Instigator = Spec.GetContext().GetOriginalInstigator();
+		Payload.ContextHandle = Spec.GetContext();
+		Payload.EventMagnitude = Damage;
+		return Payload;
+	}
+	
+	void DispatchGameplayEvent(UAbilitySystemComponent* ASC, const FGameplayTag& EventTag, const FGameplayEventData& Source)
+	{
+		FGameplayEventData EventData;
+		EventData.EventTag = EventTag;
+		EventData.Target = Source.Target;
+		EventData.Instigator = Source.Instigator;
+		EventData.ContextHandle = Source.ContextHandle;
+		EventData.EventMagnitude = Source.EventMagnitude;
+
+		ASC->HandleGameplayEvent(EventTag, &EventData);
+	}
+}
+
 void USFAbilitySystemLibrary::SendGameplayEventFromSpec(UAbilitySystemComponent* ASC, const FGameplayTag& EventTag, const FGameplayEffectSpec& Spec)
 {
 	if (!ASC)
@@ -11,47 +36,25 @@ void USFAbilitySystemLibrary::SendGameplayEventFromSpec(UAbilitySystemComponent*
 		return;
 	}
 
-	FGameplayEventData Payload;
-	Payload.EventTag = EventTag;
-	Payload.Target = ASC->GetAvatarActor();
-	Payload.Instigator = Spec.GetContext().GetOriginalInstigator();
-	Payload.ContextHandle = Spec.GetContext();
-	ASC->HandleGameplayEvent(EventTag, &Payload);
+	FGameplayEventData Payload = MakePayloadFromSpec(ASC, Spec);
+	DispatchGameplayEvent(ASC, EventTag, Payload);
 }
 
-void USFAbilitySystemLibrary::SendDeathEventFromSpec(UAbilitySystemComponent* ASC, const FGameplayEffectSpec& Spec)
+void USFAbilitySystemLibrary::SendZeroHealthEventFromSpec(UAbilitySystemComponent* ASC, float Damage, const FGameplayEffectSpec& Spec)
 {
 	if (!ASC)
 	{
 		return;
 	}
 
+	// Dead 상태에서 중복 발송 방지
 	if (ASC->HasMatchingGameplayTag(SFGameplayTags::Character_State_Dead))
 	{
 		return;
 	}
 
-	SendGameplayEventFromSpec(ASC, SFGameplayTags::GameplayEvent_Death, Spec);
-}
-
-void USFAbilitySystemLibrary::SendDownedEventFromSpec(UAbilitySystemComponent* ASC, const FGameplayEffectSpec& Spec)
-{
-	if (!ASC)
-	{
-		return;
-	}
-
-	if (ASC->HasMatchingGameplayTag(SFGameplayTags::Character_State_Dead))
-	{
-		return;
-	}
-
-	if (ASC->HasMatchingGameplayTag(SFGameplayTags::Character_State_Downed))
-	{
-		return;
-	}
-
-	SendGameplayEventFromSpec(ASC, SFGameplayTags::GameplayEvent_Downed, Spec);
+	FGameplayEventData Payload = MakePayloadFromSpec(ASC, Spec, Damage);
+	DispatchGameplayEvent(ASC, SFGameplayTags::GameplayEvent_ZeroHealth, Payload);
 }
 
 void USFAbilitySystemLibrary::SendHitReactionEventFromSpec(UAbilitySystemComponent* ASC, float Damage, const FGameplayEffectSpec& Spec)
@@ -71,13 +74,8 @@ void USFAbilitySystemLibrary::SendHitReactionEventFromSpec(UAbilitySystemCompone
 		return;
 	}
 
-	FGameplayEventData Payload;
-	Payload.EventTag = SFGameplayTags::GameplayEvent_HitReaction;
-	Payload.Target = ASC->GetAvatarActor();
-	Payload.Instigator = Spec.GetContext().GetOriginalInstigator();
-	Payload.ContextHandle = Spec.GetContext();
-	Payload.EventMagnitude = Damage;
-	ASC->HandleGameplayEvent(SFGameplayTags::GameplayEvent_HitReaction, &Payload);
+	FGameplayEventData Payload = MakePayloadFromSpec(ASC, Spec, Damage);
+	DispatchGameplayEvent(ASC, SFGameplayTags::GameplayEvent_HitReaction, Payload);
 }
 
 void USFAbilitySystemLibrary::SendParryEventFromSpec(UAbilitySystemComponent* ASC, float Damage, const FGameplayEffectSpec& Spec)
@@ -87,13 +85,8 @@ void USFAbilitySystemLibrary::SendParryEventFromSpec(UAbilitySystemComponent* AS
 		return;
 	}
 
-	FGameplayEventData Payload;
-	Payload.EventTag = SFGameplayTags::GameplayEvent_Parry;
-	Payload.Target = ASC->GetAvatarActor();
-	Payload.Instigator = Spec.GetContext().GetOriginalInstigator();
-	Payload.ContextHandle = Spec.GetContext();
-	Payload.EventMagnitude = Damage;
-	ASC->HandleGameplayEvent(SFGameplayTags::GameplayEvent_Parry, &Payload);
+	FGameplayEventData Payload = MakePayloadFromSpec(ASC, Spec, Damage);
+	DispatchGameplayEvent(ASC, SFGameplayTags::GameplayEvent_Parry, Payload);
 }
 
 void USFAbilitySystemLibrary::SendStaggerEventFromSpec(UAbilitySystemComponent* ASC, const FGameplayEffectSpec& Spec)
@@ -108,7 +101,8 @@ void USFAbilitySystemLibrary::SendStaggerEventFromSpec(UAbilitySystemComponent* 
 		return;
 	}
 
-	SendGameplayEventFromSpec(ASC, SFGameplayTags::GameplayEvent_Groggy, Spec);
+	FGameplayEventData Payload = MakePayloadFromSpec(ASC, Spec);
+	DispatchGameplayEvent(ASC, SFGameplayTags::GameplayEvent_Groggy, Payload);
 }
 
 void USFAbilitySystemLibrary::SendGameplayEvent(UAbilitySystemComponent* ASC, const FGameplayTag& EventTag, AActor* Instigator)
@@ -125,7 +119,7 @@ void USFAbilitySystemLibrary::SendGameplayEvent(UAbilitySystemComponent* ASC, co
 	ASC->HandleGameplayEvent(EventTag, &Payload);
 }
 
-void USFAbilitySystemLibrary::SendDeathEvent(UAbilitySystemComponent* ASC, AActor* Instigator)
+void USFAbilitySystemLibrary::SendDeathEvent(UAbilitySystemComponent* ASC, const FGameplayEventData& SourcePayload)
 {
 	if (!ASC)
 	{
@@ -137,5 +131,25 @@ void USFAbilitySystemLibrary::SendDeathEvent(UAbilitySystemComponent* ASC, AActo
 		return;
 	}
 
-	SendGameplayEvent(ASC, SFGameplayTags::GameplayEvent_Death, Instigator);
+	DispatchGameplayEvent(ASC, SFGameplayTags::GameplayEvent_Death, SourcePayload);
+}
+
+void USFAbilitySystemLibrary::SendDownedEvent(UAbilitySystemComponent* ASC, const FGameplayEventData& SourcePayload)
+{
+	if (!ASC)
+	{
+		return;
+	}
+
+	if (ASC->HasMatchingGameplayTag(SFGameplayTags::Character_State_Dead))
+	{
+		return;
+	}
+
+	if (ASC->HasMatchingGameplayTag(SFGameplayTags::Character_State_Downed))
+	{
+		return;
+	}
+
+	DispatchGameplayEvent(ASC, SFGameplayTags::GameplayEvent_Downed, SourcePayload);
 }

@@ -13,4 +13,10 @@ namespace SFGameplayTags
 	UE_DEFINE_GAMEPLAY_TAG_COMMENT(Ability_Skill_Passive_CooldownReset, "Ability.Skill.Passive.CooldownReset", "Hero Upgrade Passive Tag");
 	UE_DEFINE_GAMEPLAY_TAG_COMMENT(Ability_Skill_Passive_LastStand, "Ability.Skill.Passive.LastStand", "Hero Upgrade Passive Tag");
 	UE_DEFINE_GAMEPLAY_TAG_COMMENT(Ability_Skill_Passive_LastStand_Use, "Ability.Skill.Passive.LastStand.Use", "Hero Upgrade Passive Tag");
+
+	// Skill Type Manage Tags
+	UE_DEFINE_GAMEPLAY_TAG_COMMENT(Ability_Skill_NonPersistent, "Ability.Skill.NonPersistent", "Skill Type Manage Tag");
+
+	
+	UE_DEFINE_GAMEPLAY_TAG_COMMENT(Ability_Skill_Activated, "Ability.Skill.Activated", "Skill Activated Tag");
 }
