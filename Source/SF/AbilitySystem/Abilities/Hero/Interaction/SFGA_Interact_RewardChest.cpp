@@ -159,12 +159,26 @@ void USFGA_Interact_RewardChest::OnClientReadyForStatBoost()
 
 	FOnUpgradeComplete OnComplete;
 	OnComplete.BindUObject(this, &ThisClass::OnServerUpgradeComplete);
-
-	UpgradeComp->RequestGenerateChoices(LootTable, CachedStageIndex, 3, MoveTemp(OnComplete), CachedRewardChest.Get());
+	
+	CachedContextId = UpgradeComp->RequestGenerateChoices(LootTable, CachedStageIndex, 3, MoveTemp(OnComplete), CachedRewardChest.Get());
+	if (!CachedContextId.IsValid())
+	{
+		EndAbility(CurrentSpecHandle, CurrentActorInfo, CurrentActivationInfo, true, false);
+	}
 }
 
-void USFGA_Interact_RewardChest::OnStatBoostChoicesReceived(const TArray<FSFCommonUpgradeChoice>& Choices, int32 NextRerollCost)
+void USFGA_Interact_RewardChest::OnStatBoostChoicesReceived(const FGuid& ContextId, const TArray<FSFCommonUpgradeChoice>& Choices, int32 NextRerollCost)
 {
+	if (!CachedContextId.IsValid())
+	{
+		CachedContextId = ContextId;
+	}
+	
+	if (ContextId != CachedContextId)
+	{
+		return;
+	}
+	
     if (Choices.IsEmpty())
     {
         CleanupStatBoostDelegates();
@@ -224,7 +238,7 @@ void USFGA_Interact_RewardChest::ShowStatBoostUI(const TArray<FSFCommonUpgradeCh
 
     StatBoostWidget->OnCardSelectedDelegate.AddDynamic(this, &ThisClass::OnStatBoostCardSelected);
 	StatBoostWidget->OnSelectionCompleteDelegate.AddDynamic(this, &ThisClass::OnStatBoostSelectionComplete);
-    StatBoostWidget->InitializeWithChoices(Choices, NextRerollCost);
+    StatBoostWidget->InitializeWithChoices(CachedContextId, Choices, NextRerollCost);
     StatBoostWidget->AddToViewport(50);
 
     FInputModeUIOnly InputMode;
@@ -245,7 +259,7 @@ void USFGA_Interact_RewardChest::OnStatBoostCardSelected(int32 ChoiceIndex)
     USFCommonUpgradeComponent* UpgradeComp = PS->FindComponentByClass<USFCommonUpgradeComponent>();
     if (UpgradeComp)
     {
-        UpgradeComp->RequestApplyUpgradeByIndex(ChoiceIndex);
+        UpgradeComp->RequestApplyUpgradeByIndex(CachedContextId, ChoiceIndex);
     }
 }
 
@@ -376,6 +390,7 @@ void USFGA_Interact_RewardChest::EndAbility(const FGameplayAbilitySpecHandle Han
 	}
 
 	CachedRewardChest.Reset();
+	CachedContextId.Invalidate();
 
 	Super::EndAbility(Handle, ActorInfo, ActivationInfo, bReplicateEndAbility, bWasCancelled);
 }

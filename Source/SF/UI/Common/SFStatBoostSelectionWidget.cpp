@@ -63,8 +63,9 @@ void USFStatBoostSelectionWidget::NativeDestruct()
     Super::NativeDestruct();
 }
 
-void USFStatBoostSelectionWidget::InitializeWithChoices(const TArray<FSFCommonUpgradeChoice>& Choices, int32 NextRerollCost)
+void USFStatBoostSelectionWidget::InitializeWithChoices(const FGuid& ContextId, const TArray<FSFCommonUpgradeChoice>& Choices, int32 NextRerollCost)
 {
+    CurrentContextId = ContextId;
     CachedNextRerollCost = NextRerollCost;
     SetChoices(Choices);
 }
@@ -192,7 +193,7 @@ void USFStatBoostSelectionWidget::OnRerollClicked()
     USFCommonUpgradeComponent* UpgradeComp = PS->FindComponentByClass<USFCommonUpgradeComponent>();
     if (UpgradeComp)
     {
-        UpgradeComp->RequestReroll();
+        UpgradeComp->RequestReroll(CurrentContextId);
     }
     if (Btn_Reroll)
     {

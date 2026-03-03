@@ -33,6 +33,12 @@ struct FSFCommonUpgradeContext
 	TWeakObjectPtr<AActor> SourceInteractable;
 
 	UPROPERTY()
+	TWeakObjectPtr<ASFPlayerState> OwnerPlayerState;
+
+	UPROPERTY()
+	FGuid ContextId;
+
+	UPROPERTY()
 	int32 SlotCount = 3;
 
 	UPROPERTY()
@@ -85,36 +91,36 @@ public:
 	virtual bool ShouldCreateSubsystem(UObject* Outer) const override;
 
 	// 상자 상호작용 시 호출. 보상 선택지 3개를 생성
-	TArray<FSFCommonUpgradeChoice> GenerateUpgradeOptions(ASFPlayerState* PlayerState, USFCommonLootTable* LootTable, int32 Count = 3, FOnUpgradeComplete OnComplete = FOnUpgradeComplete(), AActor* SourceInteractable = nullptr);
+	FGuid GenerateUpgradeOptions(ASFPlayerState* PlayerState, USFCommonLootTable* LootTable, int32 Count, FOnUpgradeComplete OnComplete, AActor* SourceInteractable, TArray<FSFCommonUpgradeChoice>& OutChoices);
 	
 	// UI에서 리롤 버튼 클릭 시 호출. 재화(Tag)를 소모하고 선택지를 재생성
 	UFUNCTION(BlueprintCallable, Category = "SF|Upgrade")
-	TArray<FSFCommonUpgradeChoice> TryRerollOptions(ASFPlayerState* PlayerState);
+	TArray<FSFCommonUpgradeChoice> TryRerollOptions(const FGuid& ContextId);
 
 	// 보너스 새 선택지 생성시 호출
-	TArray<FSFCommonUpgradeChoice> RegenerateChoicesForMoreEnhance(ASFPlayerState* PlayerState);
+	TArray<FSFCommonUpgradeChoice> RegenerateChoicesForMoreEnhance(const FGuid& ContextId);
 
 	// 플레이어가 선택한 업그레이드 적용 (UniqueId 기반)
 	UFUNCTION(BlueprintCallable, Category = "SF|Upgrade")
-	ESFUpgradeApplyResult ApplyUpgradeChoice(ASFPlayerState* PlayerState, const FGuid& ChoiceId);
+	ESFUpgradeApplyResult ApplyUpgradeChoice(const FGuid& ContextId, const FGuid& ChoiceId);
 
 	// 플레이어가 선택한 업그레이드 적용 (Index 기반)
 	UFUNCTION(BlueprintCallable, Category = "SF|Upgrade")
-	ESFUpgradeApplyResult ApplyUpgradeChoiceByIndex(ASFPlayerState* PlayerState, int32 ChoiceIndex);
+	ESFUpgradeApplyResult ApplyUpgradeChoiceByIndex(const FGuid& ContextId, int32 ChoiceIndex);
 
 	// 리롤 비용 계산 (FreeReroll 태그 고려)
 	UFUNCTION(BlueprintCallable, Category = "SF|Upgrade")
-	int32 CalculateRerollCost(ASFPlayerState* PlayerState) const;
+	int32 CalculateRerollCost(const FGuid& ContextId) const;
 
 	// 리롤 가능 여부 (골드 또는 FreeReroll 태그)
 	UFUNCTION(BlueprintCallable, Category = "SF|Upgrade")
-	bool CanReroll(ASFPlayerState* PlayerState) const;
+	bool CanReroll(const FGuid& ContextId) const;
 
 	// 추가 선택 가능 여부 (MoreEnhance 태그)
 	UFUNCTION(BlueprintCallable, Category = "SF|Upgrade")
-	bool HasMoreEnhanceAvailable(ASFPlayerState* PlayerState) const;
+	bool HasMoreEnhanceAvailable(const FGuid& ContextId) const;
 
-	void ClearUpgradeContext(ASFPlayerState* PlayerState);
+	void ClearUpgradeContext(const FGuid& ContextId);
 	
 protected:
 	void CacheCoreData();
@@ -129,7 +135,7 @@ protected:
 
 private:
 	// 선택지만 재생성 (콜백/소스 보존)
-	TArray<FSFCommonUpgradeChoice> RegenerateChoicesInternal(ASFPlayerState* PlayerState);
+	TArray<FSFCommonUpgradeChoice> RegenerateChoicesInternal(const FGuid& ContextId);
 
 	// 새 선택지 생성
 	TArray<FSFCommonUpgradeChoice> CreateNewChoices(ASFPlayerState* PlayerState, USFCommonLootTable* LootTable, int32 Count);
@@ -137,7 +143,7 @@ private:
 protected:
 	// 플레이어별 업그레이드 컨텍스트
 	UPROPERTY(Transient)
-	TMap<TObjectPtr<ASFPlayerState>, FSFCommonUpgradeContext> ActiveUpgradeContexts;
+	TMap<FGuid, FSFCommonUpgradeContext> ActiveUpgradeContexts;
 	
 	// 자주 쓰이는 Rarity Config를 미리 로드
 	UPROPERTY(Transient)

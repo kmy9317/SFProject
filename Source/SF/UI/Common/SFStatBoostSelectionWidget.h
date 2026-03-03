@@ -36,7 +36,7 @@ public:
 
     // 현재 주어진 선택지로  Card 세트 초기화 
     UFUNCTION(BlueprintCallable, Category = "SF|UI")
-    void InitializeWithChoices(const TArray<FSFCommonUpgradeChoice>& Choices, int32 NextRerollCost);
+    void InitializeWithChoices(const FGuid& ContextId, const TArray<FSFCommonUpgradeChoice>& Choices, int32 NextRerollCost);
 
     // 선택지 갱신 (리롤시) 
     UFUNCTION(BlueprintCallable, Category = "SF|UI")
@@ -139,6 +139,9 @@ protected:
     float RerollButtonEnableDelay = 1.0f;
 
 private:
+
+    FGuid CurrentContextId;
+    
     TArray<TObjectPtr<USFStatBoostCardWidget>> CardWidgets;
     
     bool bAnimationPlaying = false;

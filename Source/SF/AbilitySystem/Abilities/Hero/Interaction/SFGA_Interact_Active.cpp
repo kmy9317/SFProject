@@ -68,13 +68,7 @@ void USFGA_Interact_Active::ActivateAbility(const FGameplayAbilitySpecHandle Han
 	case ESFInteractionType::TimedHold:
 		StartHoldingInteraction();
 		SendProgressMessage();
-		GetWorld()->GetTimerManager().SetTimer(
-			HoldingTimerHandle, 
-			this, 
-			&ThisClass::OnDurationEnded, 
-			InteractionInfo.Duration, 
-			false
-		);
+		GetWorld()->GetTimerManager().SetTimer(HoldingTimerHandle, this, &ThisClass::OnDurationEnded, InteractionInfo.Duration, false);
 		break;
 	case ESFInteractionType::GaugeBased:
 		StartHoldingInteraction();

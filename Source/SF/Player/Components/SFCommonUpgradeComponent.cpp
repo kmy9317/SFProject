@@ -13,75 +13,78 @@ USFCommonUpgradeComponent::USFCommonUpgradeComponent(const FObjectInitializer& O
 	SetIsReplicatedByDefault(true);
 }
 
-void USFCommonUpgradeComponent::RequestGenerateChoices(USFCommonLootTable* LootTable, int32 StageIndex, int32 Count, FOnUpgradeComplete OnComplete, AActor* SourceInteractable)
+FGuid USFCommonUpgradeComponent::RequestGenerateChoices(USFCommonLootTable* LootTable, int32 StageIndex, int32 Count, FOnUpgradeComplete OnComplete, AActor* SourceInteractable)
 {
 	if (!GetOwner() || !GetOwner()->HasAuthority())
 	{
-		return;
+		return FGuid();
 	}
 
 	ASFPlayerState* PS = GetOwner<ASFPlayerState>();
 	if (!PS)
 	{
-		return;
+		return FGuid();
 	}
 
 	UWorld* World = GetWorld();
 	if (!World)
 	{
-		return;
+		return FGuid();
 	}
 
 	USFCommonUpgradeManagerSubsystem* Subsystem = World->GetSubsystem<USFCommonUpgradeManagerSubsystem>();
 	if (!Subsystem)
 	{
-		return;
+		return FGuid();
 	}
-	
+
 	CachedLootTable = LootTable;
 	CachedStageIndex = StageIndex;
 	CachedChoiceCount = Count;
-	
-	// 서브시스템에서 선택지 생성
-	TArray<FSFCommonUpgradeChoice> GeneratedChoices = Subsystem->GenerateUpgradeOptions(PS, LootTable, Count, MoveTemp(OnComplete), SourceInteractable);
 
+	TArray<FSFCommonUpgradeChoice> GeneratedChoices;
+	FGuid ContextId = Subsystem->GenerateUpgradeOptions(PS, LootTable, Count, MoveTemp(OnComplete), SourceInteractable, GeneratedChoices);
 
-	// 다음 리롤 비용 계산
-	int32 NextCost = Subsystem->CalculateRerollCost(PS);
+	if (!ContextId.IsValid())
+	{
+		return FGuid();
+	}
 
-	// 클라이언트로 전송
-	Client_ReceiveUpgradeChoices(GeneratedChoices, false, NextCost);
+	int32 NextCost = Subsystem->CalculateRerollCost(ContextId);
+	Client_ReceiveUpgradeChoices(ContextId, GeneratedChoices, false, NextCost);
+
+	return ContextId;
 }
 
-void USFCommonUpgradeComponent::Client_ReceiveUpgradeChoices_Implementation(const TArray<FSFCommonUpgradeChoice>& Choices, bool bIsExtraSelection, int32 NextRerollCost)
+void USFCommonUpgradeComponent::Client_ReceiveUpgradeChoices_Implementation(const FGuid& ContextId, const TArray<FSFCommonUpgradeChoice>& Choices, bool bIsExtraSelection, int32 NextRerollCost)
 {
-	PendingChoices = Choices;
+	PendingChoicesMap.FindOrAdd(ContextId).Choices = Choices;
 	CachedNextRerollCost = NextRerollCost;
 	bPendingExtraSelection = bIsExtraSelection;
-	OnChoicesReceived.Broadcast(Choices, NextRerollCost);
+	OnChoicesReceived.Broadcast(ContextId, Choices, NextRerollCost);
 }
 
-void USFCommonUpgradeComponent::RequestApplyUpgrade(const FGuid& ChoiceId)
+void USFCommonUpgradeComponent::RequestApplyUpgrade(const FGuid& ContextId, const FGuid& ChoiceId)
 {
 	if (!ChoiceId.IsValid())
 	{
 		return;
 	}
 
-	Server_RequestApplyUpgrade(ChoiceId);
+	Server_RequestApplyUpgrade(ContextId, ChoiceId);
 }
 
-void USFCommonUpgradeComponent::RequestApplyUpgradeByIndex(int32 ChoiceIndex)
+void USFCommonUpgradeComponent::RequestApplyUpgradeByIndex(const FGuid& ContextId, int32 ChoiceIndex)
 {
-	if (!PendingChoices.IsValidIndex(ChoiceIndex))
+	FSFPendingUpgradeData* Data = PendingChoicesMap.Find(ContextId);
+	if (!Data || !Data->Choices.IsValidIndex(ChoiceIndex))
 	{
 		return;
 	}
-
-	Server_RequestApplyUpgrade(PendingChoices[ChoiceIndex].UniqueId);
+	Server_RequestApplyUpgrade(ContextId, Data->Choices[ChoiceIndex].UniqueId);
 }
 
-void USFCommonUpgradeComponent::Server_RequestApplyUpgrade_Implementation(const FGuid& ChoiceId)
+void USFCommonUpgradeComponent::Server_RequestApplyUpgrade_Implementation(const FGuid& ContextId, const FGuid& ChoiceId)
 {
 	ASFPlayerState* PS = GetOwner<ASFPlayerState>();
 	if (!PS)
@@ -102,7 +105,7 @@ void USFCommonUpgradeComponent::Server_RequestApplyUpgrade_Implementation(const 
 	}
 
 	// 서브시스템에서 검증 및 적용
-	ESFUpgradeApplyResult Result = Subsystem->ApplyUpgradeChoice(PS, ChoiceId);
+	ESFUpgradeApplyResult Result = Subsystem->ApplyUpgradeChoice(ContextId, ChoiceId);
 	switch (Result)
 	{
 	case ESFUpgradeApplyResult::Failed:
@@ -111,9 +114,9 @@ void USFCommonUpgradeComponent::Server_RequestApplyUpgrade_Implementation(const 
 
 	case ESFUpgradeApplyResult::MoreEnhance:
 		{
-			TArray<FSFCommonUpgradeChoice> NewChoices = Subsystem->RegenerateChoicesForMoreEnhance(PS);
-			int32 NextCost = Subsystem->CalculateRerollCost(PS);
-			Client_ReceiveUpgradeChoices(NewChoices, true, NextCost);
+			TArray<FSFCommonUpgradeChoice> NewChoices = Subsystem->RegenerateChoicesForMoreEnhance(ContextId);
+			int32 NextCost = Subsystem->CalculateRerollCost(ContextId);
+			Client_ReceiveUpgradeChoices(ContextId, NewChoices, true, NextCost);
 		}
 		break;
 
@@ -125,27 +128,24 @@ void USFCommonUpgradeComponent::Server_RequestApplyUpgrade_Implementation(const 
 
 void USFCommonUpgradeComponent::Client_NotifyUpgradeApplied_Implementation()
 {
-	PendingChoices.Empty();
 	OnUpgradeApplied.Broadcast();
 }
 
 void USFCommonUpgradeComponent::Client_NotifyUpgradeApplyFailed_Implementation(const FText& Reason)
 {
-	PendingChoices.Empty();
 	OnUpgradeApplyFailed.Broadcast(Reason);
 }
 
-void USFCommonUpgradeComponent::RequestReroll()
+void USFCommonUpgradeComponent::RequestReroll(const FGuid& ContextId)
 {
-	if (!CanReroll())
+	if (!CanReroll(ContextId))
 	{
 		return;
 	}
-
-	Server_RequestReroll();
+	Server_RequestReroll(ContextId);
 }
 
-void USFCommonUpgradeComponent::Server_RequestReroll_Implementation()
+void USFCommonUpgradeComponent::Server_RequestReroll_Implementation(const FGuid& ContextId)
 {
 	ASFPlayerState* PS = GetOwner<ASFPlayerState>();
 	if (!PS)
@@ -168,23 +168,22 @@ void USFCommonUpgradeComponent::Server_RequestReroll_Implementation()
 	}
 	
 	// 리롤 가능 여부 체크
-	if (!Subsystem->CanReroll(PS))
+	if (!Subsystem->CanReroll(ContextId))
 	{
 		Client_NotifyRerollFailed(NSLOCTEXT("SF", "RerollFailed_NotEnoughGold", "골드가 부족합니다."));
 		return;
 	}
 
 	// 리롤 → 새 선택지 반환
-	TArray<FSFCommonUpgradeChoice> NewChoices = Subsystem->TryRerollOptions(PS);
+	TArray<FSFCommonUpgradeChoice> NewChoices = Subsystem->TryRerollOptions(ContextId);
 	if (NewChoices.IsEmpty())
 	{
 		Client_NotifyRerollFailed(NSLOCTEXT("SF", "RerollFailed_NoTicket", "리롤 티켓이 부족합니다."));
 		return;
 	}
 
-	int32 NextCost = Subsystem->CalculateRerollCost(PS);
-
-	Client_ReceiveUpgradeChoices(NewChoices, false, NextCost);
+	int32 NextCost = Subsystem->CalculateRerollCost(ContextId);
+	Client_ReceiveUpgradeChoices(ContextId, NewChoices, false, NextCost);
 }
 
 void USFCommonUpgradeComponent::Client_NotifyRerollFailed_Implementation(const FText& Reason)
@@ -192,25 +191,24 @@ void USFCommonUpgradeComponent::Client_NotifyRerollFailed_Implementation(const F
 	OnRerollFailed.Broadcast(Reason);
 }
 
-bool USFCommonUpgradeComponent::CanReroll() const
+bool USFCommonUpgradeComponent::CanReroll(const FGuid& ContextId) const
 {
-	if (PendingChoices.IsEmpty())
+	const FSFPendingUpgradeData* Data = PendingChoicesMap.Find(ContextId);
+	if (!Data || Data->Choices.IsEmpty())
 	{
 		return false;
 	}
 
-	// 리롤 티켓 확인 (ASC에서 태그 카운트)
 	ASFPlayerState* PS = GetOwner<ASFPlayerState>();
 	if (!PS)
 	{
 		return false;
 	}
 
-	// 무료이거나 골드 충분
 	return (CachedNextRerollCost == 0) || (PS->GetGold() >= CachedNextRerollCost);
 }
 
-void USFCommonUpgradeComponent::ClearPendingChoices()
+void USFCommonUpgradeComponent::ClearPendingChoices(const FGuid& ContextId)
 {
-	PendingChoices.Empty();
+	PendingChoicesMap.Remove(ContextId);
 }

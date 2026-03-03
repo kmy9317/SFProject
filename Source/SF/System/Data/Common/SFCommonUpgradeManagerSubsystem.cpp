@@ -55,49 +55,54 @@ void USFCommonUpgradeManagerSubsystem::CacheCoreData()
     });
 }
 
-TArray<FSFCommonUpgradeChoice> USFCommonUpgradeManagerSubsystem::GenerateUpgradeOptions(ASFPlayerState* PlayerState, USFCommonLootTable* LootTable, int32 Count, FOnUpgradeComplete OnComplete, AActor* SourceInteractable)
+FGuid USFCommonUpgradeManagerSubsystem::GenerateUpgradeOptions(ASFPlayerState* PlayerState, USFCommonLootTable* LootTable, int32 Count, FOnUpgradeComplete OnComplete, AActor* SourceInteractable, TArray<FSFCommonUpgradeChoice>& OutChoices)
 {
     if (!PlayerState || !LootTable)
     {
-        return TArray<FSFCommonUpgradeChoice>();
+        return FGuid();
     }
 
-    // 같은 상자에 대한 기존 선택지가 있으면 재사용 (취소 후 재상호작용)
-    FSFCommonUpgradeContext* ExistingContext = ActiveUpgradeContexts.Find(PlayerState);
-    if (ExistingContext && SourceInteractable && ExistingContext->SourceInteractable == SourceInteractable && !ExistingContext->PendingChoices.IsEmpty())
+    // 같은 플레이어 + 같은 상자의 기존 컨텍스트 검색
+    for (auto& Pair : ActiveUpgradeContexts)
     {
-        // 콜백만 갱신 (새 어빌리티 인스턴스의 콜백)
-        ExistingContext->OnCompleteCallback = MoveTemp(OnComplete);
-        return ExistingContext->PendingChoices;
+        FSFCommonUpgradeContext& Existing = Pair.Value;
+        if (Existing.OwnerPlayerState == PlayerState
+            && SourceInteractable
+            && Existing.SourceInteractable == SourceInteractable
+            && !Existing.PendingChoices.IsEmpty())
+        {
+            Existing.OnCompleteCallback = MoveTemp(OnComplete);
+            OutChoices = Existing.PendingChoices;
+            return Existing.ContextId;
+        }
     }
-    
-    // 컨텍스트 저장
-    FSFCommonUpgradeContext& Context = ActiveUpgradeContexts.FindOrAdd(PlayerState);
+
+    FGuid NewContextId = FGuid::NewGuid();
+    FSFCommonUpgradeContext& Context = ActiveUpgradeContexts.Add(NewContextId);
+    Context.ContextId = NewContextId;
+    Context.OwnerPlayerState = PlayerState;
     Context.SourceLootTable = LootTable;
     Context.SourceInteractable = SourceInteractable;
     Context.SlotCount = Count;
     Context.OnCompleteCallback = MoveTemp(OnComplete);
-    
     Context.RerollCount = 0;
     Context.bUsedFreeReroll = false;
     Context.bUsedMoreEnhance = false;
 
-    // 선택지 생성
     Context.PendingChoices = CreateNewChoices(PlayerState, LootTable, Count);
-
-    return Context.PendingChoices;
+    OutChoices = Context.PendingChoices;
+    return NewContextId;
 }
 
-TArray<FSFCommonUpgradeChoice> USFCommonUpgradeManagerSubsystem::RegenerateChoicesInternal(ASFPlayerState* PlayerState)
+TArray<FSFCommonUpgradeChoice> USFCommonUpgradeManagerSubsystem::RegenerateChoicesInternal(const FGuid& ContextId)
 {
-    FSFCommonUpgradeContext* Context = ActiveUpgradeContexts.Find(PlayerState);
-    if (!Context || !Context->SourceLootTable)
+    FSFCommonUpgradeContext* Context = ActiveUpgradeContexts.Find(ContextId);
+    if (!Context || !Context->SourceLootTable || !Context->OwnerPlayerState.IsValid())
     {
         return TArray<FSFCommonUpgradeChoice>();
     }
 
-    // 콜백/소스/리롤카운트 등 보존하면서 선택지만 재생성
-    Context->PendingChoices = CreateNewChoices(PlayerState, Context->SourceLootTable, Context->SlotCount);
+    Context->PendingChoices = CreateNewChoices(Context->OwnerPlayerState.Get(), Context->SourceLootTable, Context->SlotCount);
     return Context->PendingChoices;
 }
 
@@ -173,17 +178,18 @@ float USFCommonUpgradeManagerSubsystem::GetPlayerLuck(ASFPlayerState* PlayerStat
 }
 
 
-TArray<FSFCommonUpgradeChoice> USFCommonUpgradeManagerSubsystem::TryRerollOptions(ASFPlayerState* PlayerState)
+TArray<FSFCommonUpgradeChoice> USFCommonUpgradeManagerSubsystem::TryRerollOptions(const FGuid& ContextId)
 {
     TArray<FSFCommonUpgradeChoice> EmptyResult;
     
-    if (!PlayerState)
+    FSFCommonUpgradeContext* Context = ActiveUpgradeContexts.Find(ContextId);
+    if (!Context || !Context->SourceLootTable)
     {
         return EmptyResult;
     }
-    
-    FSFCommonUpgradeContext* Context = ActiveUpgradeContexts.Find(PlayerState);
-    if (!Context || !Context->SourceLootTable)
+
+    ASFPlayerState* PlayerState = Context->OwnerPlayerState.Get();
+    if (!PlayerState)
     {
         return EmptyResult;
     }
@@ -194,48 +200,48 @@ TArray<FSFCommonUpgradeChoice> USFCommonUpgradeManagerSubsystem::TryRerollOption
         return EmptyResult;
     }
 
-    int32 Cost = CalculateRerollCost(PlayerState);
+    int32 Cost = CalculateRerollCost(ContextId);
     if (Cost == 0 && !Context->bUsedFreeReroll)
     {
-        // 이번 상자에서만 사용 표시
-        Context->bUsedFreeReroll = true;  
+        Context->bUsedFreeReroll = true;
     }
     else
     {
-        // 골드 부족 체크
         if (PlayerState->GetGold() < Cost)
         {
             return EmptyResult;
         }
-
-        // 골드 차감
         PlayerState->AddGold(-Cost);
         Context->RerollCount++;
     }
 
-    // 찾아낸 테이블과 개수 정보를 사용하여 리롤
-    return RegenerateChoicesInternal(PlayerState);
+    return RegenerateChoicesInternal(ContextId);
 }
 
-TArray<FSFCommonUpgradeChoice> USFCommonUpgradeManagerSubsystem::RegenerateChoicesForMoreEnhance(ASFPlayerState* PlayerState)
+TArray<FSFCommonUpgradeChoice> USFCommonUpgradeManagerSubsystem::RegenerateChoicesForMoreEnhance(const FGuid& ContextId)
 {
-    return RegenerateChoicesInternal(PlayerState);
+    return RegenerateChoicesInternal(ContextId);
 }
 
-ESFUpgradeApplyResult USFCommonUpgradeManagerSubsystem::ApplyUpgradeChoice(ASFPlayerState* PlayerState, const FGuid& ChoiceId)
+ESFUpgradeApplyResult USFCommonUpgradeManagerSubsystem::ApplyUpgradeChoice(const FGuid& ContextId, const FGuid& ChoiceId)
 {
-    if (!PlayerState || !ChoiceId.IsValid())
+    if (!ContextId.IsValid() || !ChoiceId.IsValid())
     {
         return ESFUpgradeApplyResult::Failed;
     }
 
-    FSFCommonUpgradeContext* Context = ActiveUpgradeContexts.Find(PlayerState);
+    FSFCommonUpgradeContext* Context = ActiveUpgradeContexts.Find(ContextId);
     if (!Context)
     {
         return ESFUpgradeApplyResult::Failed;
     }
 
-    // PendingChoices에서 해당 ID 찾기
+    ASFPlayerState* PlayerState = Context->OwnerPlayerState.Get();
+    if (!PlayerState)
+    {
+        return ESFUpgradeApplyResult::Failed;
+    }
+
     const FSFCommonUpgradeChoice* FoundChoice = nullptr;
     for (const FSFCommonUpgradeChoice& Choice : Context->PendingChoices)
     {
@@ -245,12 +251,8 @@ ESFUpgradeApplyResult USFCommonUpgradeManagerSubsystem::ApplyUpgradeChoice(ASFPl
             break;
         }
     }
-    
-    if (!FoundChoice)
-    {
-        return ESFUpgradeApplyResult::Failed;
-    }
-    if (!FoundChoice->UpgradeDefinition)
+
+    if (!FoundChoice || !FoundChoice->UpgradeDefinition)
     {
         return ESFUpgradeApplyResult::Failed;
     }
@@ -261,14 +263,12 @@ ESFUpgradeApplyResult USFCommonUpgradeManagerSubsystem::ApplyUpgradeChoice(ASFPl
         return ESFUpgradeApplyResult::Failed;
     }
 
-    // Fragment별 효과 적용
     for (const USFCommonUpgradeFragment* Fragment : FoundChoice->UpgradeDefinition->Fragments)
     {
         if (!Fragment)
         {
             continue;
         }
-
         if (const auto* StatBoost = Cast<USFCommonUpgradeFragment_StatBoost>(Fragment))
         {
             ApplyStatBoostFragment(ASC, StatBoost, FoundChoice->FinalMagnitude);
@@ -279,49 +279,34 @@ ESFUpgradeApplyResult USFCommonUpgradeManagerSubsystem::ApplyUpgradeChoice(ASFPl
         }
     }
 
-    // MoreEnhance 체크: 태그 있고 아직 사용 안 했으면 추가 선택
     if (!Context->bUsedMoreEnhance && ASC->HasMatchingGameplayTag(SFGameplayTags::Ability_Skill_Passive_MoreEnhance))
     {
         Context->bUsedMoreEnhance = true;
-
         const USFGameData& GameData = USFGameData::Get();
         if (FMath::FRand() <= GameData.MoreEnhanceChance)
         {
             return ESFUpgradeApplyResult::MoreEnhance;
         }
-        // 확률 실패 → 아래로 진행
     }
 
-    // 완료 콜백 실행
     if (Context->OnCompleteCallback.IsBound())
     {
         Context->OnCompleteCallback.Execute();
     }
 
-    // 컨텍스트 정리
-    ActiveUpgradeContexts.Remove(PlayerState);
+    ActiveUpgradeContexts.Remove(ContextId);
     return ESFUpgradeApplyResult::Success;
 }
 
-ESFUpgradeApplyResult USFCommonUpgradeManagerSubsystem::ApplyUpgradeChoiceByIndex(ASFPlayerState* PlayerState, int32 ChoiceIndex)
+ESFUpgradeApplyResult USFCommonUpgradeManagerSubsystem::ApplyUpgradeChoiceByIndex(const FGuid& ContextId, int32 ChoiceIndex)
 {
-    if (!PlayerState)
+    FSFCommonUpgradeContext* Context = ActiveUpgradeContexts.Find(ContextId);
+    if (!Context || !Context->PendingChoices.IsValidIndex(ChoiceIndex))
     {
         return ESFUpgradeApplyResult::Failed;
     }
 
-    FSFCommonUpgradeContext* Context = ActiveUpgradeContexts.Find(PlayerState);
-    if (!Context)
-    {
-        return ESFUpgradeApplyResult::Failed;
-    }
-
-    if (!Context->PendingChoices.IsValidIndex(ChoiceIndex))
-    {
-        return ESFUpgradeApplyResult::Failed;
-    }
-
-    return ApplyUpgradeChoice(PlayerState, Context->PendingChoices[ChoiceIndex].UniqueId);
+    return ApplyUpgradeChoice(ContextId, Context->PendingChoices[ChoiceIndex].UniqueId);
 }
 
 USFCommonUpgradeDefinition* USFCommonUpgradeManagerSubsystem::PickRandomUpgrade(const USFCommonLootTable* Table, const TSet<USFCommonUpgradeDefinition*>& ExcludedItems, const FGameplayTag& RarityTag)
@@ -455,45 +440,42 @@ void USFCommonUpgradeManagerSubsystem::ApplySkillLevelFragment(UAbilitySystemCom
     }
 }
 
-bool USFCommonUpgradeManagerSubsystem::CanReroll(ASFPlayerState* PlayerState) const
+bool USFCommonUpgradeManagerSubsystem::CanReroll(const FGuid& ContextId) const
 {
-    if (!PlayerState)
-    {
-        return false;
-    }
-
-    const FSFCommonUpgradeContext* Context = ActiveUpgradeContexts.Find(PlayerState);
+    const FSFCommonUpgradeContext* Context = ActiveUpgradeContexts.Find(ContextId);
     if (!Context || Context->PendingChoices.IsEmpty())
     {
         return false;
     }
 
-    int32 Cost = CalculateRerollCost(PlayerState);
-	
-    // 무료이거나 골드가 충분하면 가능
+    ASFPlayerState* PlayerState = Context->OwnerPlayerState.Get();
+    if (!PlayerState)
+    {
+        return false;
+    }
+
+    int32 Cost = CalculateRerollCost(ContextId);
     return (Cost == 0) || (PlayerState->GetGold() >= Cost);
 }
 
-int32 USFCommonUpgradeManagerSubsystem::CalculateRerollCost(ASFPlayerState* PlayerState) const
+int32 USFCommonUpgradeManagerSubsystem::CalculateRerollCost(const FGuid& ContextId) const
 {
-    if (!PlayerState)
-    {
-        return 0;
-    }
-
-    const FSFCommonUpgradeContext* Context = ActiveUpgradeContexts.Find(PlayerState);
+    const FSFCommonUpgradeContext* Context = ActiveUpgradeContexts.Find(ContextId);
     if (!Context)
     {
         return GetRerollCostByCount(0);
     }
 
-    // FreeReroll 태그가 있고 아직 사용 안 했으면 무료
     if (!Context->bUsedFreeReroll)
     {
-        UAbilitySystemComponent* ASC = PlayerState->GetAbilitySystemComponent();
-        if (ASC && ASC->HasMatchingGameplayTag(SFGameplayTags::Ability_Skill_Passive_FreeReroll))
+        ASFPlayerState* PlayerState = Context->OwnerPlayerState.Get();
+        if (PlayerState)
         {
-            return 0;
+            UAbilitySystemComponent* ASC = PlayerState->GetAbilitySystemComponent();
+            if (ASC && ASC->HasMatchingGameplayTag(SFGameplayTags::Ability_Skill_Passive_FreeReroll))
+            {
+                return 0;
+            }
         }
     }
 
@@ -501,21 +483,16 @@ int32 USFCommonUpgradeManagerSubsystem::CalculateRerollCost(ASFPlayerState* Play
 }
 
 
-bool USFCommonUpgradeManagerSubsystem::HasMoreEnhanceAvailable(ASFPlayerState* PlayerState) const
+bool USFCommonUpgradeManagerSubsystem::HasMoreEnhanceAvailable(const FGuid& ContextId) const
 {
+    const FSFCommonUpgradeContext* Context = ActiveUpgradeContexts.Find(ContextId);
+    if (!Context || Context->bUsedMoreEnhance)
+    {
+        return false;
+    }
+
+    ASFPlayerState* PlayerState = Context->OwnerPlayerState.Get();
     if (!PlayerState)
-    {
-        return false;
-    }
-
-    const FSFCommonUpgradeContext* Context = ActiveUpgradeContexts.Find(PlayerState);
-    if (!Context)
-    {
-        return false;
-    }
-
-    // 이미 사용했으면 불가
-    if (Context->bUsedMoreEnhance)
     {
         return false;
     }
@@ -524,12 +501,9 @@ bool USFCommonUpgradeManagerSubsystem::HasMoreEnhanceAvailable(ASFPlayerState* P
     return ASC && ASC->HasMatchingGameplayTag(SFGameplayTags::Ability_Skill_Passive_MoreEnhance);
 }
 
-void USFCommonUpgradeManagerSubsystem::ClearUpgradeContext(ASFPlayerState* PlayerState)
+void USFCommonUpgradeManagerSubsystem::ClearUpgradeContext(const FGuid& ContextId)
 {
-    if (PlayerState)
-    {
-        ActiveUpgradeContexts.Remove(PlayerState);
-    }
+    ActiveUpgradeContexts.Remove(ContextId);
 }
 
 int32 USFCommonUpgradeManagerSubsystem::GetRerollCostByCount(int32 InRerollCount) const
