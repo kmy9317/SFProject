@@ -134,8 +134,6 @@ void USFInventoryManagerComponent::RestoreFromData(const TArray<FSFSavedItemSlot
         return;
     }
 
-    int32 RestoredCount = 0;
-
     for (int32 i = 0; i < InSlots.Num(); ++i)
     {
         const FSFSavedItemSlot& Slot = InSlots[i];
@@ -156,7 +154,6 @@ void USFInventoryManagerComponent::RestoreFromData(const TArray<FSFSavedItemSlot
         }
 
         InventoryList.MarkItemDirty(Entry);
-        RestoredCount++;
     }
 }
 

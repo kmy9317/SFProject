@@ -147,6 +147,7 @@ void USFDropFunctionLibrary::SpawnDropResults(UObject* WorldContextObject, const
                 FVector2D RandPoint = FMath::RandPointInCircle(SpawnRadius);
                 FVector SpawnLocation = Location + FVector(RandPoint.X, RandPoint.Y, 0.f);
 
+                // TODO : 풀 시스템 전환
                 ASFAutoPickup* AutoPickup = World->SpawnActor<ASFAutoPickup>(PickupClass, SpawnLocation, FRotator::ZeroRotator, SpawnParams);
                 if (AutoPickup)
                 {

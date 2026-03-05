@@ -72,6 +72,10 @@
 		{
 			"Name": "PocketWorlds",
 			"Enabled": true
+		},
+		{
+			"Name": "ConsoleVariables",
+			"Enabled": true
 		}
 	]
 }
