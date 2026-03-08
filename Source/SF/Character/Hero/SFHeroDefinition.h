@@ -54,7 +54,7 @@ private:
 	UPROPERTY(EditDefaultsOnly, Category = "SF|Hero")
 	FString HeroName;
 
-	UPROPERTY(EditDefaultsOnly, Category = "SF|Hero", meta = (AssetBundles = "Lobby"))
+	UPROPERTY(EditDefaultsOnly, Category = "SF|Hero", meta = (AssetBundles = "Lobby, InGame"))
 	TSoftObjectPtr<UTexture2D> HeroIcon;
 
 	UPROPERTY(EditDefaultsOnly, Category = "SF|Hero", meta = (AssetBundles = "Lobby"))

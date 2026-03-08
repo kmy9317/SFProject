@@ -1,7 +1,10 @@
 #include "SFLoadingScreenSubsystem.h"
+
+#include "LoadingProcessTask.h"
 #include "MoviePlayer.h"
 #include "Framework/Application/SlateApplication.h"
 #include "SFLogChannels.h"
+#include "SFStageSubsystem.h"
 #include "Blueprint/UserWidget.h"
 #include "Engine/AssetManager.h"
 #include "Engine/GameViewportClient.h"
@@ -26,6 +29,16 @@ void USFLoadingScreenSubsystem::Initialize(FSubsystemCollectionBase& Collection)
             FStreamableManager::AsyncLoadHighPriority
         );
     }
+
+    if (UGameInstance* GI = GetGameInstance())
+    {
+        if (USFStageSubsystem* StageSubsystem = GI->GetSubsystem<USFStageSubsystem>())
+        {
+            //StageSubsystem->OnHardTravelBundlesReady.AddUObject(this, &ThisClass::OnBundlesReadyForHardTravel);
+            StageSubsystem->OnSeamlessTravelBundleLoadStarted.AddUObject(this, &ThisClass::OnBundleLoadStartedForSeamless);
+            StageSubsystem->OnSeamlessTravelBundlesReady.AddUObject(this, &ThisClass::OnBundlesReadyForSeamless);
+        }
+    }
     
     // 하드 트래블(OpenLevel) 감지
     FCoreUObjectDelegates::PreLoadMap.AddUObject(this, &USFLoadingScreenSubsystem::OnPreLoadMap);
@@ -49,6 +62,22 @@ void USFLoadingScreenSubsystem::Deinitialize()
 
     ConfigTableLoadHandle.Reset();
     CurrentWidgetLoadHandle.Reset();
+
+    if (BundleLoadingTask)
+    {
+        BundleLoadingTask->Unregister();
+        BundleLoadingTask = nullptr;
+    }
+
+    if (UGameInstance* GI = GetGameInstance())
+    {
+        if (USFStageSubsystem* StageSubsystem = GI->GetSubsystem<USFStageSubsystem>())
+        {
+            StageSubsystem->OnHardTravelBundlesReady.RemoveAll(this);
+            StageSubsystem->OnSeamlessTravelBundleLoadStarted.RemoveAll(this);
+            StageSubsystem->OnSeamlessTravelBundlesReady.RemoveAll(this);
+        }
+    }
     
 	Super::Deinitialize();
 }
@@ -289,7 +318,6 @@ void USFLoadingScreenSubsystem::OnPostLoadMapWithWorld(UWorld* LoadedWorld)
 {
     if (bCurrentLoadingScreenStarted)
     {
-        // 하드 트래블 완료 (bAutoCompleteWhenLoadingCompletes=true라면 엔진이 알아서 끄지만 명시적으로 호출)
         StopHardLoadingScreen();
     }
 }
@@ -381,5 +409,39 @@ void USFLoadingScreenSubsystem::OnLoadingScreenAssetLoaded()
     else
     {
         UE_LOG(LogSF, Error, TEXT("[Preload] Failed to load asset for level: %s"), *PendingLevelName);
+    }
+}
+
+void USFLoadingScreenSubsystem::OnBundlesReadyForHardTravel()
+{
+    bBundleLoadComplete = true;
+    CheckAndStopHardLoadingScreen();
+}
+
+void USFLoadingScreenSubsystem::OnBundleLoadStartedForSeamless()
+{
+    if (!BundleLoadingTask)
+    {
+        BundleLoadingTask = ULoadingProcessTask::CreateLoadingScreenProcessTask(
+            GetGameInstance(), TEXT("Loading Asset Bundle"));
+    }
+}
+
+void USFLoadingScreenSubsystem::OnBundlesReadyForSeamless()
+{
+    if (BundleLoadingTask)
+    {
+        BundleLoadingTask->Unregister();
+        BundleLoadingTask = nullptr;
+    }
+}
+
+void USFLoadingScreenSubsystem::CheckAndStopHardLoadingScreen()
+{
+    if (bMapLoadComplete && bBundleLoadComplete)
+    {
+        StopHardLoadingScreen();
+        bMapLoadComplete = false;
+        bBundleLoadComplete = false;
     }
 }

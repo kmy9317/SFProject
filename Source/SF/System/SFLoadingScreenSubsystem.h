@@ -6,6 +6,7 @@
 #include "Subsystems/GameInstanceSubsystem.h"
 #include "SFLoadingScreenSubsystem.generated.h"
 
+class ULoadingProcessTask;
 struct FStreamableHandle;
 /**
  * 맵별 로딩 스크린 설정
@@ -75,6 +76,10 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "SF|Loading")
 	void StopHardLoadingScreen();
 
+	void OnBundlesReadyForHardTravel();
+	void OnBundleLoadStartedForSeamless();
+	void OnBundlesReadyForSeamless();
+
 private:
 	// Seamless Travel 시작 감지 
 	void OnSeamlessTravelStart(UWorld* CurrentWorld, const FString& LevelName);
@@ -96,6 +101,8 @@ private:
 
 	// GameViewport에서 Widget 제거
 	void RemoveWidgetFromViewport();
+
+	void CheckAndStopHardLoadingScreen();
 
 private:
 	bool bCurrentLoadingScreenStarted;
@@ -136,5 +143,11 @@ private:
 	// 현재 설정된 SeamlessLoadingScreen 위젯 클래스 
 	UPROPERTY()
 	TSubclassOf<UUserWidget> SeamlessLoadingScreenWidgetClass;
+
+	UPROPERTY()
+	TObjectPtr<ULoadingProcessTask> BundleLoadingTask;
+
+	bool bMapLoadComplete = false;
+	bool bBundleLoadComplete = false;
 	
 };

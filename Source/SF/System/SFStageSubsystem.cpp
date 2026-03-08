@@ -51,12 +51,14 @@ bool USFStageSubsystem::ShouldCreateSubsystem(UObject* Outer) const
 
 void USFStageSubsystem::OnPreLoadMap(const FString& MapName)
 {
+    CurrentTravelType = ESFTravelType::Hard;
     UpdateStageInfoFromLevel(MapName);
     UpdateAssetBundlesForLevel(MapName);
 }
 
 void USFStageSubsystem::OnSeamlessTravelStart(UWorld* CurrentWorld, const FString& LevelName)
 {
+    CurrentTravelType = ESFTravelType::Seamless;
     UpdateStageInfoFromLevel(LevelName);
     UpdateAssetBundlesForLevel(LevelName);
 }
@@ -150,6 +152,10 @@ void USFStageSubsystem::UpdateAssetBundlesForLevel(const FString& LevelName)
     LastProcessedLevelForBundles = ShortName;
     
     USFAssetManager& AssetManager = USFAssetManager::Get();
+
+    // 이전 번들 로드 요청 취소
+    AssetManager.CancelPendingBundleLoads();
+    
     const FSFStageConfig* Config = GetStageConfigForLevel(LevelName);
     ESFLevelType LevelType = Config ? Config->LevelType : ESFLevelType::Menu;
     
@@ -159,25 +165,61 @@ void USFStageSubsystem::UpdateAssetBundlesForLevel(const FString& LevelName)
     case ESFLevelType::InGame:
         if (!AssetManager.AreInGameAssetsLoaded())
         {
-            AssetManager.LoadInGameAssets();
+            BroadcastBundleLoadStarted();
+            AssetManager.LoadInGameAssets(FStreamableDelegate::CreateUObject(this, &ThisClass::OnBundleLoadComplete));
         }
-        // Lobby 번들은 유지 (InGame에서도 Hero 정보 필요할 수 있음)
+        else
+        {
+            BroadcastBundlesReady();
+        }
+        AssetManager.UnloadLobbyAssets();
         break;
-        
     case ESFLevelType::Lobby:
-        // InGame 번들 언로드, Lobby 유지
-        AssetManager.UnloadInGameAssets();
         if (!AssetManager.AreLobbyAssetsLoaded())
         {
-            AssetManager.LoadLobbyAssets();
+            BroadcastBundleLoadStarted();
+            AssetManager.LoadLobbyAssets(FStreamableDelegate::CreateUObject(this, &ThisClass::OnBundleLoadComplete));
         }
-        break;
-        
-    case ESFLevelType::Menu:
-        // 모든 번들 언로드 (메모리 최소화)
+        else
+        {
+            BroadcastBundlesReady();
+        }
         AssetManager.UnloadInGameAssets();
-        // Lobby는 필요시 언로드 
-        // AssetManager.UnloadLobbyAssets();
+        break;
+    case ESFLevelType::Menu:
+        AssetManager.UnloadInGameAssets();
+        AssetManager.UnloadLobbyAssets();
+        BroadcastBundlesReady();
         break;
     }
+}
+
+void USFStageSubsystem::BroadcastBundleLoadStarted()
+{
+    if (CurrentTravelType == ESFTravelType::Hard)
+    {
+        OnHardTravelBundleLoadStarted.Broadcast();
+    }
+    else if (CurrentTravelType == ESFTravelType::Seamless)
+    {
+        OnSeamlessTravelBundleLoadStarted.Broadcast();
+    }
+}
+
+void USFStageSubsystem::BroadcastBundlesReady()
+{
+    if (CurrentTravelType == ESFTravelType::Hard)
+    {
+        OnHardTravelBundlesReady.Broadcast();
+    }
+    else if (CurrentTravelType == ESFTravelType::Seamless)
+    {
+        OnSeamlessTravelBundlesReady.Broadcast();
+    }
+    CurrentTravelType = ESFTravelType::None;
+}
+
+void USFStageSubsystem::OnBundleLoadComplete()
+{
+    BroadcastBundlesReady();
 }
