@@ -7,6 +7,17 @@
 
 struct FStreamableHandle;
 
+UENUM()
+enum class ESFTravelType : uint8
+{
+	None,
+	Hard,
+	Seamless
+};
+
+DECLARE_MULTICAST_DELEGATE(FOnBundleLoadStarted);
+DECLARE_MULTICAST_DELEGATE(FOnBundlesReady);
+
 /**
  * 
  */
@@ -56,6 +67,14 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "SF|Stage")
 	int32 GetCurrentStageIndex() const { return CurrentStageInfo.StageIndex; }
 
+	// Hard Travel용
+	FOnBundleLoadStarted OnHardTravelBundleLoadStarted;
+	FOnBundlesReady OnHardTravelBundlesReady;
+
+	// Seamless Travel용
+	FOnBundleLoadStarted OnSeamlessTravelBundleLoadStarted;
+	FOnBundlesReady OnSeamlessTravelBundlesReady;
+
 private:
 	// Travel 감지 콜백
 	void OnPreLoadMap(const FString& MapName);
@@ -69,6 +88,9 @@ private:
 	void OnConfigTableLoaded();
 
 	void UpdateAssetBundlesForLevel(const FString& LevelName);
+	void BroadcastBundleLoadStarted();
+	void BroadcastBundlesReady();
+	void OnBundleLoadComplete();
 
 private:
 	UPROPERTY()
@@ -82,8 +104,10 @@ private:
 
 	UPROPERTY(Transient)
 	TObjectPtr<UDataTable> CachedConfigTable;
-
+	
 	TSharedPtr<FStreamableHandle> ConfigTableLoadHandle;
+
+	ESFTravelType CurrentTravelType = ESFTravelType::None;
 
 	// 중복 번들 로드 방지
 	FString LastProcessedLevelForBundles;

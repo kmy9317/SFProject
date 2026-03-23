@@ -8,7 +8,16 @@
 struct FSFCommonUpgradeChoice;
 class USFCommonLootTable;
 
-DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FOnUpgradeChoicesReceived, const TArray<FSFCommonUpgradeChoice>&, Choices, int32, NextRerollCost);
+USTRUCT()
+struct FSFPendingUpgradeData
+{
+	GENERATED_BODY()
+
+	UPROPERTY()
+	TArray<FSFCommonUpgradeChoice> Choices;
+};
+
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_ThreeParams(FOnUpgradeChoicesReceived, const FGuid&, ContextId, const TArray<FSFCommonUpgradeChoice>&, Choices, int32, NextRerollCost);
 DECLARE_DYNAMIC_MULTICAST_DELEGATE(FOnUpgradeApplied);
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnUpgradeApplyFailed, const FText&, Reason);
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnRerollFailed, const FText&, Reason);
@@ -24,35 +33,27 @@ class SF_API USFCommonUpgradeComponent : public UPlayerStateComponent
 public:
 	USFCommonUpgradeComponent(const FObjectInitializer& ObjectInitializer = FObjectInitializer::Get());
 
-	void RequestGenerateChoices(USFCommonLootTable* LootTable, int32 StageIndex, int32 Count, FOnUpgradeComplete OnComplete = FOnUpgradeComplete(), AActor* SourceInteractable = nullptr);
+	FGuid RequestGenerateChoices(USFCommonLootTable* LootTable, int32 StageIndex, int32 Count, FOnUpgradeComplete OnComplete = FOnUpgradeComplete(), AActor* SourceInteractable = nullptr);
 
 	UFUNCTION(BlueprintCallable, Category = "SF|Upgrade")
-	void RequestApplyUpgrade(const FGuid& ChoiceId);
+	void RequestApplyUpgrade(const FGuid& ContextId, const FGuid& ChoiceId);
 
 	UFUNCTION(BlueprintCallable, Category = "SF|Upgrade")
-	void RequestApplyUpgradeByIndex(int32 ChoiceIndex);
+	void RequestApplyUpgradeByIndex(const FGuid& ContextId, int32 ChoiceIndex);
 
 	UFUNCTION(BlueprintCallable, Category = "SF|Upgrade")
-	void RequestReroll();
-
-	// 현재 대기 중인 선택지
-	UFUNCTION(BlueprintPure, Category = "SF|Upgrade")
-	const TArray<FSFCommonUpgradeChoice>& GetPendingChoices() const { return PendingChoices; }
-
-	// 선택 대기 중인지 
-	UFUNCTION(BlueprintPure, Category = "SF|Upgrade")
-	bool HasPendingChoices() const { return !PendingChoices.IsEmpty(); }
-
+	void RequestReroll(const FGuid& ContextId);
+	
 	// 다음 리롤 비용 조회 (UI 표시용)
 	UFUNCTION(BlueprintPure, Category = "SF|Upgrade")
 	int32 GetNextRerollCost() const { return CachedNextRerollCost; }
 	
 	// 리롤 가능 여부 
 	UFUNCTION(BlueprintPure, Category = "SF|Upgrade")
-	bool CanReroll() const;
+	bool CanReroll(const FGuid& ContextId) const;
 	
 	UFUNCTION(BlueprintCallable, Category = "SF|Upgrade")
-	void ClearPendingChoices();
+	void ClearPendingChoices(const FGuid& ContextId);
 
 	UFUNCTION(BlueprintPure, Category = "SF|Upgrade")
 	bool IsPendingExtraSelection() const { return bPendingExtraSelection; }
@@ -61,7 +62,7 @@ protected:
 
 	// 서버 → 클라이언트: 선택지 전송
 	UFUNCTION(Client, Reliable)
-	void Client_ReceiveUpgradeChoices(const TArray<FSFCommonUpgradeChoice>& Choices, bool bIsExtraSelection, int32 NextRerollCost);
+	void Client_ReceiveUpgradeChoices(const FGuid& ContextId, const TArray<FSFCommonUpgradeChoice>& Choices, bool bIsExtraSelection, int32 NextRerollCost);
 
 	// 서버 → 클라이언트: 적용 완료 알림 
 	UFUNCTION(Client, Reliable)
@@ -77,11 +78,11 @@ protected:
 
 	// 클라이언트 → 서버: 선택 적용 요청
 	UFUNCTION(Server, Reliable)
-	void Server_RequestApplyUpgrade(const FGuid& ChoiceId);
+	void Server_RequestApplyUpgrade(const FGuid& ContextId, const FGuid& ChoiceId);
 
 	// 클라이언트 → 서버: 리롤 요청 
 	UFUNCTION(Server, Reliable)
-	void Server_RequestReroll();
+	void Server_RequestReroll(const FGuid& ContextId);
 
 public:
 
@@ -100,7 +101,7 @@ public:
 private:
 	// 클라이언트에서 캐싱된 선택지 (UI 표시용)
 	UPROPERTY()
-	TArray<FSFCommonUpgradeChoice> PendingChoices;
+	TMap<FGuid, FSFPendingUpgradeData> PendingChoicesMap;
 
 	// 현재 스테이지 (리롤 시 재사용)
 	UPROPERTY()

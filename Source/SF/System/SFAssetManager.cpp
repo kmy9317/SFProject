@@ -35,10 +35,7 @@ void USFAssetManager::PreBeginPIE(bool bStartSimulate)
 	GetGameData();
     GetItemData();
     GetUIData();
-	if (!AreLobbyAssetsLoaded())
-	{
-		LoadAllPrimaryAssets();
-	}
+	LoadAllPrimaryAssets();
 }
 #endif
 
@@ -112,31 +109,6 @@ void USFAssetManager::LoadAllPrimaryAssets()
             GetPrimaryAssetIdList(AssetType, AssetIds);
             UE_LOG(LogSF, Log, TEXT("  - %s: %d assets loaded"), *AssetType.ToString(), AssetIds.Num());
         }
-    }
-
-    // 2단계: Lobby 번들 동기 로드(현재는 메인 메뉴 진입시에 Lobby에 필요한 에셋 번들 로드)
-    TArray<FPrimaryAssetId> AllAssetIds;
-    for (const FPrimaryAssetType& AssetType : ManagedTypes)
-    {
-        TArray<FPrimaryAssetId> TypeAssetIds;
-        GetPrimaryAssetIdList(AssetType, TypeAssetIds);
-        AllAssetIds.Append(TypeAssetIds);
-    }
-
-    if (AllAssetIds.Num() > 0)
-    {
-        TArray<FName> BundlesToLoad;
-        BundlesToLoad.Add(TEXT("Lobby"));
-
-        TSharedPtr<FStreamableHandle> LobbyHandle = LoadPrimaryAssets(AllAssetIds, BundlesToLoad);
-        if (LobbyHandle.IsValid())
-        {
-            LobbyHandle->WaitUntilComplete(0.0f, false);
-        }
-        BundleHandles.Add(TEXT("Lobby"), LobbyHandle);
-        BundleAssetTypes.Add(TEXT("Lobby"), ManagedTypes);
-
-        OnBundleLoaded(TEXT("Lobby"));
     }
 }
 
@@ -340,6 +312,8 @@ void USFAssetManager::OnBundleLoaded(FName BundleName)
         Callback->ExecuteIfBound();
         PendingBundleCallbacks.Remove(BundleName);
     }
+
+    OnBundleLoadCompleted.Broadcast(BundleName);
 }
 
 void USFAssetManager::UnloadBundle(FName BundleName)
@@ -487,4 +461,17 @@ UPrimaryDataAsset* USFAssetManager::LoadGameDataOfClass(TSubclassOf<UPrimaryData
     }
 
     return Asset;
+}
+
+void USFAssetManager::CancelPendingBundleLoads()
+{
+    for (auto& Pair : BundleHandles)
+    {
+        if (Pair.Value.IsValid() && !Pair.Value->HasLoadCompleted())
+        {
+            Pair.Value->CancelHandle();
+            Pair.Value.Reset();
+        }
+    }
+    PendingBundleCallbacks.Empty();
 }

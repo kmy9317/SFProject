@@ -15,6 +15,8 @@ class USFGameData;
 class USFPawnData;
 class USFHeroDefinition;
 
+DECLARE_MULTICAST_DELEGATE_OneParam(FOnBundleLoadCompleted, FName /*BundleName*/);
+
 /**
  * 
  */
@@ -69,6 +71,8 @@ public:
 	void LoadInGameAssets(const FStreamableDelegate& OnComplete = FStreamableDelegate());
 	void UnloadInGameAssets() { UnloadBundle(TEXT("InGame")); }
 	bool AreInGameAssetsLoaded() const { return IsBundleLoaded(TEXT("InGame")); }
+
+	void CancelPendingBundleLoads();
 	
 
 protected:
@@ -97,6 +101,9 @@ private:
 	void OnPrimaryAssetTypeLoaded(FPrimaryAssetType AssetType);
 	void OnBundleLoaded(FName BundleName);
 	TArray<FPrimaryAssetType> GetManagedPrimaryAssetTypes() const;
+
+public:
+	FOnBundleLoadCompleted OnBundleLoadCompleted;
 
 protected:
 	
