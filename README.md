@@ -41,8 +41,6 @@
 | :--------------------------------------------------------------------------------------------------------------------------------------------: | :--------------------------------------------------------------------------------------------------------------------------------------------: | :-------------------------------------------------------------------------------------------------------------------------------------------------------------: |
 | [![Demo](https://github.com/user-attachments/assets/29ce31fd-15bc-476f-9364-9f841f99bae0)](https://www.youtube.com/watch?v=5vq2L-Wd2ok&t=302s) | [![Ending](https://github.com/user-attachments/assets/29ce31fd-15bc-476f-9364-9f841f99bae0)](https://www.youtube.com/watch?v=zWCPcy0zPuE&t=6s) | [![PPT](https://github.com/user-attachments/assets/29ce31fd-15bc-476f-9364-9f841f99bae0)](https://www.canva.com/design/DAG9z8Sl1V4/CFxDLYju_2sQO6aJiEy08w/edit) |
 
-> 📖 **상세 트러블슈팅·기술적 의사결정 과정**은 위 [Presentation 자료](https://www.canva.com/design/DAG9z8Sl1V4/CFxDLYju_2sQO6aJiEy08w/edit)에서 확인하실 수 있습니다.
-
 ---
 
 ## 👤 담당 파트 (김민영, 본인)
