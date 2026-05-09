@@ -22,7 +22,8 @@
 8. [AI 및 몬스터 시스템](#-ai-및-몬스터-시스템)
 9. [인벤토리 및 스킬 시스템](#-인벤토리-및-스킬-시스템)
 10. [초기화 및 스테이지 관리](#-초기화-및-스테이지-관리)
-11. [팀원 및 역할](#-팀원-및-역할-team--roles)
+11. [성능 최적화](#-성능-최적화)
+12. [팀원 및 역할](#-팀원-및-역할-team--roles)
 
 ---
 
@@ -53,7 +54,9 @@
 | **플레이어 라이프사이클** | 로비 ↔ 인게임 플레이어 초기화, 사망/관전/부활 시스템, 로딩 스크린 설계 | [💀 전투 및 사망](#-전투-및-사망-아키텍처) · [🏗 초기화 및 스테이지](#-초기화-및-스테이지-관리) |
 | **인벤토리 / 강화**       | 아이템 시스템, 일반 강화, 진화(Skill Upgrade) 시스템                   | [🎒 인벤토리 및 스킬](#-인벤토리-및-스킬-시스템)                                                |
 | **스테이지 / 게임 흐름**  | 스테이지 정보 관리, 적 정보 관리, 플레이어별 인게임 정보 관리          | [🏗 초기화 및 스테이지](#-초기화-및-스테이지-관리)                                              |
-| **GAS 전투 프레임워크**   | GAS 기반 근접 스킬 타입별 프레임워크 설계                              | [🎒 인벤토리 및 스킬](#-인벤토리-및-스킬-시스템)                                                |
+| **GAS 스킬 프레임워크**   | GAS 기반 팔라딘/소서러 스킬 프레임워크 및 상호작용 시스템 설계         | [🎒 인벤토리 및 스킬](#-인벤토리-및-스킬-시스템)                                                |
+| **네트워크 동기화**       | Motion Warping 동기화 (이동 예측 데이터 확장)                          | [🏃 캐릭터 및 로코모션](#-캐릭터-및-로코모션-locomotion)                                        |
+| **성능 최적화**           | 스킬 액터 오브젝트 풀링, 매 프레임 부하 분산 (Tick → Timer)            | [⚡ 성능 최적화](#-성능-최적화)                                                                  |
 | **아키텍처**              | UI 연동 아키텍처 설계 (위젯 컨트롤러 패턴)                             | 전 영역                                                                                         |
 
 ---
@@ -122,12 +125,12 @@
 
 ### Tactical Death & Spectator
 
-**"죽음 이후의 경험까지 설계된 고성능 관전 시스템"**
+**"죽음 이후의 경험까지 설계된 관전 시스템"**
 
-- **Decoupled Death Flow**: `AttributeSet`의 체력 고갈 시 델리게이트를 통해 어빌리티(`SFGA_Hero_Death`)와 UI를 동시에 호출하는 응집도 높은 구조.
+- **Decoupled Death Flow**: `AttributeSet`의 체력 고갈 시 델리게이트를 통해 어빌리티(`SFGA_Hero_Death`)와 UI를 동시에 호출하는 결합도 낮은 구조.
 - **Optimized Spectator Networking**:
   - **Bandwidth Efficiency**: 관전자가 존재할 때만 `Death Spectate Component` 활성화.
-  - **Unreliable RPC Strategy**: 30hz 주기의 Unreliable RPC로 카메라 데이터를 전송하여 실시간성 확보.
+  - **Unreliable RPC Strategy**: 30Hz 주기의 Unreliable RPC로 카메라 데이터를 전송하여 실시간성 확보.
   - **Dead Reckoning**: 낮은 업데이트 주기에서도 클라이언트측 선형 보간을 통해 부드러운 관전 화면 구현.
 - **Revive & Last Stand**: 다운 상태 → 팀원 상호작용 부활 → 사망 → 관전의 4단계 라이프사이클을 GameplayTag·GameplayCue 중심으로 분리 설계.
 
@@ -142,8 +145,8 @@
 
 ### 2) 지능형 행동 제어
 
-- **Hybrid AI**: `AIPerception`, Threat 등 몬스터별로 각기 다른 타겟팅 시스템 구현 + `USFEnemyCombatComponent`를 통한 거리/각도 기반 최적 어빌리티 선택(`SelectAbility`).
-- **Dragon Movement**: `Grounded`부터 `Diving`, `Hovering`까지 포함된 비행 상태 머신 구현.
+- **Hybrid AI**: `AIPerception`, Threat 등 몬스터별로 각기 다른 타겟팅 시스템 구현. `USFEnemyCombatComponent`를 통해 거리/각도 기반 최적 어빌리티 선택(`SelectAbility`).
+- **Dragon Movement**: `Grounded`, `Diving`, `Hovering` 등을 포함한 상태 머신 구현.
 - **GAS 기반 공격**: 모든 패턴을 `GameplayAbility`로 구현하고 `CalcAIScore`를 통해 AI가 최적의 패턴을 선택하도록 설계.
 
 ---
@@ -155,12 +158,12 @@
 - **Definition/Instance 분리**: `USFItemDefinition`(불변 데이터)과 `USFItemInstance`(런타임 데이터)를 분리하여 메모리 사용량 최적화.
 - **Fragment 패턴**: 아이템 기능(소비, 자동획득, 장비, 스탯변경)을 조립식 Fragment로 정의하여 신규 아이템 추가 시 코드 수정 최소화.
 - **FastArraySerializer**: 네트워크 복제 시 변경된 슬롯 데이터만 전송하여 대역폭 최적화.
-- **Quickbar Component**: 컨트롤러 단위 4슬롯 빠른 사용 시스템.
+- **Quickbar Component**: PlayerController 단위 4슬롯 빠른 사용 시스템.
 
 ### 2) 강화 / 진화 (Roguelike Progression)
 
 - **일반 강화 (Common Upgrade)**: 스테이지 클리어 보상으로 획득한 자원을 소모하여 스탯 상승.
-- **스킬 진화 (Skill Evolution)**: 보스 클리어 후 3장 카드 선택 UI를 통한 스킬 분기 진화 — 동일 스킬이 속성/패턴별로 분화.
+- **스킬 진화 (Skill Evolution)**: 보스 클리어 후 3장 카드 선택 UI를 통한 스킬 분기 — 동일 스킬이 속성/패턴별로 분화.
 - **컨텍스트 분리 설계**: 강화·진화 로직을 별도 컴포넌트로 격리하여 PlayerState 비대화 방지.
 
 ### 3) 히어로 스킬 프레임워크 (GAS 기반 근접 스킬)
@@ -183,7 +186,7 @@
 
 ### 2) 스테이지 / 적 정보 관리
 
-- **GameState Manager 패턴**: `SFStageManagerComponent`(현재 스테이지·보스 추적·플레이어 수 기반 적 스케일링) + `SFEnemyManagerComponent`(스폰 추적·전멸 감지) + `SFPortalManagerComponent`(포탈 활성화) 분리 설계.
+- **GameState Manager 패턴**: `SFStageManagerComponent`(현재 스테이지·보스 추적·플레이어 수 기반 적 스케일링), `SFEnemyManagerComponent`(스폰 추적·전멸 감지), `SFPortalManagerComponent`(포탈 활성화)로 분리 설계.
 - **플레이어별 인게임 정보 관리**: `PlayerState` 단위 통계·강화 컴포넌트 격리 (`SFPermanentUpgradeComponent`, `SFCommonUpgradeComponent`, `SFPlayerStatsComponent`).
 
 ### 3) 로딩 시스템
@@ -194,6 +197,25 @@
 
 ---
 
+## ⚡ 성능 최적화
+
+### 1) Object Pooling for Skill Actors
+
+**"멀티플레이 환경에서의 스킬 액터 풀링 최적화"**
+
+- **Deferred Spawn + Replication Suspension**: 예열 액터를 일반 스폰으로 만들면 기본 객체의 복제 플래그가 켜진 상태라 네트워크 등록이 완료되어 불필요한 클라이언트 복제가 발생. 지연 스폰 + 복제 비활성으로 예열 단계 네트워크 등록 차단, 첫 활성화 이후에만 복제 활성화.
+- **Dormancy-Based Recycling**: 반납 시 액터를 파괴하지 않고 복제 휴면 상태로 전환해 인스턴스를 유지한 채 복제 트래픽만 차단. 재사용 시 휴면 해제로 기존 인스턴스 그대로 활용.
+- **Result**: 스킬 액터 준비 비용 **58% 감소** (1.2ms → 0.5ms, Unreal Insights 측정)
+
+### 2) Frame Load Distribution
+
+**"매 프레임 부하 분산"**
+
+- **Tick → Timer Migration**: Reticle 위치 갱신, 장판 끌어들이기 판정 등 매 프레임 Tick 로직을 일정 간격 Timer로 교체.
+- **Spike Avoidance**: 엔진 내부 무거운 작업이 집중된 프레임에도 반드시 부하가 더해지던 구조를 호출 간격 설정으로 회피.
+
+---
+
 ## 👨‍💻 팀원 및 역할 (Team & Roles)
 
 | 이름                | 역할                        | 담당 파트                                                                                                                                                                                           |
@@ -201,7 +223,7 @@
 | **박준범**          | Lead AI Programmer          | Boss AI 아키텍처, GAS 전투 시스템 설계                                                                                                                                                              |
 | **안지호**          | AI Programmer               | Enemy Grunt / Enemy Elite AI 제작                                                                                                                                                                   |
 | **곽준상**          | Level Designer              | 레벨 디자인 구조 설계                                                                                                                                                                               |
-| **김민영** _(본인)_ | Gameplay Systems Programmer | 로비↔인게임 플레이어 초기화, 인벤토리/아이템, 일반 강화·진화 시스템, Motion Warping 동기화, GAS 기반 팔라딘/소서러 스킬 구조 설계, GAS 기반 상호작용 시스템 설계, 플레이어별 인게임 정보 관리, 사망/관전/부활/로딩스크린|
+| **김민영**  | Gameplay Systems Programmer | 로비↔인게임 플레이어 초기화, 인벤토리/아이템, 일반 강화·진화 시스템, GAS 기반 팔라딘/소서러 스킬 프레임워크 및 상호작용 시스템 설계, Motion Warping 동기화, 오브젝트 풀링·매 프레임 부하 분산, 스테이지/적/플레이어별 인게임 정보 관리, 사망/관전/부활/로딩스크린 |
 | **최윤호**          | Combat & Camera Programmer  | 3인칭 카메라 & 하이브리드 락온, 캐릭터 로코모션(회피/전력질주)                                                                          |
 | **이정국**          | UI/UX Programmer            | InGame/OutGame UI 개발 및 데이터 연동                                                                                                                                                               |
 | **허중영**          | Online & Backend Programmer | OSS 연동 및 메인메뉴↔로비 접속 흐름 구현, PlayFab 저장/복구, 소서러/팔라딘 스킬 서브 개발                                                                                                           |
