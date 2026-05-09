@@ -201,8 +201,8 @@
 | **박준범**          | Lead AI Programmer          | Boss AI 아키텍처, GAS 전투 시스템 설계                                                                                                                                                              |
 | **안지호**          | AI Programmer               | Enemy Grunt / Enemy Elite AI 제작                                                                                                                                                                   |
 | **곽준상**          | Level Designer              | 레벨 디자인 구조 설계                                                                                                                                                                               |
-| **김민영** _(본인)_ | Gameplay Systems Programmer | 로비↔인게임 플레이어 초기화, 인벤토리/아이템, 일반 강화·진화 시스템, 스테이지/적 정보 관리, 플레이어별 인게임 정보 관리, UI 연동 아키텍처, 사망/관전/부활/로딩스크린, GAS 기반 근접 스킬 프레임워크 |
-| **최윤호**          | Combat & Camera Programmer  | 3인칭 카메라 & 하이브리드 락온, 캐릭터 로코모션(회피/전력질주) 및 Motion Warping 동기화, 팔라딘/소서러 기본 공격·콤보 로직                                                                          |
+| **김민영** _(본인)_ | Gameplay Systems Programmer | 로비↔인게임 플레이어 초기화, 인벤토리/아이템, 일반 강화·진화 시스템, Motion Warping 동기화, GAS 기반 팔라딘/소서러 스킬 구조 설계, GAS 기반 상호작용 시스템 설계, 플레이어별 인게임 정보 관리, 사망/관전/부활/로딩스크린|
+| **최윤호**          | Combat & Camera Programmer  | 3인칭 카메라 & 하이브리드 락온, 캐릭터 로코모션(회피/전력질주)                                                                          |
 | **이정국**          | UI/UX Programmer            | InGame/OutGame UI 개발 및 데이터 연동                                                                                                                                                               |
 | **허중영**          | Online & Backend Programmer | OSS 연동 및 메인메뉴↔로비 접속 흐름 구현, PlayFab 저장/복구, 소서러/팔라딘 스킬 서브 개발                                                                                                           |
 
