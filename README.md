@@ -2,7 +2,7 @@
 
 > **Unreal Engine 5 GAS 기반의 3인칭 로그라이크 멀티플레이 ARPG**
 
-`Soul Forged`는 언리얼 엔진의 **GAS(Gameplay Ability System)**를 코어 아키텍처로 채택하여 개발된 멀티플레이 ARPG입니다. 모듈화된 프레임워크, 네트워크 최적화, 그리고 데이터 주도형(Data-Driven) 설계를 통해 확장성 있는 게임 구조를 지향합니다.
+`Soul Forged`는 언리얼 엔진의 GAS(Gameplay Ability System)를 코어 아키텍처로 채택하여 개발된 멀티플레이 ARPG입니다. 모듈화된 프레임워크, 네트워크 최적화, 그리고 데이터 주도형(Data-Driven) 설계를 통해 확장성 있는 게임 구조를 지향합니다.
 
 <p align="center">
   <img src="https://github.com/user-attachments/assets/6e01bcef-70c7-4707-b62b-33e11b84ff4d" alt="Soul Forged" />
