@@ -90,9 +90,6 @@
 **"네트워크 환경을 고려한 예측형 이동 시스템"**
 
 - **Predictive Network Movement**: `SFHeroMovementComponent`를 확장하여 서버-클라이언트 간 이동 예측(Prediction) 오차 최소화.
-- **State-Driven Gait Control**: Gait 열거형 변수를 통한 상태 머신 설계.
-- **Unidirectional Transition**: 관성을 고려하여 Sprint 중 즉각적인 Walk 전환을 방지하는 물리적 제약 로직 구현.
-- **Seamless Crouch**: 어떤 이동 상태에서도 즉각적인 웅크리기 전환 및 캡슐 컴포넌트 크기 동기화.
 - **Motion Warping Sync**: CMC(CharacterMovementComponent) 이동 패킷에 Warp 타겟 데이터를 포함시켜 재시뮬레이션 시에도 공격 방향 보존.
 
 ---
@@ -114,7 +111,6 @@
 - **Hybrid Targeting Algorithm**: `(Distance Score * α) + (Angle Score * β)` 공식을 활용하여 화면 중앙 가중치 기반 타겟 선정.
 - **Occlusion Grace Period**: 시야 가림 발생 시 즉시 해제하지 않고 유예 시간을 두어 전투 연속성 보장.
 - **Interface-Driven Modularity**: `ISFLockOnInterface`를 통해 몬스터, 오브젝트 등 클래스에 구애받지 않는 범용 타겟팅 구현.
-- **Multi-Socket Targeting**: 보스(Dragon)의 경우 머리, 다리 등 다중 소켓 타겟팅을 지원하여 부위 파괴 메커니즘 토대 마련.
 
 ---
 
@@ -122,14 +118,12 @@
 
 ### Tactical Death & Spectator
 
-**"죽음 이후의 경험까지 설계된 관전 시스템"**
+**"사망 이후의 관전 시스템"**
 
-- **Decoupled Death Flow**: `AttributeSet`의 체력 고갈 시 델리게이트를 통해 어빌리티(`SFGA_Hero_Death`)와 UI를 동시에 호출하는 결합도 낮은 구조.
+- **Decoupled Death Flow**: `AttributeSet`의 체력 고갈 시 델리게이트를 통해 사망 어빌리티(`SFGA_Hero_Death`)와 UI를 동시에 호출하는 구조.
 - **Optimized Spectator Networking**:
   - **Bandwidth Efficiency**: 관전자가 존재할 때만 `Death Spectate Component` 활성화.
   - **Unreliable RPC Strategy**: 30Hz 주기의 Unreliable RPC로 카메라 데이터를 전송하여 실시간성 확보.
-  - **Dead Reckoning**: 낮은 업데이트 주기에서도 클라이언트측 선형 보간을 통해 부드러운 관전 화면 구현.
-- **Revive & Last Stand**: 다운 상태 → 팀원 상호작용 부활 → 사망 → 관전의 4단계 라이프사이클을 GameplayTag·GameplayCue 중심으로 분리 설계.
 
 ---
 
@@ -152,20 +146,20 @@
 
 ### 1) 아이템 및 인벤토리
 
-- **Definition/Instance 분리**: `USFItemDefinition`(불변 데이터)과 `USFItemInstance`(런타임 데이터)를 분리하여 메모리 사용량 최적화.
+- **Definition/Instance 분리**: `USFItemDefinition`(정적 데이터)과 `USFItemInstance`(런타임 데이터)를 분리 설계.
 - **Fragment 패턴**: 아이템 기능(소비, 자동획득, 장비, 스탯변경)을 조립식 Fragment로 정의하여 신규 아이템 추가 시 코드 수정 최소화.
 - **FastArraySerializer**: 네트워크 복제 시 변경된 슬롯 데이터만 전송하여 대역폭 최적화.
-- **Quickbar Component**: PlayerController 단위 4슬롯 빠른 사용 시스템.
+- **Quickbar Component**: PlayerController 단위 4슬롯 퀵 사용 시스템.
 
 ### 2) 강화 / 진화 (Roguelike Progression)
 
-- **일반 강화 (Common Upgrade)**: 스테이지 클리어 보상으로 획득한 자원을 소모하여 스탯 상승.
-- **스킬 진화 (Skill Evolution)**: 보스 클리어 후 3장 카드 선택 UI를 통한 스킬 분기 — 동일 스킬이 속성/패턴별로 분화.
-- **컨텍스트 분리 설계**: 강화·진화 로직을 별도 컴포넌트로 격리하여 PlayerState 비대화 방지.
+- **일반 강화 (Common Upgrade)**: 스테이지 클리어 보상으로써 영구 재화를 소모하여 스탯 상승.
+- **스킬 진화 (Skill Evolution)**: 보스 클리어 후 3장 카드 선택하여 어빌리티 진화.
+- **컨텍스트 분리 설계**: 강화·진화 로직을 별도 컴포넌트로 분리하여 PlayerState 비대화 방지.
 
 ### 3) 히어로 스킬 프레임워크 (GAS 기반 근접 스킬)
 
-- **타입별 베이스 클래스**: Thrust / Combo / Parry 계열 등 근접 스킬 카테고리별 베이스 어빌리티를 구축하여 신규 스킬 추가 시 보일러플레이트 최소화.
+- **타입별 베이스 클래스**: Thrust / Combo / Parry 계열 등 근접 스킬 카테고리별 베이스 어빌리티를 구축하여 신규 스킬 추가 시 코드 재사용 최소화.
 - **Combo System**: 연속 입력을 통한 콤보 공격 및 GAS 기반의 쿨다운/코스트 관리.
 - **Motion Warping**: Windup 구간 동안 타겟을 추적하여 조작감 개선.
 
@@ -178,13 +172,12 @@
 - **3단계 순차 초기화**:
   1. **Data Injection**: 서버에서 `PawnData` 비동기 로드 및 주입.
   2. **State Propagation**: `InitState` 기반 상태 변경 감지 및 전파.
-  3. **Function Init**: ASC 초기화 및 AI/상태 머신 활성화.
+  3. **Function Init**: ASC, UI 등 캐릭터 관련 초기화
 - **Seamless Travel 데이터 보존**: `CopyProperties()`와 `SavedASCData`를 통해 스테이지 이동 시 스탯/아이템 데이터 유지.
 
 ### 2) 스테이지 / 적 정보 관리
 
 - **GameState Manager 패턴**: `SFStageManagerComponent`(현재 스테이지·보스 추적·플레이어 수 기반 적 스케일링), `SFEnemyManagerComponent`(스폰 추적·전멸 감지), `SFPortalManagerComponent`(포탈 활성화)로 분리 설계.
-- **플레이어별 인게임 정보 관리**: `PlayerState` 단위 통계·강화 컴포넌트 격리 (`SFPermanentUpgradeComponent`, `SFCommonUpgradeComponent`, `SFPlayerStatsComponent`).
 
 ### 3) 로딩 시스템
 
@@ -220,7 +213,7 @@
 | **박준범**          | Lead AI Programmer          | Boss AI 아키텍처, GAS 전투 시스템 설계                                                                                                                                                              |
 | **안지호**          | AI Programmer               | Enemy Grunt / Enemy Elite AI 제작                                                                                                                                                                   |
 | **곽준상**          | Level Designer              | 레벨 디자인 구조 설계                                                                                                                                                                               |
-| **김민영**  | Gameplay Systems Programmer | 로비↔인게임 플레이어 초기화, 인벤토리/아이템, 일반 강화·진화 시스템, GAS 기반 팔라딘/소서러 스킬 프레임워크 및 상호작용 시스템 설계, Motion Warping 동기화, 오브젝트 풀링·매 프레임 부하 분산, 스테이지/적/플레이어별 인게임 정보 관리, 사망/관전/부활/로딩스크린 |
+| **김민영**  | Gameplay Systems Programmer | 로비↔인게임 플레이어 초기화, 인벤토리/아이템, 일반 강화·진화 시스템, GAS 기반 팔라딘/소서러 스킬 프레임워크 및 상호작용 시스템 설계, Motion Warping 동기화, 오브젝트 풀링·매 프레임 부하 분산, 사망/관전/부활/로딩스크린 |
 | **최윤호**          | Combat & Camera Programmer  | 3인칭 카메라 & 하이브리드 락온, 캐릭터 로코모션(회피/전력질주)                                                                          |
 | **이정국**          | UI/UX Programmer            | InGame/OutGame UI 개발 및 데이터 연동                                                                                                                                                               |
 | **허중영**          | Online & Backend Programmer | OSS 연동 및 메인메뉴↔로비 접속 흐름 구현, PlayFab 저장/복구, 소서러/팔라딘 스킬 서브 개발                                                                                                           |
