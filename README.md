@@ -37,9 +37,9 @@
 | **플랫폼**    | PC (Steam)                                                                            |
 | **주요 특징** | 멀티플레이 동기화 · 보스 패턴 AI · GAS 기반 전투 · 로그라이크 강화/진화 시스템 |
 
-|                                                                   Demo Video                                                                   |                                                                   Cinematic                                                                    |                                                                          Presentation                                                                           |
+|                                                                   Demo Video                                                                   |                                                                   Cinematic                                                                    |
 | :--------------------------------------------------------------------------------------------------------------------------------------------: | :--------------------------------------------------------------------------------------------------------------------------------------------: | :-------------------------------------------------------------------------------------------------------------------------------------------------------------: |
-| [![Demo](https://github.com/user-attachments/assets/29ce31fd-15bc-476f-9364-9f841f99bae0)](https://www.youtube.com/watch?v=5vq2L-Wd2ok&t=302s) | [![Ending](https://github.com/user-attachments/assets/29ce31fd-15bc-476f-9364-9f841f99bae0)](https://www.youtube.com/watch?v=zWCPcy0zPuE&t=6s) | [![PPT](https://github.com/user-attachments/assets/29ce31fd-15bc-476f-9364-9f841f99bae0)](https://www.canva.com/design/DAG9z8Sl1V4/CFxDLYju_2sQO6aJiEy08w/edit) |
+| [![Demo](https://github.com/user-attachments/assets/29ce31fd-15bc-476f-9364-9f841f99bae0)](https://www.youtube.com/watch?v=KJ9dRw-PkII) | [![Ending](https://github.com/user-attachments/assets/29ce31fd-15bc-476f-9364-9f841f99bae0)](https://www.youtube.com/watch?v=zWCPcy0zPuE) |
 
 ---
 
