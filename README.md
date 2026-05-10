@@ -85,7 +85,7 @@
 
 ## 🏃 캐릭터 및 로코모션 (Locomotion)
 
-### Advanced Locomotion System
+### Locomotion System
 
 **"네트워크 환경을 고려한 예측형 이동 시스템"**
 
@@ -116,11 +116,11 @@
 
 ## 💀 전투 및 사망 아키텍처
 
-### Tactical Death & Spectator
+### Death & Spectator
 
 **"사망 이후의 관전 시스템"**
 
-- **Decoupled Death Flow**: `AttributeSet`의 체력 고갈 시 델리게이트를 통해 사망 어빌리티(`SFGA_Hero_Death`)와 UI를 동시에 호출하는 구조.
+- **Decoupled Death Flow**: `AttributeSet`의 체력 고갈 시 델리게이트를 통해 사망 어빌리티(`SFGA_Hero_Death`)와 UI를 동시에 호출.
 - **Optimized Spectator Networking**:
   - **Bandwidth Efficiency**: 관전자가 존재할 때만 `Death Spectate Component` 활성화.
   - **Unreliable RPC Strategy**: 30Hz 주기의 Unreliable RPC로 카메라 데이터를 전송하여 실시간성 확보.
@@ -181,8 +181,7 @@
 
 ### 3) 로딩 시스템
 
-- **Hybrid Loading Screen**: `MoviePlayer`(Hard Travel)와 `CommonLoadingScreen`(Seamless Travel)을 아우르는 하이브리드 로딩 시스템.
-- **번들 로드 통합**: 트래블 직전 에셋 번들을 사전 로드하여 인게임 진입 후 스파이크 제거.
+- **Hybrid Loading Screen**: `MoviePlayer`(Hard Travel)와 `CommonLoadingScreen`(Seamless Travel)을 아우르는 하이브리드 로딩 시스템..
 - **DataTable 기반 맵별 로딩 위젯**: `FSFMapLoadingConfig`로 맵에 따라 로딩 화면 위젯을 동적 결정.
 
 ---
